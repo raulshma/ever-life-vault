@@ -9,51 +9,10 @@ import {
   Clock, 
   Flag,
   MoreHorizontal,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
-
-interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  priority: 'low' | 'medium' | 'high';
-  status: 'todo' | 'in-progress' | 'done';
-  createdAt: Date;
-  dueDate?: Date;
-}
-
-const initialTasks: Task[] = [
-  {
-    id: '1',
-    title: 'Review quarterly goals',
-    description: 'Analyze Q3 performance and set Q4 objectives',
-    priority: 'high',
-    status: 'todo',
-    createdAt: new Date(),
-    dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
-  },
-  {
-    id: '2',
-    title: 'Update project documentation',
-    priority: 'medium',
-    status: 'in-progress',
-    createdAt: new Date(),
-  },
-  {
-    id: '3',
-    title: 'Call insurance company',
-    priority: 'low',
-    status: 'todo',
-    createdAt: new Date(),
-  },
-  {
-    id: '4',
-    title: 'Complete budget review',
-    priority: 'high',
-    status: 'done',
-    createdAt: new Date(),
-  }
-];
+import { useTasks } from '@/hooks/useTasks';
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-50' },
@@ -68,33 +27,33 @@ const priorityColors = {
 };
 
 export default function DayTracker() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const { tasks, loading, addTask: addTaskHook, updateTask } = useTasks();
   const [newTaskTitle, setNewTaskTitle] = useState('');
 
-  const addTask = () => {
+  const addTask = async () => {
     if (!newTaskTitle.trim()) return;
-    
-    const newTask: Task = {
-      id: Date.now().toString(),
-      title: newTaskTitle,
-      priority: 'medium',
-      status: 'todo',
-      createdAt: new Date()
-    };
-    
-    setTasks([...tasks, newTask]);
+    await addTaskHook(newTaskTitle);
     setNewTaskTitle('');
   };
 
-  const moveTask = (taskId: string, newStatus: Task['status']) => {
-    setTasks(tasks.map(task => 
-      task.id === taskId ? { ...task, status: newStatus } : task
-    ));
+  const moveTask = async (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
+    await updateTask(taskId, { status: newStatus });
   };
 
-  const getTasksByStatus = (status: Task['status']) => {
+  const getTasksByStatus = (status: 'todo' | 'in-progress' | 'done') => {
     return tasks.filter(task => task.status === status);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading tasks...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
@@ -191,10 +150,10 @@ export default function DayTracker() {
                           {task.priority}
                         </Badge>
 
-                        {task.dueDate && (
+                        {task.due_date && (
                           <div className="flex items-center text-xs text-muted-foreground">
                             <Clock className="w-3 h-3 mr-1" />
-                            {task.dueDate.toLocaleDateString()}
+                            {new Date(task.due_date).toLocaleDateString()}
                           </div>
                         )}
                       </div>

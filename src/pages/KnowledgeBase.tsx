@@ -12,48 +12,10 @@ import {
   Tag,
   Clock,
   Star,
-  Edit3
+  Edit3,
+  Loader2
 } from 'lucide-react';
-
-interface Note {
-  id: string;
-  title: string;
-  content: string;
-  tags: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  isFavorite: boolean;
-}
-
-const initialNotes: Note[] = [
-  {
-    id: '1',
-    title: 'Project Alpha Meeting Notes',
-    content: 'Discussed the new feature requirements and timeline. Key decisions: implement authentication first, then focus on core features...',
-    tags: ['work', 'meetings', 'project-alpha'],
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    isFavorite: true
-  },
-  {
-    id: '2',
-    title: 'Life OS Requirements',
-    content: 'Complete requirements document for the Life OS application. Five core modules: Day Tracker, Knowledge Base, Vault, Documents, Inventory...',
-    tags: ['life-os', 'requirements', 'planning'],
-    createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-    isFavorite: false
-  },
-  {
-    id: '3',
-    title: 'Recipe: Homemade Pasta',
-    content: 'Ingredients: 2 cups flour, 3 eggs, 1 tsp salt. Mix flour and salt, create well, add eggs...',
-    tags: ['cooking', 'recipes', 'italian'],
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    isFavorite: false
-  }
-];
+import { useNotes } from '@/hooks/useNotes';
 
 const tagColors = [
   'bg-blue-100 text-blue-800',
@@ -65,9 +27,9 @@ const tagColors = [
 ];
 
 export default function KnowledgeBase() {
-  const [notes, setNotes] = useState<Note[]>(initialNotes);
+  const { notes, loading, addNote, toggleFavorite } = useNotes();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [selectedNote, setSelectedNote] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newNote, setNewNote] = useState({ title: '', content: '', tags: '' });
 
@@ -82,30 +44,36 @@ export default function KnowledgeBase() {
     return [...new Set(allTags)];
   };
 
-  const createNote = () => {
+  const createNote = async () => {
     if (!newNote.title.trim()) return;
 
-    const note: Note = {
-      id: Date.now().toString(),
-      title: newNote.title,
-      content: newNote.content,
-      tags: newNote.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isFavorite: false
-    };
-
-    setNotes([note, ...notes]);
-    setNewNote({ title: '', content: '', tags: '' });
-    setIsCreating(false);
-    setSelectedNote(note);
+    const tags = newNote.tags.split(',').map(tag => tag.trim()).filter(Boolean);
+    const createdNote = await addNote(newNote.title, newNote.content, tags);
+    
+    if (createdNote) {
+      setNewNote({ title: '', content: '', tags: '' });
+      setIsCreating(false);
+      setSelectedNote(createdNote);
+    }
   };
 
-  const toggleFavorite = (noteId: string) => {
-    setNotes(notes.map(note =>
-      note.id === noteId ? { ...note, isFavorite: !note.isFavorite } : note
-    ));
+  const handleToggleFavorite = (noteId: string) => {
+    toggleFavorite(noteId);
+    if (selectedNote?.id === noteId) {
+      setSelectedNote({ ...selectedNote, is_favorite: !selectedNote.is_favorite });
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading notes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
@@ -193,13 +161,13 @@ export default function KnowledgeBase() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={`h-6 w-6 ${note.isFavorite ? 'text-yellow-500' : 'text-muted-foreground'}`}
+                        className={`h-6 w-6 ${note.is_favorite ? 'text-yellow-500' : 'text-muted-foreground'}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleFavorite(note.id);
+                          handleToggleFavorite(note.id);
                         }}
                       >
-                        <Star className={`w-4 h-4 ${note.isFavorite ? 'fill-current' : ''}`} />
+                        <Star className={`w-4 h-4 ${note.is_favorite ? 'fill-current' : ''}`} />
                       </Button>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
@@ -208,7 +176,7 @@ export default function KnowledgeBase() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center text-xs text-muted-foreground">
                         <Clock className="w-3 h-3 mr-1" />
-                        {note.updatedAt.toLocaleDateString()}
+                        {new Date(note.updated_at).toLocaleDateString()}
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {note.tags.slice(0, 2).map((tag, index) => (
@@ -283,15 +251,15 @@ export default function KnowledgeBase() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={selectedNote.isFavorite ? 'text-yellow-500' : 'text-muted-foreground'}
-                      onClick={() => toggleFavorite(selectedNote.id)}
+                      className={selectedNote.is_favorite ? 'text-yellow-500' : 'text-muted-foreground'}
+                      onClick={() => handleToggleFavorite(selectedNote.id)}
                     >
-                      <Star className={`w-5 h-5 ${selectedNote.isFavorite ? 'fill-current' : ''}`} />
+                      <Star className={`w-5 h-5 ${selectedNote.is_favorite ? 'fill-current' : ''}`} />
                     </Button>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
-                    <span>Created {selectedNote.createdAt.toLocaleDateString()}</span>
-                    <span>Updated {selectedNote.updatedAt.toLocaleDateString()}</span>
+                    <span>Created {new Date(selectedNote.created_at).toLocaleDateString()}</span>
+                    <span>Updated {new Date(selectedNote.updated_at).toLocaleDateString()}</span>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">

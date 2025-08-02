@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -10,10 +10,46 @@ import {
   EyeOff, 
   Copy,
   Plus,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
+import { useCredentials } from '@/hooks/useCredentials';
 
 export default function Vault() {
+  const { credentials, loading } = useCredentials();
+  const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+
+  const togglePasswordVisibility = (id: string) => {
+    setVisiblePasswords(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading credentials...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const loginCredentials = credentials.filter(c => c.category === 'login');
+  const secureNotes = credentials.filter(c => c.category === 'note');
+  const apiKeys = credentials.filter(c => c.category === 'api');
+
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
@@ -73,56 +109,47 @@ export default function Vault() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">gmail.com</div>
-                      <div className="text-xs text-muted-foreground">john.doe@gmail.com</div>
+                {loginCredentials.length > 0 ? loginCredentials.map((credential) => (
+                  <div key={credential.id} className="p-3 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-sm">{credential.name}</div>
+                        <div className="text-xs text-muted-foreground">{credential.username}</div>
+                      </div>
+                      <div className="flex space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={() => togglePasswordVisibility(credential.id)}
+                        >
+                          {visiblePasswords.has(credential.id) ? 
+                            <EyeOff className="w-3 h-3" /> : 
+                            <Eye className="w-3 h-3" />
+                          }
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(credential.username || '')}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Eye className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
+                    {visiblePasswords.has(credential.id) && credential.encrypted_password && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        Password: {credential.encrypted_password}
+                      </div>
+                    )}
                   </div>
-                </div>
-                
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">github.com</div>
-                      <div className="text-xs text-muted-foreground">johndoe_dev</div>
-                    </div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Eye className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>No login credentials yet</p>
                   </div>
-                </div>
-
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">banking.example.com</div>
-                      <div className="text-xs text-muted-foreground">johndoe123</div>
-                    </div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Eye className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
               
               <Button variant="ghost" className="w-full mt-4 text-blue-600">
@@ -142,41 +169,37 @@ export default function Vault() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">WiFi Passwords</div>
-                      <div className="text-xs text-muted-foreground">Home and office networks</div>
+                {secureNotes.length > 0 ? secureNotes.map((note) => (
+                  <div key={note.id} className="p-3 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-sm">{note.name}</div>
+                        <div className="text-xs text-muted-foreground">{note.notes}</div>
+                      </div>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-6 w-6"
+                        onClick={() => togglePasswordVisibility(note.id)}
+                      >
+                        {visiblePasswords.has(note.id) ? 
+                          <EyeOff className="w-3 h-3" /> : 
+                          <Eye className="w-3 h-3" />
+                        }
+                      </Button>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      <Eye className="w-3 h-3" />
-                    </Button>
+                    {visiblePasswords.has(note.id) && (
+                      <div className="mt-2 text-xs text-muted-foreground">
+                        {note.encrypted_password}
+                      </div>
+                    )}
                   </div>
-                </div>
-                
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">Recovery Codes</div>
-                      <div className="text-xs text-muted-foreground">2FA backup codes</div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      <Eye className="w-3 h-3" />
-                    </Button>
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Lock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>No secure notes yet</p>
                   </div>
-                </div>
-
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">Server Access</div>
-                      <div className="text-xs text-muted-foreground">SSH keys and credentials</div>
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
-                      <Eye className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
+                )}
               </div>
               
               <Button variant="ghost" className="w-full mt-4 text-green-600">
@@ -196,56 +219,47 @@ export default function Vault() {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">OpenAI API</div>
-                      <div className="text-xs text-muted-foreground">GPT-4 access</div>
+                {apiKeys.length > 0 ? apiKeys.map((apiKey) => (
+                  <div key={apiKey.id} className="p-3 bg-white rounded-lg border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-sm">{apiKey.name}</div>
+                        <div className="text-xs text-muted-foreground">{apiKey.notes}</div>
+                      </div>
+                      <div className="flex space-x-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={() => togglePasswordVisibility(apiKey.id)}
+                        >
+                          {visiblePasswords.has(apiKey.id) ? 
+                            <Eye className="w-3 h-3" /> : 
+                            <EyeOff className="w-3 h-3" />
+                          }
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(apiKey.encrypted_password || '')}
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <EyeOff className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
+                    {visiblePasswords.has(apiKey.id) && apiKey.encrypted_password && (
+                      <div className="mt-2 text-xs font-mono text-muted-foreground break-all">
+                        {apiKey.encrypted_password}
+                      </div>
+                    )}
                   </div>
-                </div>
-                
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">Stripe API</div>
-                      <div className="text-xs text-muted-foreground">Payment processing</div>
-                    </div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <EyeOff className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
+                )) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Key className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p>No API keys yet</p>
                   </div>
-                </div>
-
-                <div className="p-3 bg-white rounded-lg border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">AWS Access Key</div>
-                      <div className="text-xs text-muted-foreground">Cloud services</div>
-                    </div>
-                    <div className="flex space-x-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <EyeOff className="w-3 h-3" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6">
-                        <Copy className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
               
               <Button variant="ghost" className="w-full mt-4 text-purple-600">
