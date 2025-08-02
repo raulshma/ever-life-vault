@@ -14,7 +14,281 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      credentials: {
+        Row: {
+          category: string
+          created_at: string
+          encrypted_password: string | null
+          id: string
+          name: string
+          notes: string | null
+          updated_at: string
+          url: string | null
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          encrypted_password?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          encrypted_password?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      documents: {
+        Row: {
+          category: string
+          created_at: string
+          expiry_date: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          purchase_date: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+          value: number | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          expiry_date?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          purchase_date?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+          value?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          expiry_date?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          purchase_date?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+          value?: number | null
+        }
+        Relationships: []
+      }
+      inventory_items: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          has_qr_code: boolean
+          id: string
+          image_url: string | null
+          is_lent: boolean
+          lent_date: string | null
+          lent_to: string | null
+          location_id: string | null
+          name: string
+          purchase_date: string | null
+          qr_code_data: string | null
+          updated_at: string
+          user_id: string
+          value: number | null
+          warranty_expires: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          has_qr_code?: boolean
+          id?: string
+          image_url?: string | null
+          is_lent?: boolean
+          lent_date?: string | null
+          lent_to?: string | null
+          location_id?: string | null
+          name: string
+          purchase_date?: string | null
+          qr_code_data?: string | null
+          updated_at?: string
+          user_id: string
+          value?: number | null
+          warranty_expires?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          has_qr_code?: boolean
+          id?: string
+          image_url?: string | null
+          is_lent?: boolean
+          lent_date?: string | null
+          lent_to?: string | null
+          location_id?: string | null
+          name?: string
+          purchase_date?: string | null
+          qr_code_data?: string | null
+          updated_at?: string
+          user_id?: string
+          value?: number | null
+          warranty_expires?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      locations: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_favorite: boolean
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_favorite?: boolean
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_favorite?: boolean
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
