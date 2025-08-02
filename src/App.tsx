@@ -3,8 +3,10 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { Layout } from "@/components/Layout";
 import Dashboard from "./pages/Dashboard";
+import Auth from "./pages/Auth";
 import DayTracker from "./pages/DayTracker";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Vault from "./pages/Vault";
@@ -14,24 +16,57 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
+
+  return <>{children}</>;
+}
+
+function AppRoutes() {
+  return (
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/" element={
+        <ProtectedRoute>
+          <Layout />
+        </ProtectedRoute>
+      }>
+        <Route index element={<Dashboard />} />
+        <Route path="day-tracker" element={<DayTracker />} />
+        <Route path="knowledge" element={<KnowledgeBase />} />
+        <Route path="vault" element={<Vault />} />
+        <Route path="documents" element={<Documents />} />
+        <Route path="inventory" element={<Inventory />} />
+      </Route>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="day-tracker" element={<DayTracker />} />
-            <Route path="knowledge" element={<KnowledgeBase />} />
-            <Route path="vault" element={<Vault />} />
-            <Route path="documents" element={<Documents />} />
-            <Route path="inventory" element={<Inventory />} />
-          </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

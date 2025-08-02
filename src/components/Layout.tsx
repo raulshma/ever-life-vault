@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   Calendar, 
   BookOpen, 
@@ -10,7 +11,8 @@ import {
   Package2,
   Plus,
   Home,
-  Search
+  Search,
+  LogOut
 } from 'lucide-react';
 
 const modules = [
@@ -24,6 +26,7 @@ const modules = [
 
 export const Layout: React.FC = () => {
   const location = useLocation();
+  const { signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -68,6 +71,15 @@ export const Layout: React.FC = () => {
               <Button variant="hero" size="sm">
                 <Plus size={16} />
                 Quick Add
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => signOut()}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
               </Button>
             </div>
           </div>
