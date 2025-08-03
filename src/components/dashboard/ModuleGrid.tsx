@@ -8,51 +8,66 @@ import {
   FileText, 
   Package2
 } from 'lucide-react';
-
-const modules = [
-  {
-    name: 'Day Tracker',
-    description: 'Manage tasks and track daily productivity',
-    path: '/day-tracker',
-    icon: Calendar,
-    color: 'from-blue-500 to-blue-600',
-    stats: { active: 8, completed: 24 }
-  },
-  {
-    name: 'Knowledge Base',
-    description: 'Store and organize your research and notes',
-    path: '/knowledge',
-    icon: BookOpen,
-    color: 'from-green-500 to-green-600',
-    stats: { notes: 156, recent: 3 }
-  },
-  {
-    name: 'Vault',
-    description: 'Securely store credentials and sensitive data',
-    path: '/vault',
-    icon: Shield,
-    color: 'from-red-500 to-red-600',
-    stats: { credentials: 45, secure: true }
-  },
-  {
-    name: 'Documents',
-    description: 'Organize important personal documents',
-    path: '/documents',
-    icon: FileText,
-    color: 'from-purple-500 to-purple-600',
-    stats: { documents: 89, expiring: 2 }
-  },
-  {
-    name: 'Inventory',
-    description: 'Track physical items and their locations',
-    path: '/inventory',
-    icon: Package2,
-    color: 'from-orange-500 to-orange-600',
-    stats: { items: 234, locations: 12 }
-  }
-];
+import { useTasks } from '@/hooks/useTasks';
+import { useNotes } from '@/hooks/useNotes';
+import { useCredentials } from '@/hooks/useCredentials';
+import { useDocuments } from '@/hooks/useDocuments';
+import { useInventory } from '@/hooks/useInventory';
 
 export default function ModuleGrid() {
+  const { tasks } = useTasks();
+  const { notes } = useNotes();
+  const { credentials } = useCredentials();
+  const { documents, getExpiringDocuments } = useDocuments();
+  const { items, locations } = useInventory();
+
+  const activeTasks = tasks.filter(task => task.status !== 'done').length;
+  const completedTasks = tasks.filter(task => task.status === 'done').length;
+  const expiringDocs = getExpiringDocuments().length;
+
+  const modules = [
+    {
+      name: 'Day Tracker',
+      description: 'Manage tasks and track daily productivity',
+      path: '/day-tracker',
+      icon: Calendar,
+      color: 'from-blue-500 to-blue-600',
+      stats: { active: activeTasks, completed: completedTasks }
+    },
+    {
+      name: 'Knowledge Base',
+      description: 'Store and organize your research and notes',
+      path: '/knowledge',
+      icon: BookOpen,
+      color: 'from-green-500 to-green-600',
+      stats: { notes: notes.length, favorites: notes.filter(n => n.is_favorite).length }
+    },
+    {
+      name: 'Vault',
+      description: 'Securely store credentials and sensitive data',
+      path: '/vault',
+      icon: Shield,
+      color: 'from-red-500 to-red-600',
+      stats: { credentials: credentials.length, secure: true }
+    },
+    {
+      name: 'Documents',
+      description: 'Organize important personal documents',
+      path: '/documents',
+      icon: FileText,
+      color: 'from-purple-500 to-purple-600',
+      stats: { documents: documents.length, expiring: expiringDocs }
+    },
+    {
+      name: 'Inventory',
+      description: 'Track physical items and their locations',
+      path: '/inventory',
+      icon: Package2,
+      color: 'from-orange-500 to-orange-600',
+      stats: { items: items.length, locations: locations.length }
+    }
+  ];
+
   return (
     <div className="mb-12">
       <h2 className="text-2xl font-bold text-foreground mb-6">Your Life Modules</h2>
