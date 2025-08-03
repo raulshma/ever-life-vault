@@ -10,10 +10,41 @@ import {
   Plus,
   Package,
   Home,
-  Car
+  Car,
+  Loader2
 } from 'lucide-react';
+import { useInventory } from '@/hooks/useInventory';
 
 export default function Inventory() {
+  const { items, locations, loading, getItemsByLocation, getTotalValue, getItemsWithQR } = useInventory();
+
+  const totalItems = items.length;
+  const totalLocations = locations.length;
+  const qrItems = getItemsWithQR().length;
+  const totalValue = getTotalValue();
+
+  const recentItems = items.slice(0, 6);
+
+  const getLocationIcon = (iconName: string) => {
+    switch(iconName.toLowerCase()) {
+      case 'home': return Home;
+      case 'car': return Car;
+      case 'package': return Package;
+      default: return Home;
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading inventory...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
@@ -47,28 +78,28 @@ export default function Inventory() {
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-6 text-center">
               <Package className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">234</div>
+              <div className="text-2xl font-bold">{totalItems}</div>
               <div className="text-sm text-muted-foreground">Total Items</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-6 text-center">
               <MapPin className="w-8 h-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">12</div>
+              <div className="text-2xl font-bold">{totalLocations}</div>
               <div className="text-sm text-muted-foreground">Locations</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-6 text-center">
               <QrCode className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold">45</div>
+              <div className="text-2xl font-bold">{qrItems}</div>
               <div className="text-sm text-muted-foreground">QR Labeled</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-6 text-center">
               <div className="text-lg">💰</div>
-              <div className="text-2xl font-bold">$12.5K</div>
+              <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Total Value</div>
             </CardContent>
           </Card>
@@ -86,24 +117,24 @@ export default function Inventory() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { name: 'Living Room', icon: Home, count: 24 },
-                    { name: 'Garage', icon: Car, count: 45 },
-                    { name: 'Office', icon: Package, count: 18 },
-                    { name: 'Kitchen', icon: Home, count: 32 },
-                    { name: 'Bedroom', icon: Home, count: 28 }
-                  ].map((location) => {
-                    const Icon = location.icon;
+                  {locations.length > 0 ? locations.map((location) => {
+                    const Icon = getLocationIcon(location.icon);
+                    const itemCount = getItemsByLocation(location.id).length;
                     return (
-                      <div key={location.name} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow cursor-pointer">
+                      <div key={location.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow cursor-pointer">
                         <div className="flex items-center space-x-3">
                           <Icon className="w-4 h-4 text-muted-foreground" />
                           <span className="font-medium text-sm">{location.name}</span>
                         </div>
-                        <Badge variant="secondary">{location.count}</Badge>
+                        <Badge variant="secondary">{itemCount}</Badge>
                       </div>
                     );
-                  })}
+                  }) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <MapPin className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No locations yet</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -123,88 +154,50 @@ export default function Inventory() {
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    {
-                      name: 'MacBook Pro 16"',
-                      location: 'Office',
-                      value: '$2,499',
-                      category: 'Electronics',
-                      hasQR: true,
-                      image: '💻'
-                    },
-                    {
-                      name: 'Camping Tent',
-                      location: 'Garage',
-                      value: '$189',
-                      category: 'Outdoor',
-                      hasQR: false,
-                      image: '⛺'
-                    },
-                    {
-                      name: 'Kitchen Aid Mixer',
-                      location: 'Kitchen',
-                      value: '$349',
-                      category: 'Appliances',
-                      hasQR: true,
-                      image: '🍴'
-                    },
-                    {
-                      name: 'Tool Set',
-                      location: 'Garage',
-                      value: '$125',
-                      category: 'Tools',
-                      hasQR: false,
-                      image: '🔧'
-                    },
-                    {
-                      name: 'Designer Jacket',
-                      location: 'Bedroom',
-                      value: '$299',
-                      category: 'Clothing',
-                      hasQR: false,
-                      image: '🧥'
-                    },
-                    {
-                      name: 'Bluetooth Speaker',
-                      location: 'Living Room',
-                      value: '$79',
-                      category: 'Electronics',
-                      hasQR: true,
-                      image: '🔊'
-                    }
-                  ].map((item, index) => (
-                    <div key={index} className="p-4 bg-white rounded-lg border hover:shadow-card transition-shadow cursor-pointer">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
-                            {item.image}
+                  {recentItems.length > 0 ? recentItems.map((item) => {
+                    const location = locations.find(loc => loc.id === item.location_id);
+                    return (
+                      <div key={item.id} className="p-4 bg-white rounded-lg border hover:shadow-card transition-shadow cursor-pointer">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
+                              📦
+                            </div>
+                            <div>
+                              <div className="font-medium">{item.name}</div>
+                              <div className="text-sm text-muted-foreground">{item.category}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-sm text-muted-foreground">{item.category}</div>
+                          <div className="text-right">
+                            <div className="font-semibold text-green-600">
+                              {item.value ? `$${item.value.toLocaleString()}` : 'N/A'}
+                            </div>
+                            {item.has_qr_code && (
+                              <Badge variant="secondary" className="mt-1">
+                                <QrCode className="w-3 h-3 mr-1" />
+                                QR
+                              </Badge>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-semibold text-green-600">{item.value}</div>
-                          {item.hasQR && (
-                            <Badge variant="secondary" className="mt-1">
-                              <QrCode className="w-3 h-3 mr-1" />
-                              QR
-                            </Badge>
-                          )}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <MapPin className="w-3 h-3 mr-1" />
+                            {location?.name || 'No location'}
+                          </div>
+                          <Button variant="ghost" size="sm" className="h-6 text-xs">
+                            View Details
+                          </Button>
                         </div>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <MapPin className="w-3 h-3 mr-1" />
-                          {item.location}
-                        </div>
-                        <Button variant="ghost" size="sm" className="h-6 text-xs">
-                          View Details
-                        </Button>
-                      </div>
+                    );
+                  }) : (
+                    <div className="col-span-2 text-center py-8 text-muted-foreground">
+                      <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No items yet</p>
+                      <p className="text-sm">Add your first item to get started</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>

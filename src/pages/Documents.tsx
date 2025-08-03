@@ -9,10 +9,41 @@ import {
   AlertCircle,
   Folder,
   Search,
-  Plus
+  Plus,
+  Loader2
 } from 'lucide-react';
+import { useDocuments } from '@/hooks/useDocuments';
 
 export default function Documents() {
+  const { documents, loading, getDocumentsByCategory, getExpiringDocuments } = useDocuments();
+
+  const categories = [
+    { name: 'Academic', icon: '🎓' },
+    { name: 'Career', icon: '💼' },
+    { name: 'Finance', icon: '💰' },
+    { name: 'Health', icon: '🏥' },
+    { name: 'Legal', icon: '⚖️' },
+    { name: 'Receipts', icon: '🧾' }
+  ];
+
+  const getCategoryCount = (categoryName: string) => {
+    return getDocumentsByCategory(categoryName).length;
+  };
+
+  const expiringDocs = getExpiringDocuments();
+  const recentDocs = documents.slice(0, 4);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading documents...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
@@ -37,19 +68,12 @@ export default function Documents() {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Categories */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-          {[
-            { name: 'Academic', count: 12, icon: '🎓' },
-            { name: 'Career', count: 8, icon: '💼' },
-            { name: 'Finance', count: 24, icon: '💰' },
-            { name: 'Health', count: 15, icon: '🏥' },
-            { name: 'Legal', count: 6, icon: '⚖️' },
-            { name: 'Receipts', count: 45, icon: '🧾' }
-          ].map((category) => (
+          {categories.map((category) => (
             <Card key={category.name} className="hover:shadow-card transition-all duration-200 cursor-pointer bg-gradient-card">
               <CardContent className="p-4 text-center">
                 <div className="text-2xl mb-2">{category.icon}</div>
                 <div className="font-medium text-sm">{category.name}</div>
-                <div className="text-xs text-muted-foreground">{category.count} docs</div>
+                <div className="text-xs text-muted-foreground">{getCategoryCount(category.name)} docs</div>
               </CardContent>
             </Card>
           ))}
@@ -70,32 +94,33 @@ export default function Documents() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {[
-                    { name: 'Insurance Policy - Auto', category: 'Legal', date: '2024-01-15', expiry: '2024-12-31' },
-                    { name: 'Bank Statement - January', category: 'Finance', date: '2024-01-31' },
-                    { name: 'Medical Records - Dr. Smith', category: 'Health', date: '2024-01-20' },
-                    { name: 'Warranty - Laptop Purchase', category: 'Receipts', date: '2024-01-10', expiry: '2027-01-10' }
-                  ].map((doc, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow">
+                  {recentDocs.length > 0 ? recentDocs.map((doc) => (
+                    <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow">
                       <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <FileText className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
                           <div className="font-medium text-sm">{doc.name}</div>
-                          <div className="text-xs text-muted-foreground">{doc.category} • {doc.date}</div>
+                          <div className="text-xs text-muted-foreground">{doc.category} • {new Date(doc.created_at).toLocaleDateString()}</div>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        {doc.expiry && (
+                        {doc.expiry_date && (
                           <Badge variant="secondary" className="bg-amber-100 text-amber-800">
                             <Calendar className="w-3 h-3 mr-1" />
-                            Expires {doc.expiry}
+                            Expires {new Date(doc.expiry_date).toLocaleDateString()}
                           </Badge>
                         )}
                       </div>
                     </div>
-                  ))}
+                  )) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No documents yet</p>
+                      <p className="text-sm">Upload your first document to get started</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -113,14 +138,23 @@ export default function Documents() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  <div className="p-3 bg-amber-50 rounded-lg">
-                    <div className="font-medium text-sm text-amber-800">Car Insurance</div>
-                    <div className="text-xs text-amber-600">Expires in 23 days</div>
-                  </div>
-                  <div className="p-3 bg-amber-50 rounded-lg">
-                    <div className="font-medium text-sm text-amber-800">Passport</div>
-                    <div className="text-xs text-amber-600">Expires in 3 months</div>
-                  </div>
+                  {expiringDocs.length > 0 ? expiringDocs.map((doc) => {
+                    const expiryDate = new Date(doc.expiry_date!);
+                    const daysUntilExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+                    
+                    return (
+                      <div key={doc.id} className="p-3 bg-amber-50 rounded-lg">
+                        <div className="font-medium text-sm text-amber-800">{doc.name}</div>
+                        <div className="text-xs text-amber-600">
+                          Expires in {daysUntilExpiry} {daysUntilExpiry === 1 ? 'day' : 'days'}
+                        </div>
+                      </div>
+                    );
+                  }) : (
+                    <div className="text-center py-4 text-muted-foreground">
+                      <p className="text-sm">No documents expiring soon</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
