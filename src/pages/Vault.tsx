@@ -11,13 +11,34 @@ import {
   Copy,
   Plus,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2,
+  ExternalLink,
+  Check
 } from 'lucide-react';
 import { useCredentials } from '@/hooks/useCredentials';
+import { CredentialDialog } from '@/components/CredentialDialog';
+
+interface Credential {
+  id: string;
+  name: string;
+  category: string;
+  username?: string;
+  encrypted_password?: string;
+  url?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
 
 export default function Vault() {
-  const { credentials, loading } = useCredentials();
+  const { credentials, loading, addCredential, updateCredential, deleteCredential } = useCredentials();
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(new Set());
+  const [selectedCredential, setSelectedCredential] = useState<Credential | null>(null);
+  const [showDialog, setShowDialog] = useState(false);
+  const [copiedItems, setCopiedItems] = useState<Set<string>>(new Set());
 
   const togglePasswordVisibility = (id: string) => {
     setVisiblePasswords(prev => {
@@ -31,8 +52,38 @@ export default function Vault() {
     });
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = async (text: string, id: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedItems(prev => new Set(prev).add(id));
+    setTimeout(() => {
+      setCopiedItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    }, 2000);
+  };
+
+  const handleAddCredential = (category: string) => {
+    setSelectedCredential(null);
+    setShowDialog(true);
+  };
+
+  const handleEditCredential = (credential: Credential) => {
+    setSelectedCredential(credential);
+    setShowDialog(true);
+  };
+
+  const handleSaveCredential = async (data: Omit<Credential, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {
+    await addCredential(data);
+  };
+
+  const handleUpdateCredential = async (id: string, updates: Partial<Credential>) => {
+    await updateCredential(id, updates);
+  };
+
+  const handleDeleteCredential = async (id: string) => {
+    await deleteCredential(id);
   };
 
   if (loading) {
@@ -69,7 +120,7 @@ export default function Vault() {
                 <Lock className="w-3 h-3 mr-1" />
                 Encrypted
               </Badge>
-              <Button variant="hero" className="bg-white/20 hover:bg-white/30">
+              <Button variant="hero" className="bg-white/20 hover:bg-white/30" onClick={() => handleAddCredential('login')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Credential
               </Button>
@@ -110,13 +161,25 @@ export default function Vault() {
             <CardContent>
               <div className="space-y-3">
                 {loginCredentials.length > 0 ? loginCredentials.map((credential) => (
-                  <div key={credential.id} className="p-3 bg-white rounded-lg border">
+                  <div key={credential.id} className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-sm">{credential.name}</div>
-                        <div className="text-xs text-muted-foreground">{credential.username}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <div className="font-medium text-sm truncate">{credential.name}</div>
+                          {credential.url && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => window.open(credential.url, '_blank')}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                            </Button>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">{credential.username}</div>
                       </div>
-                      <div className="flex space-x-1">
+                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -132,15 +195,37 @@ export default function Vault() {
                           variant="ghost" 
                           size="icon" 
                           className="h-6 w-6"
-                          onClick={() => copyToClipboard(credential.username || '')}
+                          onClick={() => copyToClipboard(credential.username || '', `${credential.id}-username`)}
                         >
-                          <Copy className="w-3 h-3" />
+                          {copiedItems.has(`${credential.id}-username`) ? 
+                            <Check className="w-3 h-3 text-green-600" /> : 
+                            <Copy className="w-3 h-3" />
+                          }
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleEditCredential(credential)}
+                        >
+                          <Edit className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
                     {visiblePasswords.has(credential.id) && credential.encrypted_password && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        Password: {credential.encrypted_password}
+                      <div className="mt-2 p-2 bg-muted rounded text-xs font-mono break-all flex items-center justify-between">
+                        <span className="truncate mr-2">{credential.encrypted_password}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 shrink-0"
+                          onClick={() => copyToClipboard(credential.encrypted_password || '', `${credential.id}-password`)}
+                        >
+                          {copiedItems.has(`${credential.id}-password`) ? 
+                            <Check className="w-3 h-3 text-green-600" /> : 
+                            <Copy className="w-3 h-3" />
+                          }
+                        </Button>
                       </div>
                     )}
                   </div>
@@ -152,7 +237,7 @@ export default function Vault() {
                 )}
               </div>
               
-              <Button variant="ghost" className="w-full mt-4 text-blue-600">
+              <Button variant="ghost" className="w-full mt-4 text-blue-600" onClick={() => handleAddCredential('login')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Login
               </Button>
@@ -170,27 +255,39 @@ export default function Vault() {
             <CardContent>
               <div className="space-y-3">
                 {secureNotes.length > 0 ? secureNotes.map((note) => (
-                  <div key={note.id} className="p-3 bg-white rounded-lg border">
+                  <div key={note.id} className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-sm">{note.name}</div>
-                        <div className="text-xs text-muted-foreground">{note.notes}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{note.name}</div>
+                        {note.notes && (
+                          <div className="text-xs text-muted-foreground truncate">{note.notes.substring(0, 50)}...</div>
+                        )}
                       </div>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-6 w-6"
-                        onClick={() => togglePasswordVisibility(note.id)}
-                      >
-                        {visiblePasswords.has(note.id) ? 
-                          <EyeOff className="w-3 h-3" /> : 
-                          <Eye className="w-3 h-3" />
-                        }
-                      </Button>
+                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6"
+                          onClick={() => togglePasswordVisibility(note.id)}
+                        >
+                          {visiblePasswords.has(note.id) ? 
+                            <EyeOff className="w-3 h-3" /> : 
+                            <Eye className="w-3 h-3" />
+                          }
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleEditCredential(note)}
+                        >
+                          <Edit className="w-3 h-3" />
+                        </Button>
+                      </div>
                     </div>
-                    {visiblePasswords.has(note.id) && (
-                      <div className="mt-2 text-xs text-muted-foreground">
-                        {note.encrypted_password}
+                    {visiblePasswords.has(note.id) && note.notes && (
+                      <div className="mt-2 p-2 bg-muted rounded text-xs whitespace-pre-wrap">
+                        {note.notes}
                       </div>
                     )}
                   </div>
@@ -202,7 +299,7 @@ export default function Vault() {
                 )}
               </div>
               
-              <Button variant="ghost" className="w-full mt-4 text-green-600">
+              <Button variant="ghost" className="w-full mt-4 text-green-600" onClick={() => handleAddCredential('note')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Secure Note
               </Button>
@@ -220,13 +317,15 @@ export default function Vault() {
             <CardContent>
               <div className="space-y-3">
                 {apiKeys.length > 0 ? apiKeys.map((apiKey) => (
-                  <div key={apiKey.id} className="p-3 bg-white rounded-lg border">
+                  <div key={apiKey.id} className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow">
                     <div className="flex items-center justify-between">
-                      <div>
-                        <div className="font-medium text-sm">{apiKey.name}</div>
-                        <div className="text-xs text-muted-foreground">{apiKey.notes}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm truncate">{apiKey.name}</div>
+                        {apiKey.notes && (
+                          <div className="text-xs text-muted-foreground truncate">{apiKey.notes}</div>
+                        )}
                       </div>
-                      <div className="flex space-x-1">
+                      <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button 
                           variant="ghost" 
                           size="icon" 
@@ -234,22 +333,33 @@ export default function Vault() {
                           onClick={() => togglePasswordVisibility(apiKey.id)}
                         >
                           {visiblePasswords.has(apiKey.id) ? 
-                            <Eye className="w-3 h-3" /> : 
-                            <EyeOff className="w-3 h-3" />
+                            <EyeOff className="w-3 h-3" /> : 
+                            <Eye className="w-3 h-3" />
                           }
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="icon" 
                           className="h-6 w-6"
-                          onClick={() => copyToClipboard(apiKey.encrypted_password || '')}
+                          onClick={() => copyToClipboard(apiKey.encrypted_password || '', `${apiKey.id}-key`)}
                         >
-                          <Copy className="w-3 h-3" />
+                          {copiedItems.has(`${apiKey.id}-key`) ? 
+                            <Check className="w-3 h-3 text-green-600" /> : 
+                            <Copy className="w-3 h-3" />
+                          }
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => handleEditCredential(apiKey)}
+                        >
+                          <Edit className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
                     {visiblePasswords.has(apiKey.id) && apiKey.encrypted_password && (
-                      <div className="mt-2 text-xs font-mono text-muted-foreground break-all">
+                      <div className="mt-2 p-2 bg-muted rounded text-xs font-mono break-all">
                         {apiKey.encrypted_password}
                       </div>
                     )}
@@ -262,7 +372,7 @@ export default function Vault() {
                 )}
               </div>
               
-              <Button variant="ghost" className="w-full mt-4 text-purple-600">
+              <Button variant="ghost" className="w-full mt-4 text-purple-600" onClick={() => handleAddCredential('api')}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add API Key
               </Button>
@@ -312,6 +422,16 @@ export default function Vault() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Credential Dialog */}
+        <CredentialDialog
+          credential={selectedCredential}
+          open={showDialog}
+          onOpenChange={setShowDialog}
+          onSave={handleSaveCredential}
+          onUpdate={handleUpdateCredential}
+          onDelete={handleDeleteCredential}
+        />
       </div>
     </div>
   );
