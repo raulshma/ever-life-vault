@@ -10,9 +10,13 @@ import {
   Flag,
   MoreHorizontal,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Edit,
+  Trash2
 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
+import { TaskEditDialog } from '@/components/TaskEditDialog';
+import { AddTaskDialog } from '@/components/AddTaskDialog';
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-50' },
@@ -26,14 +30,47 @@ const priorityColors = {
   high: 'bg-red-100 text-red-800'
 };
 
+interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  priority: 'low' | 'medium' | 'high';
+  status: 'todo' | 'in-progress' | 'done';
+  created_at: string;
+  updated_at: string;
+  due_date?: string;
+  user_id: string;
+}
+
 export default function DayTracker() {
-  const { tasks, loading, addTask: addTaskHook, updateTask } = useTasks();
+  const { tasks, loading, addTask: addTaskHook, updateTask, deleteTask } = useTasks();
   const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showAddDialog, setShowAddDialog] = useState(false);
 
   const addTask = async () => {
     if (!newTaskTitle.trim()) return;
     await addTaskHook(newTaskTitle);
     setNewTaskTitle('');
+  };
+
+  const addTaskDetailed = async (title: string, description?: string, priority?: 'low' | 'medium' | 'high', dueDate?: string) => {
+    await addTaskHook(title, description, priority, dueDate);
+  };
+
+  const handleEditTask = (task: Task) => {
+    setSelectedTask(task);
+    setShowEditDialog(true);
+  };
+
+  const handleSaveTask = async (updates: Partial<Task>) => {
+    if (!selectedTask) return;
+    await updateTask(selectedTask.id, updates);
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    await deleteTask(taskId);
   };
 
   const moveTask = async (taskId: string, newStatus: 'todo' | 'in-progress' | 'done') => {
@@ -102,6 +139,10 @@ export default function DayTracker() {
                 <Plus className="w-4 h-4 mr-2" />
                 Add Task
               </Button>
+              <Button onClick={() => setShowAddDialog(true)} variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
+                Detailed
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -130,9 +171,30 @@ export default function DayTracker() {
                         <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
                           {task.title}
                         </h3>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTask(task);
+                            }}
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTask(task.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
 
                       {task.description && (
@@ -208,6 +270,22 @@ export default function DayTracker() {
             </div>
           ))}
         </div>
+
+        {/* Task Edit Dialog */}
+        <TaskEditDialog
+          task={selectedTask}
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          onSave={handleSaveTask}
+          onDelete={handleDeleteTask}
+        />
+
+        {/* Add Task Dialog */}
+        <AddTaskDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onAdd={addTaskDetailed}
+        />
       </div>
     </div>
   );

@@ -66,7 +66,7 @@ export function useTasks() {
     }
   };
 
-  const addTask = async (title: string, description?: string, priority: 'low' | 'medium' | 'high' = 'medium') => {
+  const addTask = async (title: string, description?: string, priority: 'low' | 'medium' | 'high' = 'medium', due_date?: string) => {
     if (!user) return;
 
     try {
@@ -77,6 +77,7 @@ export function useTasks() {
           description,
           priority,
           status: 'todo',
+          due_date,
           user_id: user.id
         })
         .select()
