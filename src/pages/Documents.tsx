@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { 
   FileText, 
   Upload, 
@@ -10,12 +11,22 @@ import {
   Folder,
   Search,
   Plus,
-  Loader2
+  Loader2,
+  Eye,
+  Edit3,
+  Download,
+  Filter
 } from 'lucide-react';
 import { useDocuments } from '@/hooks/useDocuments';
+import { DocumentDialog } from '@/components/DocumentDialog';
 
 export default function Documents() {
   const { documents, loading, getDocumentsByCategory, getExpiringDocuments } = useDocuments();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [dialogMode, setDialogMode] = useState<'add' | 'edit' | 'view'>('add');
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const categories = [
     { name: 'Academic', icon: '🎓' },
@@ -30,8 +41,39 @@ export default function Documents() {
     return getDocumentsByCategory(categoryName).length;
   };
 
+  const filteredDocuments = documents.filter(doc => {
+    const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = !selectedCategory || doc.category.toLowerCase() === selectedCategory.toLowerCase();
+    return matchesSearch && matchesCategory;
+  });
+
   const expiringDocs = getExpiringDocuments();
-  const recentDocs = documents.slice(0, 4);
+  const recentDocs = selectedCategory 
+    ? filteredDocuments.slice(0, 8)
+    : filteredDocuments.slice(0, 4);
+
+  const handleOpenAddDialog = () => {
+    setSelectedDocument(null);
+    setDialogMode('add');
+    setDialogOpen(true);
+  };
+
+  const handleViewDocument = (document: any) => {
+    setSelectedDocument(document);
+    setDialogMode('view');
+    setDialogOpen(true);
+  };
+
+  const handleEditDocument = (document: any) => {
+    setSelectedDocument(document);
+    setDialogMode('edit');
+    setDialogOpen(true);
+  };
+
+  const handleCategoryClick = (categoryName: string) => {
+    setSelectedCategory(selectedCategory === categoryName ? null : categoryName);
+  };
 
   if (loading) {
     return (
@@ -57,7 +99,11 @@ export default function Documents() {
               </h1>
               <p className="text-white/90">Securely manage your important personal documents</p>
             </div>
-            <Button variant="hero" className="bg-white/20 hover:bg-white/30">
+            <Button 
+              variant="hero" 
+              className="bg-white/20 hover:bg-white/30"
+              onClick={handleOpenAddDialog}
+            >
               <Upload className="w-4 h-4 mr-2" />
               Upload Document
             </Button>
@@ -66,10 +112,37 @@ export default function Documents() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* Search and Filter */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search documents..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setSelectedCategory(null)}
+            className={selectedCategory ? "bg-muted" : ""}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            {selectedCategory ? `Filter: ${selectedCategory}` : 'All Categories'}
+          </Button>
+        </div>
+
         {/* Categories */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
           {categories.map((category) => (
-            <Card key={category.name} className="hover:shadow-card transition-all duration-200 cursor-pointer bg-gradient-card">
+            <Card 
+              key={category.name} 
+              className={`hover:shadow-card transition-all duration-200 cursor-pointer bg-gradient-card ${
+                selectedCategory === category.name ? 'ring-2 ring-primary' : ''
+              }`}
+              onClick={() => handleCategoryClick(category.name)}
+            >
               <CardContent className="p-4 text-center">
                 <div className="text-2xl mb-2">{category.icon}</div>
                 <div className="font-medium text-sm">{category.name}</div>
@@ -85,10 +158,14 @@ export default function Documents() {
             <Card className="bg-gradient-card shadow-card">
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>Recent Documents</span>
-                  <Button variant="ghost" size="sm">
-                    <Search className="w-4 h-4 mr-2" />
-                    Search
+                  <span>{selectedCategory ? `${selectedCategory} Documents` : 'Recent Documents'}</span>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={handleOpenAddDialog}
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add
                   </Button>
                 </CardTitle>
               </CardHeader>
@@ -96,13 +173,30 @@ export default function Documents() {
                 <div className="space-y-3">
                   {recentDocs.length > 0 ? recentDocs.map((doc) => (
                     <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-3 flex-1">
                         <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                           <FileText className="w-5 h-5 text-blue-600" />
                         </div>
-                        <div>
-                          <div className="font-medium text-sm">{doc.name}</div>
-                          <div className="text-xs text-muted-foreground">{doc.category} • {new Date(doc.created_at).toLocaleDateString()}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{doc.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {doc.category} • {new Date(doc.created_at).toLocaleDateString()}
+                            {doc.value && ` • $${doc.value}`}
+                          </div>
+                          {doc.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {doc.tags.slice(0, 2).map((tag, index) => (
+                                <Badge key={index} variant="outline" className="text-xs">
+                                  {tag}
+                                </Badge>
+                              ))}
+                              {doc.tags.length > 2 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{doc.tags.length - 2}
+                                </Badge>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
@@ -112,6 +206,22 @@ export default function Documents() {
                             Expires {new Date(doc.expiry_date).toLocaleDateString()}
                           </Badge>
                         )}
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewDocument(doc)}
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEditDocument(doc)}
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )) : (
@@ -165,23 +275,42 @@ export default function Documents() {
                 <CardTitle>Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={handleOpenAddDialog}
+                >
                   <Upload className="w-4 h-4 mr-2" />
                   Upload Document
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Folder className="w-4 h-4 mr-2" />
-                  Create Category
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => setSearchTerm('')}
+                >
+                  <Search className="w-4 h-4 mr-2" />
+                  Clear Search
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Set Reminder
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Show All Categories
                 </Button>
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+
+      <DocumentDialog
+        document={selectedDocument}
+        mode={dialogMode}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
     </div>
   );
 }
