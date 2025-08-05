@@ -83,7 +83,7 @@ export function useInventory() {
     }
   };
 
-  const fetchData = async () => {
+  const fetchInventory = async () => {
     setLoading(true);
     await Promise.all([fetchItems(), fetchLocations()]);
     setLoading(false);
@@ -116,38 +116,6 @@ export function useInventory() {
       toast({
         title: "Error",
         description: "Failed to add item",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const addLocation = async (locationData: Omit<Location, 'id' | 'created_at' | 'user_id'>) => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('locations')
-        .insert({
-          ...locationData,
-          user_id: user.id
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setLocations(prev => [...prev, data]);
-      
-      toast({
-        title: "Success",
-        description: "Location added successfully",
-      });
-      
-      return data;
-    } catch (error) {
-      console.error('Error adding location:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add location",
         variant: "destructive",
       });
     }
@@ -198,6 +166,83 @@ export function useInventory() {
     }
   };
 
+  const addLocation = async (locationData: Omit<Location, 'id' | 'created_at' | 'user_id'>) => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .insert({
+          ...locationData,
+          user_id: user.id
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      setLocations(prev => [...prev, data]);
+      
+      toast({
+        title: "Success",
+        description: "Location added successfully",
+      });
+      
+      return data;
+    } catch (error) {
+      console.error('Error adding location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add location",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateLocation = async (id: string, updates: Partial<Location>) => {
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      setLocations(prev => prev.map(loc => loc.id === id ? data : loc));
+    } catch (error) {
+      console.error('Error updating location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update location",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteLocation = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('locations')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setLocations(prev => prev.filter(loc => loc.id !== id));
+      
+      toast({
+        title: "Success",
+        description: "Location deleted successfully",
+      });
+    } catch (error) {
+      console.error('Error deleting location:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete location",
+        variant: "destructive",
+      });
+    }
+  };
+
   const getItemsByLocation = (locationId: string) => {
     return items.filter(item => item.location_id === locationId);
   };
@@ -211,7 +256,7 @@ export function useInventory() {
   };
 
   useEffect(() => {
-    fetchData();
+    fetchInventory();
   }, [user]);
 
   return {
@@ -219,12 +264,14 @@ export function useInventory() {
     locations,
     loading,
     addItem,
-    addLocation,
     updateItem,
     deleteItem,
+    addLocation,
+    updateLocation,
+    deleteLocation,
     getItemsByLocation,
     getTotalValue,
     getItemsWithQR,
-    refetch: fetchData
+    refetch: fetchInventory
   };
 }
