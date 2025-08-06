@@ -14,6 +14,7 @@ import {
   getDaysInMonth,
   getDay,
 } from "date-fns";
+import * as XLSX from "xlsx";
 
 // Register Handsontable modules
 registerAllModules();
@@ -219,6 +220,31 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
                     Full Screen
                   </>
                 )}
+              </Button>
+
+              <Button
+                variant="default"
+                size="sm"
+                className="ml-2"
+                onClick={() => {
+                  // Build export rows from tableData so it reflects the UI
+                  const rows = tableData.map((r) => ({
+                    Day: r[0],
+                    Weekday: r[1],
+                    Status: r[2] || "",
+                    Notes: r[3] || "",
+                  }));
+
+                  const ws = XLSX.utils.json_to_sheet(rows, { header: ["Day", "Weekday", "Status", "Notes"] });
+                  const wb = XLSX.utils.book_new();
+                  XLSX.utils.book_append_sheet(wb, ws, "Monthly Status");
+
+                  const fileName = `MonthlyStatus_${format(currentMonth, "yyyy-MM")}.xlsx`;
+                  XLSX.writeFile(wb, fileName);
+                }}
+                title="Export current month to Excel"
+              >
+                Export to Excel
               </Button>
             </div>
           </div>
