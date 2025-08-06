@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { HotTable } from "@handsontable/react";
 import Handsontable from "handsontable/base";
 import { HotTableClass } from "@handsontable/react";
@@ -11,8 +11,6 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMonthlyStatusSheets } from "@/hooks/useMonthlyStatusSheets";
 import {
   format,
-  startOfMonth,
-  endOfMonth,
   getDaysInMonth,
   getDay,
 } from "date-fns";
@@ -20,7 +18,7 @@ import {
 // Register Handsontable modules
 registerAllModules();
 
-export const MonthlyStatusSheets: React.FC = () => {
+export const MonthlyStatusSheets: React.FC = React.memo(() => {
   const hotRef = useRef<HotTableClass>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { data, loading, fetchData, updateEntry } = useMonthlyStatusSheets();
@@ -30,7 +28,7 @@ export const MonthlyStatusSheets: React.FC = () => {
 
   useEffect(() => {
     fetchData(monthYear);
-  }, [monthYear]);
+  }, [fetchData, monthYear]); // Remove fetchData from dependencies to prevent infinite loop
 
   // Helper function to check if a day is weekend (Saturday = 6, Sunday = 0)
   const isWeekend = (date: Date) => {
@@ -38,9 +36,9 @@ export const MonthlyStatusSheets: React.FC = () => {
     return dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
   };
 
-  // Prepare data for Handsontable
-  const prepareTableData = () => {
-    const tableData: (string | number)[][] = [];
+  // Memoize table data to prevent unnecessary recalculations
+  const tableData = useMemo(() => {
+    const preparedData: (string | number)[][] = [];
 
     // Create rows for each day of the month
     for (let day = 1; day <= daysInMonth; day++) {
@@ -57,7 +55,7 @@ export const MonthlyStatusSheets: React.FC = () => {
         defaultStatus = "Holiday";
       }
 
-      tableData.push([
+      preparedData.push([
         day,
         format(currentDate, "EEEE"),
         existingEntry?.status || defaultStatus,
@@ -65,10 +63,10 @@ export const MonthlyStatusSheets: React.FC = () => {
       ]);
     }
 
-    return tableData;
-  };
+    return preparedData;
+  }, [data, currentMonth, daysInMonth]);
 
-  const handleAfterChange = (changes: Handsontable.CellChange[] | null) => {
+  const handleAfterChange = useCallback((changes: Handsontable.CellChange[] | null) => {
     if (!changes) return;
 
     changes.forEach(([row, col, oldValue, newValue]) => {
@@ -87,9 +85,9 @@ export const MonthlyStatusSheets: React.FC = () => {
         updateEntry(dayNumber, monthYear, status, notes);
       }
     });
-  };
+  }, [data, monthYear, updateEntry]);
 
-  const navigateMonth = (direction: "prev" | "next") => {
+  const navigateMonth = useCallback((direction: "prev" | "next") => {
     setCurrentMonth((prev) => {
       const newDate = new Date(prev);
       if (direction === "prev") {
@@ -99,12 +97,10 @@ export const MonthlyStatusSheets: React.FC = () => {
       }
       return newDate;
     });
-  };
+  }, []);
 
-  const tableData = prepareTableData();
-
-  // Calculate monthly statistics
-  const getMonthlyStats = () => {
+  // Memoize monthly statistics calculation
+  const monthlyStats = useMemo(() => {
     const stats = {
       working: 0,
       holiday: 0,
@@ -144,9 +140,7 @@ export const MonthlyStatusSheets: React.FC = () => {
     });
 
     return stats;
-  };
-
-  const monthlyStats = getMonthlyStats();
+  }, [tableData, daysInMonth]);
 
   return (
     <Card className="w-full">
@@ -189,6 +183,7 @@ export const MonthlyStatusSheets: React.FC = () => {
           <div className="space-y-4">
             <div className="overflow-auto">
               <HotTable
+                key={monthYear} // Force re-render only when month changes
                 ref={hotRef}
                 data={tableData}
                 colHeaders={["Day", "Weekday", "Status", "Notes"]}
@@ -232,7 +227,7 @@ export const MonthlyStatusSheets: React.FC = () => {
                 manualColumnResize={true}
                 afterChange={handleAfterChange}
                 cells={(row, col) => {
-                  const cellProperties: any = {};
+                  const cellProperties: Handsontable.CellProperties = {};
 
                   // Color coding for weekends
                   if (col === 1) {
@@ -376,4 +371,4 @@ export const MonthlyStatusSheets: React.FC = () => {
       </CardContent>
     </Card>
   );
-};
+});
