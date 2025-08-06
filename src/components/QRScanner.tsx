@@ -449,6 +449,7 @@ export function QRScanner({
     if (!reader || !video) return;
 
     try {
+      // Use canvas-based decoding to avoid restarting camera sessions
       const result = await decodeFromVideoFrame(reader, video, time);
       if (result) {
         log('decode result', result);
@@ -458,7 +459,6 @@ export function QRScanner({
         }
       }
     } catch (e) {
-      // Do not toast per frame errors; decoder helper already swallows typical errors
       log('decode error', e);
     }
   }, [attemptMatchAndHandle, decodeOpts.throttleMs, handleDecodedText, log]);

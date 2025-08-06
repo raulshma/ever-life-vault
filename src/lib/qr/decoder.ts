@@ -1,10 +1,11 @@
-import type { BrowserQRCodeReader, IScannerControls } from '@zxing/browser';
+import type { BrowserQRCodeReader } from '@zxing/browser';
 import { BrowserQRCodeReader as ZXingBrowserQRCodeReader } from '@zxing/browser';
 import { NotFoundException, ChecksumException, FormatException } from '@zxing/library';
 
 /**
- * Creates a QR Code reader and a disposer to release any active scanner controls.
- * The reader itself is cheap; disposal stops any ongoing scan if one was started by callers.
+ * Creates a QR Code reader and a disposer.
+ * Note: We intentionally do NOT expose or manage IScannerControls here anymore
+ * to avoid accidental start/stop of device per frame which can blank the video.
  */
 export function createQRCodeReader(): {
   reader: BrowserQRCodeReader;
@@ -12,110 +13,55 @@ export function createQRCodeReader(): {
 } {
   const reader: BrowserQRCodeReader = new ZXingBrowserQRCodeReader();
 
-  // Track last controls created by helper calls, for best-effort cleanup.
-  let lastControls: IScannerControls | null = null;
-
   const dispose = () => {
-    try {
-      lastControls?.stop();
-    } catch {
-      // ignore cleanup errors
-    } finally {
-      lastControls = null;
-    }
+    // no-op: reader has no resources unless decodeFromVideoDevice was started,
+    // which we do not use in our looped scanning approach.
   };
-
-  // Expose a tiny internal setter used by helpers below (kept internal to this module's pattern).
-  Object.defineProperty(reader, '__qr_internal_set_controls', {
-    value: (c: IScannerControls | null) => {
-      try {
-        lastControls?.stop();
-      } catch {
-        // ignore
-      }
-      lastControls = c;
-    },
-    enumerable: false,
-    configurable: true,
-    writable: true,
-  });
 
   return { reader, dispose };
 }
 
 /**
- * Attempts to decode a single video frame.
- * Returns decoded string if found; otherwise null.
- * Swallows NotFound/Checksum/Format errors and unknown errors to keep callers simple.
+ * Decode current video element frame by drawing to an offscreen canvas and using decodeFromImageUrl.
+ * This avoids starting/stopping camera controls and prevents video flicker/black screen.
  */
 export async function decodeFromVideoFrame(
   reader: BrowserQRCodeReader,
   video: HTMLVideoElement,
-  time: number
+  _time: number
 ): Promise<string | null> {
-  // Accept time to keep API stable; not used in this implementation.
-  void time;
-
-  let controls: IScannerControls | null = null;
+  if (!video.videoWidth || !video.videoHeight) {
+    return null;
+  }
 
   try {
-    const resultText = await new Promise<string | null>(async (resolve) => {
-      try {
-        // Start scanning on the given video element; await controls object.
-        controls = await reader.decodeFromVideoDevice(undefined, video, (result, err, ctrl) => {
-          // Persist controls for external dispose if createQRCodeReader was used.
-          (reader as unknown as { __qr_internal_set_controls?: (c: IScannerControls | null) => void })
-            .__qr_internal_set_controls?.(ctrl ?? null);
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
 
-          if (result) {
-            resolve(result.getText());
-            try {
-              ctrl?.stop();
-            } catch {
-              // ignore
-            }
-            return;
-          }
-          if (err) {
-            if (
-              err instanceof NotFoundException ||
-              err instanceof ChecksumException ||
-              err instanceof FormatException
-            ) {
-              resolve(null);
-            } else {
-              resolve(null);
-            }
-            try {
-              ctrl?.stop();
-            } catch {
-              // ignore
-            }
-          }
-        });
-      } catch {
-        resolve(null);
-      }
-    });
+    // Draw current frame
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    return resultText;
-  } catch {
-    return null;
-  } finally {
-    try {
-      controls?.stop();
-    } catch {
-      // ignore
+    const dataUrl = canvas.toDataURL('image/png');
+    const result = await reader.decodeFromImageUrl(dataUrl);
+    return result?.getText() ?? null;
+  } catch (err) {
+    if (
+      err instanceof NotFoundException ||
+      err instanceof ChecksumException ||
+      err instanceof FormatException
+    ) {
+      return null;
     }
+    return null;
   }
 }
 
 /**
  * Attempts to decode from a canvas snapshot.
- * Returns decoded string if found; otherwise null.
- *
- * BrowserQRCodeReader does not decode directly from ImageData, but can decode from an image URL.
- * Serialize the canvas to a data URL and use decodeFromImageUrl.
+ * Kept for callers that already prepare a canvas elsewhere.
  */
 export async function decodeFromCanvas(
   reader: BrowserQRCodeReader,
@@ -124,9 +70,7 @@ export async function decodeFromCanvas(
   height: number
 ): Promise<string | null> {
   try {
-    // Validate requested area exists (throws if out of bounds)
     canvasCtx.getImageData(0, 0, width, height);
-
     const canvas = canvasCtx.canvas;
     const dataUrl = canvas.toDataURL('image/png');
     const result = await reader.decodeFromImageUrl(dataUrl);
