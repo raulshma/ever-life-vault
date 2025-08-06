@@ -29,14 +29,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // Handle auth events - but avoid redirecting on initial load or when already authenticated
+      // Only navigate on SIGNED_IN if the user is currently on the auth page.
+      // Do NOT redirect on initial load when already signed in; preserve the current route.
       if (event === "SIGNED_IN") {
-        // Only navigate to home if we're on the auth page or this is the initial sign in
-        if (location.pathname === "/auth" || initialLoadRef.current) {
-          navigate("/");
+        if (location.pathname === "/auth") {
+          navigate("/", { replace: true });
         }
       } else if (event === "SIGNED_OUT") {
-        navigate("/auth");
+        navigate("/auth", { replace: true });
       }
 
       // Mark that initial load is complete
