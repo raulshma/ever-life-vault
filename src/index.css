@@ -120,7 +120,34 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html, body, #root {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  /* Respect safe areas on devices with notches */
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 0px);
+    padding-top: max(constant(safe-area-inset-top), 0px);
+  }
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    padding-bottom: max(constant(safe-area-inset-bottom), 0px);
+  }
+  .safe-left {
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-left: max(constant(safe-area-inset-left), 0px);
+  }
+  .safe-right {
+    padding-right: max(env(safe-area-inset-right), 0px);
+    padding-right: max(constant(safe-area-inset-right), 0px);
   }
 }

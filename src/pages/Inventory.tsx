@@ -158,7 +158,7 @@ export default function Inventory() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
@@ -168,49 +168,52 @@ export default function Inventory() {
               className="pl-10"
             />
           </div>
-          <Button
-            variant="outline"
-            onClick={() => setSelectedLocation(null)}
-            className={selectedLocation ? "bg-muted" : ""}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            {selectedLocation ? 'Location Filter' : 'All Locations'}
-          </Button>
+          <div className="flex sm:inline-flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setSelectedLocation(null)}
+              className={selectedLocation ? "bg-muted" : ""}
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">{selectedLocation ? 'Location Filter' : 'All Locations'}</span>
+              <span className="sm:hidden">{selectedLocation ? 'Filtered' : 'All'}</span>
+            </Button>
+          </div>
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Card className="bg-gradient-card shadow-card">
-            <CardContent className="p-6 text-center">
-              <Package className="w-8 h-8 text-blue-600 mx-auto mb-2" />
+            <CardContent className="p-4 sm:p-6 text-center">
+              <Package className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{totalItems}</div>
               <div className="text-sm text-muted-foreground">Total Items</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
-            <CardContent className="p-6 text-center">
-              <MapPin className="w-8 h-8 text-green-600 mx-auto mb-2" />
+            <CardContent className="p-4 sm:p-6 text-center">
+              <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-green-600 mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{totalLocations}</div>
               <div className="text-sm text-muted-foreground">Locations</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
-            <CardContent className="p-6 text-center">
-              <QrCode className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+            <CardContent className="p-4 sm:p-6 text-center">
+              <QrCode className="w-7 h-7 sm:w-8 sm:h-8 text-purple-600 mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{qrItems}</div>
               <div className="text-sm text-muted-foreground">QR Labeled</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
-            <CardContent className="p-6 text-center">
-              <div className="text-lg">💰</div>
+            <CardContent className="p-4 sm:p-6 text-center">
+              <div className="text-lg sm:text-xl">💰</div>
               <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
               <div className="text-sm text-muted-foreground">Total Value</div>
             </CardContent>
           </Card>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
           {/* Locations */}
           <div className="lg:col-span-1">
             <Card className="bg-gradient-card shadow-card">
@@ -230,7 +233,7 @@ export default function Inventory() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-2.5 sm:space-y-3">
                   {locations.length > 0 ? locations.map((location) => {
                     const Icon = getLocationIcon(location.icon);
                     const itemCount = getItemsByLocation(location.id).length;
@@ -296,8 +299,8 @@ export default function Inventory() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span>{selectedLocation ? 'Filtered Items' : 'Recent Items'}</span>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="sm"
                     onClick={handleOpenAddItemDialog}
                   >
@@ -307,81 +310,86 @@ export default function Inventory() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* On small screens, list view; on md+, 2-column grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {recentItems.length > 0 ? recentItems.map((item) => {
                     const location = locations.find(loc => loc.id === item.location_id);
                     return (
-                      <div key={item.id} className="p-4 bg-white rounded-lg border hover:shadow-card transition-shadow cursor-pointer">
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center space-x-3 flex-1">
-                            {item.image_url ? (
-                              <img 
-                                src={item.image_url} 
-                                alt={item.name}
-                                className="w-12 h-12 object-cover rounded-lg"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-xl">
-                                📦
+                      <div key={item.id} className="p-3 sm:p-4 bg-white rounded-lg border hover:shadow-card transition-shadow">
+                        <div className="flex items-start gap-3 sm:gap-4">
+                          {item.image_url ? (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg shrink-0"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-lg flex items-center justify-center text-xl shrink-0">
+                              📦
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="font-medium truncate">{item.name}</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">{item.category}</div>
+                                {item.description && (
+                                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</div>
+                                )}
                               </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{item.name}</div>
-                              <div className="text-sm text-muted-foreground">{item.category}</div>
-                              {item.description && (
-                                <div className="text-xs text-muted-foreground mt-1 line-clamp-2">{item.description}</div>
-                              )}
+                              <div className="text-right shrink-0">
+                                <div className="font-semibold text-green-600 text-sm sm:text-base">
+                                  {item.value ? `$${item.value.toLocaleString()}` : 'N/A'}
+                                </div>
+                                <div className="flex flex-wrap gap-1 mt-1 justify-end">
+                                  {item.has_qr_code && (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      <QrCode className="w-3 h-3 mr-1" />
+                                      QR
+                                    </Badge>
+                                  )}
+                                  {item.is_lent && (
+                                    <Badge variant="outline" className="text-[10px] text-orange-600">
+                                      Lent
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-green-600">
-                              {item.value ? `$${item.value.toLocaleString()}` : 'N/A'}
+
+                            <div className="mt-3 flex items-center justify-between">
+                              <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
+                                <MapPin className="w-3 h-3 mr-1" />
+                                {location?.name || 'No location'}
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 sm:h-6 text-xs"
+                                  onClick={() => handleViewItem(item)}
+                                >
+                                  <Eye className="w-3 h-3 mr-1" />
+                                  View
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 sm:h-6 text-xs"
+                                  onClick={() => handleEditItem(item)}
+                                >
+                                  <Edit3 className="w-3 h-3 mr-1" />
+                                  Edit
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex gap-1 mt-1">
-                              {item.has_qr_code && (
-                                <Badge variant="secondary" className="text-xs">
-                                  <QrCode className="w-3 h-3 mr-1" />
-                                  QR
-                                </Badge>
-                              )}
-                              {item.is_lent && (
-                                <Badge variant="outline" className="text-xs text-orange-600">
-                                  Lent
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <MapPin className="w-3 h-3 mr-1" />
-                            {location?.name || 'No location'}
-                          </div>
-                          <div className="flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 text-xs"
-                              onClick={() => handleViewItem(item)}
-                            >
-                              <Eye className="w-3 h-3 mr-1" />
-                              View
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-6 text-xs"
-                              onClick={() => handleEditItem(item)}
-                            >
-                              <Edit3 className="w-3 h-3 mr-1" />
-                              Edit
-                            </Button>
                           </div>
                         </div>
                       </div>
                     );
                   }) : (
-                    <div className="col-span-2 text-center py-8 text-muted-foreground">
+                    <div className="md:col-span-2 text-center py-8 text-muted-foreground">
                       <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
                       <p>No items yet</p>
                       <p className="text-sm">Add your first item to get started</p>

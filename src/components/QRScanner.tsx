@@ -538,7 +538,7 @@ export function QRScanner({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-[90vw] sm:max-w-md p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <QrCode className="w-5 h-5 mr-2" />
@@ -547,7 +547,8 @@ export function QRScanner({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="aspect-square bg-black rounded-lg overflow-hidden relative">
+          {/* Video viewport with responsive aspect and safe area */}
+          <div className="w-full aspect-[3/4] sm:aspect-square bg-black rounded-lg overflow-hidden relative safe-bottom">
             <video
               ref={videoRef}
               playsInline
@@ -557,15 +558,15 @@ export function QRScanner({
             />
             {/* Overlay guide */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-6 border-2 border-white/40 rounded-lg"/>
+              <div className="absolute inset-4 sm:inset-6 border-2 border-white/40 rounded-lg"/>
             </div>
           </div>
 
           {showControlsRow && (
             <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 {uiOpts.showTorch && torchSupported && (
-                  <Button type="button" variant="outline" onClick={onToggleTorch}>
+                  <Button type="button" variant="outline" size="sm" onClick={onToggleTorch}>
                     <Flashlight className="w-4 h-4 mr-2" />
                     {torchOn ? 'Torch On' : 'Torch Off'}
                   </Button>
@@ -592,6 +593,7 @@ export function QRScanner({
                     max={focusDistanceRange.max}
                     step={focusDistanceRange.step ?? (focusDistanceRange.max - focusDistanceRange.min) / 100}
                     onValueChange={onFocusSliderChange}
+                    className="flex-1"
                   />
                 </div>
               )}

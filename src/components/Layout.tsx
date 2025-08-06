@@ -57,10 +57,10 @@ export const Layout: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle safe-top safe-bottom">
       {/* Desktop Navigation */}
       <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-border shadow-card">
-        <div className="w-full max-w-7xl mx-auto px-6 py-4">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-8">
               <Link to="/" className="flex items-center space-x-2">
@@ -92,11 +92,11 @@ export const Layout: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-1 sm:gap-3">
               <Button variant="ghost" size="icon" onClick={() => setIsSearchOpen(true)} aria-label="Open Search (Ctrl/Cmd+K)">
                 <Search size={18} />
               </Button>
-              <Button variant="hero" size="sm" onClick={() => setIsQuickAddOpen(true)}>
+              <Button variant="hero" size="sm" className="hidden md:inline-flex" onClick={() => setIsQuickAddOpen(true)}>
                 <Plus size={16} />
                 Quick Add
               </Button>
@@ -107,7 +107,7 @@ export const Layout: React.FC = () => {
                 className="text-muted-foreground hover:text-foreground"
               >
                 <LogOut className="w-4 h-4 mr-2" />
-                Sign Out
+                <span className="hidden sm:inline">Sign Out</span>
               </Button>
             </div>
           </div>
@@ -115,13 +115,13 @@ export const Layout: React.FC = () => {
       </nav>
 
       {/* Main Content */}
-      <main className="md:pt-20">
+      <main className="pt-4 md:pt-20 pb-24 md:pb-0">
         <Outlet />
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-border">
-        <div className="grid grid-cols-6 py-2">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-border safe-bottom">
+        <div className="grid grid-cols-6 py-1.5">
           {modules.map((module) => {
             const Icon = module.icon;
             return (
@@ -129,13 +129,13 @@ export const Layout: React.FC = () => {
                 key={module.path}
                 to={module.path}
                 className={cn(
-                  "flex flex-col items-center justify-center py-2 px-1 text-xs transition-colors",
+                  "flex flex-col items-center justify-center py-1.5 px-1 text-[11px] transition-colors",
                   location.pathname === module.path
                     ? "text-primary"
                     : "text-muted-foreground"
                 )}
               >
-                <Icon size={20} />
+                <Icon size={18} />
                 <span className="mt-1 text-[10px] font-medium leading-tight">
                   {module.name}
                 </span>
@@ -146,7 +146,7 @@ export const Layout: React.FC = () => {
       </nav>
 
       {/* Mobile Floating Action Button */}
-      <div className="md:hidden fixed bottom-20 right-4 z-40">
+      <div className="md:hidden fixed right-4 z-40" style={{ bottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}>
         <Button variant="hero" size="icon" className="w-14 h-14 rounded-full shadow-glow" onClick={() => setIsQuickAddOpen(true)} aria-label="Quick Add">
           <Plus size={24} />
         </Button>

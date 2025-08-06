@@ -69,32 +69,32 @@ export default function ModuleGrid() {
   ];
 
   return (
-    <div className="mb-12">
-      <h2 className="text-2xl font-bold text-foreground mb-6">Your Life Modules</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="mb-8 sm:mb-12">
+      <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">Your Life Modules</h2>
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {modules.map((module) => {
           const Icon = module.icon;
           return (
             <Link key={module.path} to={module.path}>
-              <Card className="group hover:shadow-elegant transition-all duration-300 hover:scale-105 bg-gradient-card border-0">
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className={`w-12 h-12 bg-gradient-to-r ${module.color} rounded-lg flex items-center justify-center shadow-card`}>
-                      <Icon className="w-6 h-6 text-white" />
+              <Card className="group hover:shadow-elegant transition-all duration-300 hover:scale-[1.02] sm:hover:scale-105 bg-gradient-card border-0">
+                <CardHeader className="pb-3 sm:pb-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${module.color} rounded-lg flex items-center justify-center shadow-card`}>
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm text-muted-foreground">
+                    <div className="text-right shrink-0">
+                      <div className="text-xs sm:text-sm text-muted-foreground">
                         {Object.keys(module.stats)[0]}
                       </div>
-                      <div className="text-lg font-semibold">
+                      <div className="text-base sm:text-lg font-semibold">
                         {Object.values(module.stats)[0]}
                       </div>
                     </div>
                   </div>
-                  <CardTitle className="text-xl group-hover:text-primary transition-colors">
+                  <CardTitle className="text-lg sm:text-xl group-hover:text-primary transition-colors">
                     {module.name}
                   </CardTitle>
-                  <CardDescription className="text-muted-foreground">
+                  <CardDescription className="text-sm text-muted-foreground">
                     {module.description}
                   </CardDescription>
                 </CardHeader>

@@ -6,9 +6,9 @@ import RecentActivity from '@/components/dashboard/RecentActivity';
 
 export default function Dashboard() {
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
+    <div className="min-h-screen bg-gradient-subtle pb-24 md:pb-8">
       <HeroSection />
-      <div className="max-w-7xl mx-auto px-6 py-12">
+      <div className="container py-8 sm:py-10">
         <QuickStats />
         <ModuleGrid />
         <RecentActivity />
