@@ -22,6 +22,7 @@ import {
 import { useInventory } from '@/hooks/useInventory';
 import { InventoryDialog } from '@/components/InventoryDialog';
 import { LocationDialog } from '@/components/LocationDialog';
+import { QRScanner } from '@/components/QRScanner';
 
 export default function Inventory() {
   const { items, locations, loading, getItemsByLocation, getTotalValue, getItemsWithQR } = useInventory();
@@ -33,6 +34,7 @@ export default function Inventory() {
   const [locationDialogMode, setLocationDialogMode] = useState<'add' | 'edit' | 'view'>('add');
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   const totalItems = items.length;
   const totalLocations = locations.length;
@@ -91,6 +93,12 @@ export default function Inventory() {
     setSelectedLocation(selectedLocation === locationId ? null : locationId);
   };
 
+  const handleQRItemFound = (item: any) => {
+    setSelectedItem(item);
+    setItemDialogMode('view');
+    setItemDialogOpen(true);
+  };
+
   const getLocationIcon = (iconName: string) => {
     switch(iconName.toLowerCase()) {
       case 'home': return Home;
@@ -127,7 +135,11 @@ export default function Inventory() {
               <p className="text-white/90">Track physical items and their locations</p>
             </div>
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" className="bg-white/10 hover:bg-white/20">
+              <Button 
+                variant="ghost" 
+                className="bg-white/10 hover:bg-white/20"
+                onClick={() => setQrScannerOpen(true)}
+              >
                 <QrCode className="w-4 h-4 mr-2" />
                 Scan QR
               </Button>
@@ -394,6 +406,12 @@ export default function Inventory() {
         mode={locationDialogMode}
         open={locationDialogOpen}
         onOpenChange={setLocationDialogOpen}
+      />
+
+      <QRScanner
+        open={qrScannerOpen}
+        onOpenChange={setQrScannerOpen}
+        onItemFound={handleQRItemFound}
       />
     </div>
   );
