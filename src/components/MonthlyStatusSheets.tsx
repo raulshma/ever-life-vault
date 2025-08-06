@@ -9,17 +9,65 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { useMonthlyStatusSheets } from "@/hooks/useMonthlyStatusSheets";
-import {
-  format,
-  getDaysInMonth,
-  getDay,
-} from "date-fns";
+import { format, getDaysInMonth, getDay } from "date-fns";
 import * as XLSX from "xlsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
 // Register Handsontable modules
 registerAllModules();
 
-export const MonthlyStatusSheets: React.FC = React.memo(() => {
+type ExportColumnKey = "Day" | "Weekday" | "Status" | "Notes";
+
+type ExportConfig = {
+  columns: Record<ExportColumnKey, boolean>;
+  transforms: Partial<Record<ExportColumnKey, string>>;
+  fileName: string;
+  sheetName: string;
+  dateFormat: string; // applies to "Day" column presentation if needed
+  numberFormat: string; // reserved for future numeric fields
+};
+
+const DEFAULT_EXPORT_CONFIG: ExportConfig = {
+  columns: { Day: true, Weekday: true, Status: true, Notes: true },
+  transforms: {
+    // Day: "return value;",
+    // Weekday: "return value.toUpperCase();",
+    // Status: "return (value || \"\");",
+    // Notes: "return value;"
+  },
+  fileName: "MonthlyStatus_${YYYY}-${MM}.xlsx",
+  sheetName: "Monthly Status",
+  dateFormat: "d",
+  numberFormat: "0",
+};
+
+function formatWithMonth(date: Date, pattern: string) {
+  const YYYY = format(date, "yyyy");
+  const MM = format(date, "MM");
+  const MMM = format(date, "MMM");
+  // Use split+join for wide TS lib compatibility instead of String.prototype.replaceAll
+  return pattern.split("${YYYY}").join(YYYY).split("${MM}").join(MM).split("${MMM}").join(MMM);
+}
+
+function safeTransform(body: string | undefined, value: any, row: any) {
+  if (!body || !body.trim()) return value;
+  try {
+    // eslint-disable-next-line no-new-func
+    const fn = new Function("value", "row", body);
+    const res = fn(value, row);
+    return res;
+  } catch (e) {
+    console.error("Transform error:", e);
+    return value;
+  }
+}
+
+export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSheetsComponent(): JSX.Element {
   const hotRef = useRef<HotTableClass>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { data, loading, fetchData, updateEntry } = useMonthlyStatusSheets();
@@ -61,7 +109,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
 
   useEffect(() => {
     fetchData(monthYear);
-  }, [fetchData, monthYear]); // Remove fetchData from dependencies to prevent infinite loop
+  }, [fetchData, monthYear]);
 
   // Helper function to check if a day is weekend (Saturday = 6, Sunday = 0)
   const isWeekend = (date: Date) => {
@@ -99,26 +147,28 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
     return preparedData;
   }, [data, currentMonth, daysInMonth]);
 
-  const handleAfterChange = useCallback((changes: Handsontable.CellChange[] | null) => {
-    if (!changes) return;
+  const handleAfterChange = useCallback(
+    (changes: Handsontable.CellChange[] | null) => {
+      if (!changes) return;
 
-    changes.forEach(([row, col, oldValue, newValue]) => {
-      if (oldValue !== newValue && row !== null && col !== null) {
-        const dayNumber = row + 1;
-        const status =
-          col === 2
-            ? (newValue as string)
-            : data.find((entry) => entry.day_number === dayNumber)?.status ||
-              "";
-        const notes =
-          col === 3
-            ? (newValue as string)
-            : data.find((entry) => entry.day_number === dayNumber)?.notes || "";
+      changes.forEach(([row, col, oldValue, newValue]) => {
+        if (oldValue !== newValue && row !== null && col !== null) {
+          const dayNumber = row + 1;
+          const status =
+            col === 2
+              ? (newValue as string)
+              : data.find((entry) => entry.day_number === dayNumber)?.status || "";
+          const notes =
+            col === 3
+              ? (newValue as string)
+              : data.find((entry) => entry.day_number === dayNumber)?.notes || "";
 
-        updateEntry(dayNumber, monthYear, status, notes);
-      }
-    });
-  }, [data, monthYear, updateEntry]);
+          updateEntry(dayNumber, monthYear, status, notes);
+        }
+      });
+    },
+    [data, monthYear, updateEntry]
+  );
 
   const navigateMonth = useCallback((direction: "prev" | "next") => {
     setCurrentMonth((prev) => {
@@ -175,6 +225,78 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
     return stats;
   }, [tableData, daysInMonth]);
 
+  // Export configuration state
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportConfig, setExportConfig] = useState<ExportConfig>(() => {
+    const saved = localStorage.getItem("mss_export_config");
+    if (saved) {
+      try {
+        return JSON.parse(saved) as ExportConfig;
+      } catch {}
+    }
+    return DEFAULT_EXPORT_CONFIG;
+  });
+
+  const persistExportConfig = (cfg: ExportConfig) => {
+    setExportConfig(cfg);
+    try {
+      localStorage.setItem("mss_export_config", JSON.stringify(cfg));
+    } catch {}
+  };
+
+  const performExport = useCallback(
+    (cfg: ExportConfig) => {
+      // Build export rows from tableData with selection and transforms
+      const columnsOrder: ExportColumnKey[] = ["Day", "Weekday", "Status", "Notes"];
+      const enabledCols = columnsOrder.filter((c) => cfg.columns[c]);
+
+      const rows = tableData.map((r) => {
+        const rowObj: Record<string, any> = {};
+        const sourceRow = {
+          Day: r[0],
+          Weekday: r[1],
+          Status: r[2] || "",
+          Notes: r[3] || "",
+        } as Record<ExportColumnKey, any>;
+
+        enabledCols.forEach((col) => {
+          let v = sourceRow[col];
+
+          // default helper for Day formatting if no custom transform
+          if (col === "Day") {
+            const custom = cfg.transforms[col];
+            if (!custom || !custom.trim()) {
+              v = cfg.dateFormat === "dd" ? String(v).padStart(2, "0") : v;
+            }
+          }
+
+          const transformed = safeTransform(cfg.transforms[col], v, sourceRow);
+          rowObj[col] = transformed;
+        });
+        return rowObj;
+      });
+
+      const ws = XLSX.utils.json_to_sheet(rows, { header: enabledCols });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, cfg.sheetName || "Monthly Status");
+
+      const fileName =
+        (() => {
+          try {
+            return formatWithMonth(
+              currentMonth,
+              cfg.fileName || DEFAULT_EXPORT_CONFIG.fileName
+            );
+          } catch {
+            return `MonthlyStatus_${format(currentMonth, "yyyy-MM")}.xlsx`;
+          }
+        })() ?? `MonthlyStatus_${format(currentMonth, "yyyy-MM")}.xlsx`;
+
+      XLSX.writeFile(wb, fileName);
+    },
+    [tableData, currentMonth]
+  );
+
   return (
     <div className={isFullscreen ? "fixed inset-0 z-[100] bg-white flex flex-col" : ""}>
       <Card className={isFullscreen ? "w-full h-full flex flex-col rounded-none border-0" : "w-full"}>
@@ -182,22 +304,14 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
           <div className="flex items-center justify-between">
             <CardTitle>Monthly Status Sheets</CardTitle>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth("prev")}
-              >
+              <Button variant="outline" size="sm" onClick={() => navigateMonth("prev")}>
                 <ChevronLeft className="h-4 w-4" />
                 Previous
               </Button>
               <span className="font-medium min-w-[120px] text-center">
                 {format(currentMonth, "MMMM yyyy")}
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth("next")}
-              >
+              <Button variant="outline" size="sm" onClick={() => navigateMonth("next")}>
                 Next
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -226,22 +340,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
                 variant="default"
                 size="sm"
                 className="ml-2"
-                onClick={() => {
-                  // Build export rows from tableData so it reflects the UI
-                  const rows = tableData.map((r) => ({
-                    Day: r[0],
-                    Weekday: r[1],
-                    Status: r[2] || "",
-                    Notes: r[3] || "",
-                  }));
-
-                  const ws = XLSX.utils.json_to_sheet(rows, { header: ["Day", "Weekday", "Status", "Notes"] });
-                  const wb = XLSX.utils.book_new();
-                  XLSX.utils.book_append_sheet(wb, ws, "Monthly Status");
-
-                  const fileName = `MonthlyStatus_${format(currentMonth, "yyyy-MM")}.xlsx`;
-                  XLSX.writeFile(wb, fileName);
-                }}
+                onClick={() => setExportOpen(true)}
                 title="Export current month to Excel"
               >
                 Export to Excel
@@ -399,9 +498,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
 
                   {/* Status Legend */}
                   <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-sm mb-3 text-gray-700">
-                      Status Legend:
-                    </h4>
+                    <h4 className="font-medium text-sm mb-3 text-gray-700">Status Legend:</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded holiday-cell"></div>
@@ -443,6 +540,121 @@ export const MonthlyStatusSheets: React.FC = React.memo(() => {
           )}
         </CardContent>
       </Card>
+
+      {/* Export Configuration Dialog */}
+      <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+        {/* Force dialog container to sit above Handsontable headers via a high z-index */}
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
+          <div className="sticky top-0 z-10 border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+            <DialogHeader className="p-0">
+              <DialogTitle>Configure Export</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+            <div className="space-y-2">
+              <Label>Columns</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(["Day", "Weekday", "Status", "Notes"] as ExportColumnKey[]).map((key) => (
+                  <label key={key} className="flex items-center space-x-2">
+                    <Checkbox
+                      checked={!!exportConfig.columns[key]}
+                      onCheckedChange={(checked) => {
+                        const next = {
+                          ...exportConfig,
+                          columns: { ...exportConfig.columns, [key]: !!checked },
+                        };
+                        persistExportConfig(next);
+                      }}
+                    />
+                    <span className="text-sm">{key}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>File name</Label>
+              <Input
+                value={exportConfig.fileName}
+                onChange={(e) =>
+                  persistExportConfig({ ...exportConfig, fileName: e.target.value })
+                }
+                placeholder='e.g. MonthlyStatus_${YYYY}-${MM}.xlsx'
+              />
+              <div className="text-xs text-muted-foreground">
+                Supports tokens: ${"{YYYY}"}, ${"{MM}"}, ${"{MMM}"}.
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Sheet name</Label>
+              <Input
+                value={exportConfig.sheetName}
+                onChange={(e) =>
+                  persistExportConfig({ ...exportConfig, sheetName: e.target.value })
+                }
+                placeholder="Monthly Status"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Date format (Day column)</Label>
+              <Select
+                value={exportConfig.dateFormat}
+                onValueChange={(v) => persistExportConfig({ ...exportConfig, dateFormat: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose format" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="d">d (1..31)</SelectItem>
+                  <SelectItem value="dd">dd (01..31)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">
+            {(["Day", "Weekday", "Status", "Notes"] as ExportColumnKey[]).map((key) => (
+              <div key={key} className="space-y-2">
+                <Label>{key} transform (JS)</Label>
+                <Textarea
+                  rows={5}
+                  value={exportConfig.transforms[key] || ""}
+                  onChange={(e) => {
+                    const next = {
+                      ...exportConfig,
+                      transforms: { ...exportConfig.transforms, [key]: e.target.value },
+                    };
+                    persistExportConfig(next);
+                  }}
+                  placeholder='Example: return (value ?? "").toString().toUpperCase();'
+                />
+                <div className="text-xs text-muted-foreground">
+                  Function body. Args: value, row. Must return the transformed value.
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="sticky bottom-0 z-10 border-t bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" onClick={() => setExportOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  performExport(exportConfig);
+                  setExportOpen(false);
+                }}
+              >
+                Export
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });
