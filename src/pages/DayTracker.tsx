@@ -121,7 +121,7 @@ export default function DayTracker() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        <Tabs defaultValue="kanban" className="w-full">
+        <Tabs defaultValue="monthly" className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="kanban" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />

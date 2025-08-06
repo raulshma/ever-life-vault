@@ -3,17 +3,19 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import { 
-  Calendar, 
-  BookOpen, 
-  Shield, 
-  FileText, 
+import {
+  Calendar,
+  BookOpen,
+  Shield,
+  FileText,
   Package2,
   Plus,
   Home,
   Search,
   LogOut
 } from 'lucide-react';
+import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import { AddTaskDialog } from '@/components/AddTaskDialog';
 
 const modules = [
   { name: 'Dashboard', path: '/', icon: Home },
@@ -27,6 +29,32 @@ const modules = [
 export const Layout: React.FC = () => {
   const location = useLocation();
   const { signOut } = useAuth();
+
+  // Local UI state for Search (Command Palette) and Quick Add
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false);
+
+  // Quick Add handler (no-op for onAdd until wired to tasks hook/page)
+  const handleQuickAdd = async (title: string, description?: string, priority?: 'low' | 'medium' | 'high', dueDate?: string) => {
+    // TODO: Wire to tasks creation hook when available.
+    // For now, just log and close dialog to give immediate feedback.
+    console.debug('Quick Add task:', { title, description, priority, dueDate });
+    return Promise.resolve();
+  };
+
+  // Global keyboard shortcut for opening search: Ctrl/Cmd + K
+  React.useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
+      if (cmdOrCtrl && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -65,15 +93,15 @@ export const Layout: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-3">
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" onClick={() => setIsSearchOpen(true)} aria-label="Open Search (Ctrl/Cmd+K)">
                 <Search size={18} />
               </Button>
-              <Button variant="hero" size="sm">
+              <Button variant="hero" size="sm" onClick={() => setIsQuickAddOpen(true)}>
                 <Plus size={16} />
                 Quick Add
               </Button>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={() => signOut()}
                 className="text-muted-foreground hover:text-foreground"
@@ -119,10 +147,36 @@ export const Layout: React.FC = () => {
 
       {/* Mobile Floating Action Button */}
       <div className="md:hidden fixed bottom-20 right-4 z-40">
-        <Button variant="hero" size="icon" className="w-14 h-14 rounded-full shadow-glow">
+        <Button variant="hero" size="icon" className="w-14 h-14 rounded-full shadow-glow" onClick={() => setIsQuickAddOpen(true)} aria-label="Quick Add">
           <Plus size={24} />
         </Button>
       </div>
+
+      {/* Search Command Palette */}
+      <CommandDialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+        <CommandInput placeholder="Type a command or search..." />
+        <CommandList>
+          <CommandEmpty>No results found.</CommandEmpty>
+          <CommandGroup heading="Navigation">
+            {modules.map((m) => (
+              <CommandItem key={m.path} onSelect={() => { setIsSearchOpen(false); }}>
+                <m.icon className="mr-2 h-4 w-4" />
+                <span>{m.name}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+
+      {/* Quick Add Task Dialog */}
+      <AddTaskDialog
+        open={isQuickAddOpen}
+        onOpenChange={setIsQuickAddOpen}
+        onAdd={async (...args) => {
+          await handleQuickAdd(...args);
+          setIsQuickAddOpen(false);
+        }}
+      />
     </div>
   );
 };
