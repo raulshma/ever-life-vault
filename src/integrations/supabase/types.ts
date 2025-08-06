@@ -196,6 +196,39 @@ export type Database = {
         }
         Relationships: []
       }
+      monthly_status_sheets: {
+        Row: {
+          created_at: string
+          day_number: number
+          id: string
+          month_year: string
+          notes: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_number: number
+          id?: string
+          month_year: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          day_number?: number
+          id?: string
+          month_year?: string
+          notes?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       notes: {
         Row: {
           content: string

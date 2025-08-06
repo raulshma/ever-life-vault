@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Plus, 
   Calendar, 
@@ -12,11 +13,13 @@ import {
   CheckCircle2,
   Loader2,
   Edit,
-  Trash2
+  Trash2,
+  Grid
 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { TaskEditDialog } from '@/components/TaskEditDialog';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { MonthlyStatusSheets } from '@/components/MonthlyStatusSheets';
 
 const columns = [
   { id: 'todo', title: 'To Do', color: 'bg-gray-50' },
@@ -118,8 +121,21 @@ export default function DayTracker() {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Quick Add Task */}
-        <Card className="mb-8 bg-gradient-card shadow-card">
+        <Tabs defaultValue="kanban" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-8">
+            <TabsTrigger value="kanban" className="flex items-center gap-2">
+              <Calendar className="h-4 w-4" />
+              Daily Tasks
+            </TabsTrigger>
+            <TabsTrigger value="monthly" className="flex items-center gap-2">
+              <Grid className="h-4 w-4" />
+              Monthly Status
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="kanban" className="space-y-8">
+            {/* Quick Add Task */}
+            <Card className="bg-gradient-card shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Plus className="w-5 h-5" />
@@ -147,8 +163,8 @@ export default function DayTracker() {
           </CardContent>
         </Card>
 
-        {/* Kanban Board */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Kanban Board */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {columns.map((column) => (
             <div key={column.id} className="space-y-4">
               <div className="flex items-center justify-between">
@@ -269,23 +285,29 @@ export default function DayTracker() {
               </div>
             </div>
           ))}
-        </div>
+            </div>
 
-        {/* Task Edit Dialog */}
-        <TaskEditDialog
-          task={selectedTask}
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          onSave={handleSaveTask}
-          onDelete={handleDeleteTask}
-        />
+            {/* Task Edit Dialog */}
+            <TaskEditDialog
+              task={selectedTask}
+              open={showEditDialog}
+              onOpenChange={setShowEditDialog}
+              onSave={handleSaveTask}
+              onDelete={handleDeleteTask}
+            />
 
-        {/* Add Task Dialog */}
-        <AddTaskDialog
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-          onAdd={addTaskDetailed}
-        />
+            {/* Add Task Dialog */}
+            <AddTaskDialog
+              open={showAddDialog}
+              onOpenChange={setShowAddDialog}
+              onAdd={addTaskDetailed}
+            />
+          </TabsContent>
+
+          <TabsContent value="monthly">
+            <MonthlyStatusSheets />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
