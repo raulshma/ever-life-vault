@@ -1,14 +1,35 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Calendar, BookOpen, Plus } from 'lucide-react';
-
-const quickActions = [
-  { icon: Calendar, label: 'Add Task', action: () => {}, variant: 'default' as const },
-  { icon: BookOpen, label: 'New Note', action: () => {}, variant: 'accent' as const },
-  { icon: Plus, label: 'Quick Capture', action: () => {}, variant: 'hero' as const },
-];
+import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { useTasks } from '@/hooks/useTasks';
 
 export default function HeroSection() {
+  const navigate = useNavigate();
+  const { addTask } = useTasks();
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+
+  const quickActions = [
+    { 
+      icon: Calendar, 
+      label: 'Add Task', 
+      action: () => setAddTaskOpen(true), 
+      variant: 'default' as const 
+    },
+    { 
+      icon: BookOpen, 
+      label: 'New Note', 
+      action: () => navigate('/knowledge'), 
+      variant: 'accent' as const 
+    },
+    { 
+      icon: Plus, 
+      label: 'Quick Capture', 
+      action: () => navigate('/day-tracker'), 
+      variant: 'hero' as const 
+    },
+  ];
   return (
     <div className="relative overflow-hidden bg-gradient-hero text-white">
       <div className="absolute inset-0 bg-black/10"></div>
@@ -39,6 +60,15 @@ export default function HeroSection() {
           </div>
         </div>
       </div>
+
+      <AddTaskDialog
+        open={addTaskOpen}
+        onOpenChange={setAddTaskOpen}
+        onAdd={async (title, description, priority, dueDate) => {
+          await addTask(title, description, priority || 'medium', dueDate);
+          setAddTaskOpen(false);
+        }}
+      />
     </div>
   );
 }
