@@ -1,0 +1,81 @@
+/* Monthly Status Sheets Custom Styles */
+
+.weekend-cell {
+  background-color: #f3f4f6 !important;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.weekend-status-cell {
+  background-color: #fef3c7 !important;
+}
+
+.holiday-cell {
+  background-color: #fecaca !important;
+  color: #991b1b !important;
+  font-weight: 600;
+}
+
+.working-cell {
+  background-color: #d1fae5 !important;
+  color: #065f46 !important;
+  font-weight: 600;
+}
+
+.sick-cell {
+  background-color: #fed7d7 !important;
+  color: #c53030 !important;
+  font-weight: 600;
+}
+
+.vacation-cell {
+  background-color: #ddd6fe !important;
+  color: #5b21b6 !important;
+  font-weight: 600;
+}
+
+.wfh-cell {
+  background-color: #bfdbfe !important;
+  color: #1e40af !important;
+  font-weight: 600;
+}
+
+.half-day-cell {
+  background-color: #fde68a !important;
+  color: #92400e !important;
+  font-weight: 600;
+}
+
+.training-cell {
+  background-color: #e0e7ff !important;
+  color: #3730a3 !important;
+  font-weight: 600;
+}
+
+/* Handsontable theme customizations */
+.handsontable-theme .handsontable {
+  font-family: inherit;
+}
+
+.handsontable-theme .handsontable td {
+  border-color: #e5e7eb;
+}
+
+.handsontable-theme .handsontable th {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.handsontable-theme .handsontable .htCenter {
+  text-align: center;
+}
+
+.handsontable-theme .handsontable .htLeft {
+  text-align: left;
+}
+
+.handsontable-theme .handsontable .htMiddle {
+  vertical-align: middle;
+}

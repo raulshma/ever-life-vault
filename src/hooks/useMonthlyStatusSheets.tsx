@@ -34,6 +34,9 @@ export const useMonthlyStatusSheets = () => {
       if (error) throw error;
 
       setData(sheets || []);
+      
+      // Auto-initialize weekend days as holidays if not already set
+      await initializeWeekendHolidays(monthYear, sheets || []);
     } catch (error) {
       console.error('Error fetching monthly status sheets:', error);
       toast({
@@ -43,6 +46,59 @@ export const useMonthlyStatusSheets = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const initializeWeekendHolidays = async (monthYear: string, existingData: MonthlyStatusEntry[]) => {
+    if (!user) return;
+
+    try {
+      const [year, month] = monthYear.split('-').map(Number);
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const weekendEntries: Omit<MonthlyStatusEntry, 'id' | 'created_at' | 'updated_at'>[] = [];
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const currentDate = new Date(year, month - 1, day);
+        const dayOfWeek = currentDate.getDay();
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
+        
+        // Check if this day already has an entry
+        const existingEntry = existingData.find(entry => entry.day_number === day);
+        
+        // If it's a weekend and no existing entry, add it as a holiday
+        if (isWeekend && !existingEntry) {
+          weekendEntries.push({
+            user_id: user.id,
+            month_year: monthYear,
+            day_number: day,
+            status: 'Holiday',
+            notes: ''
+          });
+        }
+      }
+
+      // Batch insert weekend holidays
+      if (weekendEntries.length > 0) {
+        const { error } = await supabase
+          .from('monthly_status_sheets')
+          .insert(weekendEntries);
+
+        if (error) throw error;
+
+        // Refresh data to include the new weekend entries
+        const { data: updatedSheets, error: fetchError } = await supabase
+          .from('monthly_status_sheets')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('month_year', monthYear)
+          .order('day_number', { ascending: true });
+
+        if (fetchError) throw fetchError;
+        setData(updatedSheets || []);
+      }
+    } catch (error) {
+      console.error('Error initializing weekend holidays:', error);
+      // Don't show toast for this as it's a background operation
     }
   };
 
