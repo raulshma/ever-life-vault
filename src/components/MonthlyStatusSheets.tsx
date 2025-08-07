@@ -245,6 +245,24 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
       });
 
       persistMonthCustomData(monthYear, nextMonthData);
+
+      // Persist changed custom columns to DB as well
+      try {
+        changes.forEach(([row, col, _oldValue, newValue]) => {
+          if (row === null || col === null) return;
+          const colIndex = typeof col === "number" ? col : Number(col);
+          if (colIndex > 3) {
+            const dayNumber = (row as number) + 1;
+            const customIndex = colIndex - 4;
+            const def = orderedCustomColumns[customIndex];
+            if (def) {
+              void updateEntry(dayNumber, monthYear, undefined, undefined, { [def.id]: newValue });
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Failed persisting custom column to DB:", e);
+      }
     },
     [data, monthYear, updateEntry, customMonthData, persistMonthCustomData, orderedCustomColumns]
   );
