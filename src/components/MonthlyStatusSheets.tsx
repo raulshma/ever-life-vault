@@ -301,49 +301,67 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     <div className={isFullscreen ? "fixed inset-0 z-[100] bg-white flex flex-col" : ""}>
       <Card className={isFullscreen ? "w-full h-full flex flex-col rounded-none border-0" : "w-full"}>
         <CardHeader className={isFullscreen ? "border-b" : ""}>
-          <div className="flex items-center justify-between">
-            <CardTitle>Monthly Status Sheets</CardTitle>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => navigateMonth("prev")}>
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <span className="font-medium min-w-[120px] text-center">
-                {format(currentMonth, "MMMM yyyy")}
-              </span>
-              <Button variant="outline" size="sm" onClick={() => navigateMonth("next")}>
-                Next
-                <ChevronRight className="h-4 w-4" />
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="shrink-0">Monthly Status Sheets</CardTitle>
+            {/* Actions row: wrap on small screens, avoid horizontal overflow */}
+            <div className="flex items-center gap-1 flex-wrap justify-end max-w-full overflow-x-hidden">
+              {/* Prev month - icon only */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigateMonth("prev")}
+                className="shrink-0"
+                aria-label="Previous month"
+                title="Previous month"
+              >
+                <ChevronLeft className="h-5 w-5" />
               </Button>
 
+              {/* Current month label - allow shrink/truncate */}
+              <span className="font-medium min-w-[100px] text-center truncate px-1">
+                {format(currentMonth, "MMM yyyy")}
+              </span>
+
+              {/* Next month - icon only */}
               <Button
-                variant={isFullscreen ? "default" : "outline"}
-                size="sm"
+                variant="ghost"
+                size="icon"
+                onClick={() => navigateMonth("next")}
+                className="shrink-0"
+                aria-label="Next month"
+                title="Next month"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+
+              {/* Fullscreen toggle - icon only */}
+              <Button
+                variant={isFullscreen ? "default" : "ghost"}
+                size="icon"
                 onClick={toggleFullscreen}
-                className="ml-2"
+                className="shrink-0"
+                aria-label={isFullscreen ? "Exit Full Screen" : "Full Screen"}
                 title={isFullscreen ? "Exit Full Screen (Esc)" : "Full Screen"}
               >
-                {isFullscreen ? (
-                  <>
-                    <Minimize2 className="h-4 w-4 mr-2" />
-                    Exit Full Screen
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="h-4 w-4 mr-2" />
-                    Full Screen
-                  </>
-                )}
+                {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
               </Button>
 
+              {/* Export - icon only using same button with text hidden for a11y */}
               <Button
                 variant="default"
-                size="sm"
-                className="ml-2"
+                size="icon"
+                className="shrink-0"
                 onClick={() => setExportOpen(true)}
-                title="Export current month to Excel"
+                aria-label="Export to Excel"
+                title="Export to Excel"
               >
-                Export to Excel
+                {/* Reuse Maximize2 as placeholder if no export icon lib is available; can be swapped later */}
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 3h7v7H3z"></path>
+                  <path d="M14 3h7v7h-7z"></path>
+                  <path d="M14 14h7v7h-7z"></path>
+                  <path d="M3 14h7v7H3z"></path>
+                </svg>
               </Button>
             </div>
           </div>

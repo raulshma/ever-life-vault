@@ -52,6 +52,12 @@
   font-weight: 600;
 }
 
+/* Prevent layout-induced horizontal scroll on mobile for MSS header actions */
+.handsontable-theme,
+.handsontable-theme * {
+  min-width: 0; /* allow flex items to shrink and text to truncate */
+}
+
 /* Handsontable theme customizations */
 .handsontable-theme .handsontable {
   font-family: inherit;
