@@ -67,7 +67,7 @@ function safeTransform(body: string | undefined, value: any, row: any) {
   }
 }
 
-export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSheetsComponent(): JSX.Element {
+export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSheetsComponent(): React.ReactElement {
   const hotRef = useRef<HotTableClass>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { data, loading, fetchData, updateEntry } = useMonthlyStatusSheets();

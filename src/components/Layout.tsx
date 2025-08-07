@@ -1,8 +1,10 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
+import { useSettings } from '@/hooks/useSettings';
+import { ViewTransitionLink } from '@/components/ViewTransitionLink';
 import {
   Calendar,
   BookOpen,
@@ -29,6 +31,7 @@ const modules = [
 export const Layout: React.FC = () => {
   const location = useLocation();
   const { signOut } = useAuth();
+  const { viewTransitionsEnabled, setViewTransitionsEnabled } = useSettings();
 
   // Local UI state for Search (Command Palette) and Quick Add
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -63,18 +66,18 @@ export const Layout: React.FC = () => {
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-8">
-              <Link to="/" className="flex items-center space-x-2">
+              <ViewTransitionLink to="/" className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-sm">LOS</span>
                 </div>
                 <span className="text-xl font-semibold text-foreground">Life OS</span>
-              </Link>
+              </ViewTransitionLink>
               
               <div className="flex items-center space-x-1">
                 {modules.slice(1).map((module) => {
                   const Icon = module.icon;
                   return (
-                    <Link
+                    <ViewTransitionLink
                       key={module.path}
                       to={module.path}
                       className={cn(
@@ -86,7 +89,7 @@ export const Layout: React.FC = () => {
                     >
                       <Icon size={16} />
                       <span>{module.name}</span>
-                    </Link>
+                    </ViewTransitionLink>
                   );
                 })}
               </div>
@@ -99,6 +102,15 @@ export const Layout: React.FC = () => {
               <Button variant="hero" size="sm" className="hidden md:inline-flex" onClick={() => setIsQuickAddOpen(true)}>
                 <Plus size={16} />
                 Quick Add
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setViewTransitionsEnabled(!viewTransitionsEnabled)}
+                className="text-muted-foreground hover:text-foreground hidden lg:inline-flex"
+                title={`${viewTransitionsEnabled ? 'Disable' : 'Enable'} view transitions`}
+              >
+                {viewTransitionsEnabled ? '🔄' : '⏸️'}
               </Button>
               <Button
                 variant="ghost"
@@ -125,7 +137,7 @@ export const Layout: React.FC = () => {
           {modules.map((module) => {
             const Icon = module.icon;
             return (
-              <Link
+              <ViewTransitionLink
                 key={module.path}
                 to={module.path}
                 className={cn(
@@ -139,7 +151,7 @@ export const Layout: React.FC = () => {
                 <span className="mt-1 text-[10px] font-medium leading-tight">
                   {module.name}
                 </span>
-              </Link>
+              </ViewTransitionLink>
             );
           })}
         </div>
