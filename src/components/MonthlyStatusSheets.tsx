@@ -7,7 +7,7 @@ import "./MonthlyStatusSheets.css";
 import { registerAllModules } from "handsontable/registry";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Settings2, Download } from "lucide-react";
 import { useMonthlyStatusSheets } from "@/hooks/useMonthlyStatusSheets";
 import { format, getDaysInMonth, getDay } from "date-fns";
 import * as XLSX from "xlsx";
@@ -25,12 +25,12 @@ type BuiltinColumnKey = "Day" | "Weekday" | "Status" | "Notes";
 type ExportColumnKey = BuiltinColumnKey | string;
 
 type CustomColumnType = "text" | "dropdown";
-
 type CustomColumnDef = {
   id: string;            // stable id
   title: string;         // header shown
   type: CustomColumnType;
   options?: string[];    // for dropdown type
+  position?: number;     // ordering index
 };
 
 type CustomSchema = {
@@ -132,8 +132,6 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // Keep track to restore scroll position when exiting fullscreen (UX nicety)
   const scrollPosRef = useRef(0);
 
   const toggleFullscreen = useCallback(() => {
@@ -167,6 +165,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
   useEffect(() => {
     fetchData(monthYear);
+    // load custom values when month changes
     const monthData = loadMonthCustomData(monthYear);
     setCustomMonthData(monthData);
   }, [fetchData, monthYear, loadMonthCustomData]);
@@ -174,22 +173,21 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   // Helper function to check if a day is weekend (Saturday = 6, Sunday = 0)
   const isWeekend = (date: Date) => {
     const dayOfWeek = getDay(date);
-    return dayOfWeek === 0 || dayOfWeek === 6; // Sunday = 0, Saturday = 6
+    return dayOfWeek === 0 || dayOfWeek === 6;
   };
 
   // Memoize table data to prevent unnecessary recalculations
+  const orderedCustomColumns = useMemo(() => {
+    return [...schema.columns].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+  }, [schema.columns]);
+
   const tableData = useMemo(() => {
     const preparedData: (string | number)[][] = [];
 
     for (let day = 1; day <= daysInMonth; day++) {
-      const currentDate = new Date(
-        currentMonth.getFullYear(),
-        currentMonth.getMonth(),
-        day
-      );
+      const currentDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), day);
       const existingEntry = data.find((entry) => entry.day_number === day);
 
-      // Default status: if it's a weekend and no existing entry, mark as 'Holiday'
       let defaultStatus = "";
       if (isWeekend(currentDate) && !existingEntry?.status) {
         defaultStatus = "Holiday";
@@ -202,9 +200,8 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         existingEntry?.notes || "",
       ] as (string | number)[];
 
-      // append custom columns by schema order
       const dayCustom = customMonthData[day] || {};
-      schema.columns.forEach((col) => {
+      orderedCustomColumns.forEach((col) => {
         base.push(dayCustom[col.id] ?? "");
       });
 
@@ -212,7 +209,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     }
 
     return preparedData;
-  }, [data, currentMonth, daysInMonth, schema.columns, customMonthData]);
+  }, [data, currentMonth, daysInMonth, customMonthData, orderedCustomColumns]);
 
   const handleAfterChange = useCallback(
     (changes: Handsontable.CellChange[] | null) => {
@@ -221,28 +218,25 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
       const nextMonthData: CustomMonthData = { ...customMonthData };
 
       changes.forEach(([row, col, oldValue, newValue]) => {
-        // Ensure row/col are numbers before doing arithmetic/comparisons
-        if (oldValue !== newValue && typeof row === "number" && typeof col === "number") {
-          const dayNumber = row + 1;
+        if (oldValue !== newValue && row !== null && col !== null) {
+          const dayNumber = (row as number) + 1;
+          const colIndex = typeof col === "number" ? col : Number(col);
 
-          // Built-in columns 0..3 managed via Supabase
-          if (col <= 3) {
+          if (colIndex <= 3) {
             const status =
-              col === 2
+              colIndex === 2
                 ? (newValue as string)
                 : data.find((entry) => entry.day_number === dayNumber)?.status || "";
             const notes =
-              col === 3
+              colIndex === 3
                 ? (newValue as string)
                 : data.find((entry) => entry.day_number === dayNumber)?.notes || "";
 
             updateEntry(dayNumber, monthYear, status, notes);
           } else {
-            // Custom column index mapping
-            const customIndex = col - 4; // offset after 4 builtins
-            const def = schema.columns[customIndex];
+            const customIndex = colIndex - 4;
+            const def = orderedCustomColumns[customIndex];
             if (!def) return;
-
             const rowData = nextMonthData[dayNumber] ? { ...nextMonthData[dayNumber] } : {};
             rowData[def.id] = newValue;
             nextMonthData[dayNumber] = rowData;
@@ -250,10 +244,9 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         }
       });
 
-      // persist custom changes once
       persistMonthCustomData(monthYear, nextMonthData);
     },
-    [data, monthYear, updateEntry, schema.columns, customMonthData, persistMonthCustomData]
+    [data, monthYear, updateEntry, customMonthData, persistMonthCustomData, orderedCustomColumns]
   );
 
   const navigateMonth = useCallback((direction: "prev" | "next") => {
@@ -268,7 +261,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     });
   }, []);
 
-  // Memoize monthly statistics calculation
+  // Monthly stats from Status column
   const monthlyStats = useMemo(() => {
     const stats = {
       working: 0,
@@ -333,12 +326,11 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
   const performExport = useCallback(
     (cfg: ExportConfig) => {
-      // Build export rows from tableData with selection and transforms
       const builtinOrder: BuiltinColumnKey[] = ["Day", "Weekday", "Status", "Notes"];
-      const customOrder = schema.columns.map((c) => c.title);
+      const customOrder = orderedCustomColumns.map((c) => c.title);
       const columnTitles = [...builtinOrder, ...customOrder] as ExportColumnKey[];
 
-      const enabledCols = columnTitles.filter((c) => cfg.columns[c]);
+      const enabledCols = columnTitles.filter((c) => cfg.columns[c] ?? false);
 
       const rows = tableData.map((r, idx) => {
         const dayNum = idx + 1;
@@ -349,8 +341,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
           Status: r[2] || "",
           Notes: r[3] || "",
         };
-        // add custom values by title mapping
-        schema.columns.forEach((def, i) => {
+        orderedCustomColumns.forEach((def, i) => {
           const value = customRow[def.id] ?? r[4 + i] ?? "";
           sourceRow[def.title] = value;
         });
@@ -359,15 +350,12 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
         enabledCols.forEach((col) => {
           let v = sourceRow[col];
-
-          // default helper for Day formatting if no custom transform
           if (col === "Day") {
             const custom = cfg.transforms[col];
             if (!custom || !custom.trim()) {
               v = cfg.dateFormat === "dd" ? String(v).padStart(2, "0") : v;
             }
           }
-
           const transformed = safeTransform(cfg.transforms[col], v, sourceRow);
           rowObj[col] = transformed;
         });
@@ -381,10 +369,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
       const fileName =
         (() => {
           try {
-            return formatWithMonth(
-              currentMonth,
-              cfg.fileName || DEFAULT_EXPORT_CONFIG.fileName
-            );
+            return formatWithMonth(currentMonth, cfg.fileName || DEFAULT_EXPORT_CONFIG.fileName);
           } catch {
             return `MonthlyStatus_${format(currentMonth, "yyyy-MM")}.xlsx`;
           }
@@ -392,7 +377,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
       XLSX.writeFile(wb, fileName);
     },
-    [tableData, currentMonth, schema.columns, customMonthData]
+    [tableData, currentMonth, orderedCustomColumns, customMonthData]
   );
 
   return (
@@ -401,9 +386,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         <CardHeader className={isFullscreen ? "border-b" : ""}>
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="shrink-0">Monthly Status Sheets</CardTitle>
-            {/* Actions row: wrap on small screens, avoid horizontal overflow */}
             <div className="flex items-center gap-1 flex-wrap justify-end max-w-full overflow-x-hidden">
-              {/* Prev month - icon only */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -415,12 +398,10 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 <ChevronLeft className="h-5 w-5" />
               </Button>
 
-              {/* Current month label - allow shrink/truncate */}
               <span className="font-medium min-w-[100px] text-center truncate px-1">
                 {format(currentMonth, "MMM yyyy")}
               </span>
 
-              {/* Next month - icon only */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -432,7 +413,18 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 <ChevronRight className="h-5 w-5" />
               </Button>
 
-              {/* Fullscreen toggle - icon only */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setCustomizeOpen(true)}
+                aria-label="Customize Columns"
+                title="Customize Columns"
+              >
+                <Settings2 className="h-4 w-4 mr-1" />
+                Columns
+              </Button>
+
               <Button
                 variant={isFullscreen ? "default" : "ghost"}
                 size="icon"
@@ -444,19 +436,6 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
               </Button>
 
-              {/* Customize Columns */}
-              <Button
-                variant="outline"
-                size="sm"
-                className="shrink-0"
-                onClick={() => setCustomizeOpen(true)}
-                aria-label="Customize Columns"
-                title="Customize Columns"
-              >
-                Columns
-              </Button>
-
-              {/* Export - icon only */}
               <Button
                 variant="default"
                 size="icon"
@@ -465,18 +444,12 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 aria-label="Export to Excel"
                 title="Export to Excel"
               >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 3h7v7H3z"></path>
-                  <path d="M14 3h7v7h-7z"></path>
-                  <path d="M14 14h7v7h-7z"></path>
-                  <path d="M3 14h7v7H3z"></path>
-                </svg>
+                <Download className="h-5 w-5" />
               </Button>
             </div>
           </div>
           <div className="text-sm text-muted-foreground mt-2">
-            Weekends (Saturday & Sunday) are automatically marked as holidays. You
-            can change them to working days if needed.
+            Weekends (Saturday & Sunday) are automatically marked as holidays. You can change them to working days if needed.
           </div>
         </CardHeader>
         <CardContent className={isFullscreen ? "flex-1 flex flex-col min-h-0" : ""}>
@@ -488,7 +461,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             <div className={isFullscreen ? "flex-1 flex flex-col min-h-0 space-y-4" : "space-y-4"}>
               <div className={isFullscreen ? "flex-1 min-h-0 overflow-auto" : "overflow-auto"}>
                 <HotTable
-                  key={monthYear + ":" + schema.columns.map(c => c.id).join(",")}
+                  key={monthYear + ":" + orderedCustomColumns.map((c) => c.id).join(",")}
                   ref={hotRef}
                   data={tableData}
                   colHeaders={[
@@ -496,7 +469,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                     "Weekday",
                     "Status",
                     "Notes",
-                    ...schema.columns.map((c) => c.title),
+                    ...orderedCustomColumns.map((c) => c.title),
                   ]}
                   columns={[
                     {
@@ -531,8 +504,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       width: 300,
                       className: "htLeft htMiddle",
                     },
-                    // dynamic custom columns
-                    ...schema.columns.map((colDef, idx) => {
+                    ...orderedCustomColumns.map((colDef, idx) => {
                       const colIndex = 4 + idx;
                       const base: any = { data: colIndex, width: 180, className: "htLeft htMiddle" };
                       if (colDef.type === "dropdown") {
@@ -550,10 +522,9 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                   manualColumnResize={true}
                   afterChange={handleAfterChange}
                   cells={(row, col) => {
-                    // Use a partial so we don't need to satisfy internal props.
                     const cellProperties: Partial<Handsontable.CellProperties> = {};
 
-                    // Color coding for weekends
+                    // weekend highlight on weekday name
                     if (col === 1) {
                       const dayName = tableData[row]?.[1] as string;
                       if (dayName === "Saturday" || dayName === "Sunday") {
@@ -561,7 +532,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       }
                     }
 
-                    // Color coding for status
+                    // color coding by status
                     if (col === 2) {
                       const status = tableData[row]?.[2] as string;
                       const dayName = tableData[row]?.[1] as string;
@@ -572,32 +543,25 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
                       switch (status) {
                         case "Holiday":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " holiday-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " holiday-cell htCenter htMiddle";
                           break;
                         case "Working":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " working-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " working-cell htCenter htMiddle";
                           break;
                         case "Sick Leave":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " sick-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " sick-cell htCenter htMiddle";
                           break;
                         case "Vacation":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " vacation-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " vacation-cell htCenter htMiddle";
                           break;
                         case "Work from Home":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " wfh-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " wfh-cell htCenter htMiddle";
                           break;
                         case "Half Day":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " half-day-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " half-day-cell htCenter htMiddle";
                           break;
                         case "Training":
-                          cellProperties.className =
-                            (cellProperties.className || "") + " training-cell htCenter htMiddle";
+                          cellProperties.className = (cellProperties.className || "") + " training-cell htCenter htMiddle";
                           break;
                       }
                     }
@@ -688,10 +652,8 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
       {/* Customize Columns Dialog */}
       <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
-        {/* Raise dialog z-index above Handsontable and provide portal so popovers/menus render correctly */}
-        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[2000]">
-          {/* Ensure the dialog creates a new stacking context for popovers */}
-          <div className="sticky top-0 z-[2100] border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
+          <div className="sticky top-0 z-10 border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
             <DialogHeader className="p-0">
               <DialogTitle>Customize Columns</DialogTitle>
             </DialogHeader>
@@ -699,104 +661,154 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
           <div className="p-4 space-y-4">
             <div className="text-sm text-muted-foreground">
-              Add custom columns that appear after Notes. Values are saved per month locally.
+              Add custom columns that appear after Notes. Values are saved per month locally (in this browser).
             </div>
 
             <div className="space-y-3">
-              {schema.columns.map((c, idx) => (
-                <div key={c.id} className="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
-                  <Label className="md:col-span-2">Title</Label>
-                  <Input
-                    value={c.title}
-                    onChange={(e) => {
-                      const next = { ...schema, columns: [...schema.columns] };
-                      next.columns[idx] = { ...next.columns[idx], title: e.target.value };
-                      persistSchema(next);
+              {orderedCustomColumns.map((c) => {
+                const idx = schema.columns.findIndex((s) => s.id === c.id);
+                return (
+                  <div key={c.id} className="grid grid-cols-1 md:grid-cols-7 gap-2 items-center">
+                    {/* Order controls */}
+                    <div className="flex md:col-span-1 gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const cols = [...schema.columns];
+                          const curIndex = cols.findIndex((cc) => cc.id === c.id);
+                          if (curIndex <= 0) return;
+                          const prev = cols[curIndex - 1];
+                          const curPos = cols[curIndex].position ?? curIndex;
+                          const prevPos = prev.position ?? (curIndex - 1);
+                          cols[curIndex] = { ...cols[curIndex], position: prevPos };
+                          cols[curIndex - 1] = { ...prev, position: curPos };
+                          persistSchema({ columns: cols });
+                        }}
+                        title="Move up"
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const cols = [...schema.columns];
+                          const curIndex = cols.findIndex((cc) => cc.id === c.id);
+                          if (curIndex >= cols.length - 1) return;
+                          const next = cols[curIndex + 1];
+                          const curPos = cols[curIndex].position ?? curIndex;
+                          const nextPos = next.position ?? (curIndex + 1);
+                          cols[curIndex] = { ...cols[curIndex], position: nextPos };
+                          cols[curIndex + 1] = { ...next, position: curPos };
+                          persistSchema({ columns: cols });
+                        }}
+                        title="Move down"
+                      >
+                        ↓
+                      </Button>
+                    </div>
 
-                      // update export config keys if renamed
-                      const oldTitle = c.title;
-                      if (oldTitle !== e.target.value) {
-                        const nextCfg: ExportConfig = {
-                          ...exportConfig,
-                          columns: { ...exportConfig.columns },
-                          transforms: { ...exportConfig.transforms },
-                        };
-                        if (nextCfg.columns[oldTitle] !== undefined) {
-                          nextCfg.columns[e.target.value] = nextCfg.columns[oldTitle];
-                          delete nextCfg.columns[oldTitle];
-                        }
-                        if (nextCfg.transforms[oldTitle] !== undefined) {
-                          nextCfg.transforms[e.target.value] = nextCfg.transforms[oldTitle];
-                          delete nextCfg.transforms[oldTitle];
-                        }
-                        persistExportConfig(nextCfg);
-                      }
-                    }}
-                    className="md:col-span-4"
-                  />
-
-                  <Label className="md:col-span-2">Type</Label>
-                  {/* Wrap Select in a relative container with high z-index so popover is clickable above Handsontable */}
-                  <div className="md:col-span-4 relative z-[2200]">
-                    <Select
-                      value={c.type}
-                      onValueChange={(v) => {
+                    <Label className="md:col-span-2">Title</Label>
+                    <Input
+                      value={c.title}
+                      onChange={(e) => {
                         const next = { ...schema, columns: [...schema.columns] };
-                        const newType = (v === "dropdown" ? "dropdown" : "text") as CustomColumnType;
-                        next.columns[idx] = { ...next.columns[idx], type: newType, options: newType === "dropdown" ? (c.options || []) : undefined };
+                        next.columns[idx] = { ...next.columns[idx], title: e.target.value };
                         persistSchema(next);
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Type">{c.type === "dropdown" ? "Dropdown" : "Text"}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="z-[2300]">
-                        <SelectItem value="text">Text</SelectItem>
-                        <SelectItem value="dropdown">Dropdown</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
 
-                  {schema.columns[idx]?.type === "dropdown" && (
-                    <>
-                      <Label className="md:col-span-2">Options (comma separated)</Label>
-                      {/* Elevate input above grid headers for reliable focusing */}
-                      <div className="md:col-span-4 relative z-[2200]">
-                        <Input
-                          value={(schema.columns[idx].options || []).join(", ")}
-                          onChange={(e) => {
-                            const opts = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
-                            const next = { ...schema, columns: [...schema.columns] };
-                            next.columns[idx] = { ...next.columns[idx], options: opts };
-                            persistSchema(next);
-                          }}
-                        />
-                      </div>
-                    </>
-                  )}
-
-                  <div className="md:col-span-6 flex justify-end">
-                    <Button
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => {
-                        const next = { ...schema, columns: schema.columns.filter((_, i) => i !== idx) };
-                        persistSchema(next);
+                        // migrate export config keys if renamed
+                        const oldTitle = c.title;
+                        const newTitle = e.target.value;
+                        if (oldTitle !== newTitle) {
+                          const nextCfg: ExportConfig = {
+                            ...exportConfig,
+                            columns: { ...exportConfig.columns },
+                            transforms: { ...exportConfig.transforms },
+                          };
+                          if (nextCfg.columns[oldTitle] !== undefined) {
+                            nextCfg.columns[newTitle] = nextCfg.columns[oldTitle];
+                            delete nextCfg.columns[oldTitle];
+                          }
+                          if (nextCfg.transforms[oldTitle] !== undefined) {
+                            nextCfg.transforms[newTitle] = nextCfg.transforms[oldTitle];
+                            delete nextCfg.transforms[oldTitle];
+                          }
+                          persistExportConfig(nextCfg);
+                        }
                       }}
-                    >
-                      Remove
-                    </Button>
+                      className="md:col-span-4"
+                    />
+
+                    <Label className="md:col-span-2">Type</Label>
+                    <div className="md:col-span-4 relative z-[1200]">
+                      <Select
+                        value={c.type}
+                        onValueChange={(v) => {
+                          const next = { ...schema, columns: [...schema.columns] };
+                          const newType = (v === "dropdown" ? "dropdown" : "text") as CustomColumnType;
+                          next.columns[idx] = {
+                            ...next.columns[idx],
+                            type: newType,
+                            options: newType === "dropdown" ? c.options || [] : undefined,
+                          };
+                          persistSchema(next);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Type">{c.type === "dropdown" ? "Dropdown" : "Text"}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent className="z-[1300]">
+                          <SelectItem value="text">Text</SelectItem>
+                          <SelectItem value="dropdown">Dropdown</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {schema.columns[idx]?.type === "dropdown" && (
+                      <>
+                        <Label className="md:col-span-2">Options (comma separated)</Label>
+                        <div className="md:col-span-4 relative z-[1200]">
+                          <Input
+                            value={(schema.columns[idx].options || []).join(", ")}
+                            onChange={(e) => {
+                              const opts = e.target.value
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean);
+                              const next = { ...schema, columns: [...schema.columns] };
+                              next.columns[idx] = { ...next.columns[idx], options: opts };
+                              persistSchema(next);
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    <div className="md:col-span-7 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        className="text-destructive"
+                        onClick={() => {
+                          const next = { ...schema, columns: schema.columns.filter((_, i) => i !== idx) };
+                          persistSchema(next);
+                        }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div>
               <Button
                 onClick={() => {
                   const id = "col_" + Math.random().toString(36).slice(2, 9);
+                  const nextPos = schema.columns.length;
                   const next: CustomSchema = {
-                    columns: [...schema.columns, { id, title: "Custom " + (schema.columns.length + 1), type: "text" }],
+                    columns: [...schema.columns, { id, title: "Custom " + (schema.columns.length + 1), type: "text", position: nextPos }],
                   };
                   persistSchema(next);
                 }}
@@ -818,7 +830,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
       {/* Export Configuration Dialog */}
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[2000]">
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
           <div className="sticky top-0 z-10 border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
             <DialogHeader className="p-0">
               <DialogTitle>Configure Export</DialogTitle>
@@ -829,12 +841,12 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             <div className="space-y-2">
               <Label>Columns</Label>
               <div className="grid grid-cols-2 gap-2">
-                {[..."Day,Weekday,Status,Notes".split(","), ...schema.columns.map(c => c.title)].map((key) => (
+                {[..."Day,Weekday,Status,Notes".split(","), ...orderedCustomColumns.map((c) => c.title)].map((key) => (
                   <label key={key} className="flex items-center space-x-2">
                     <Checkbox
                       checked={!!exportConfig.columns[key]}
                       onCheckedChange={(checked) => {
-                        const next = {
+                        const next: ExportConfig = {
                           ...exportConfig,
                           columns: { ...exportConfig.columns, [key]: !!checked },
                         };
@@ -851,9 +863,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
               <Label>File name</Label>
               <Input
                 value={exportConfig.fileName}
-                onChange={(e) =>
-                  persistExportConfig({ ...exportConfig, fileName: e.target.value })
-                }
+                onChange={(e) => persistExportConfig({ ...exportConfig, fileName: e.target.value })}
                 placeholder='e.g. MonthlyStatus_${YYYY}-${MM}.xlsx'
               />
               <div className="text-xs text-muted-foreground">
@@ -865,9 +875,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
               <Label>Sheet name</Label>
               <Input
                 value={exportConfig.sheetName}
-                onChange={(e) =>
-                  persistExportConfig({ ...exportConfig, sheetName: e.target.value })
-                }
+                onChange={(e) => persistExportConfig({ ...exportConfig, sheetName: e.target.value })}
                 placeholder="Monthly Status"
               />
             </div>
@@ -890,14 +898,14 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">
-            {[..."Day,Weekday,Status,Notes".split(","), ...schema.columns.map(c => c.title)].map((key) => (
+            {[..."Day,Weekday,Status,Notes".split(","), ...orderedCustomColumns.map((c) => c.title)].map((key) => (
               <div key={key} className="space-y-2">
                 <Label>{key} transform (JS)</Label>
                 <Textarea
                   rows={5}
                   value={exportConfig.transforms[key] || ""}
                   onChange={(e) => {
-                    const next = {
+                    const next: ExportConfig = {
                       ...exportConfig,
                       transforms: { ...exportConfig.transforms, [key]: e.target.value },
                     };
