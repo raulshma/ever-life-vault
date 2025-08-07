@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -35,7 +35,9 @@ export function useTasks() {
 
   const fetchTasks = async () => {
     if (!user) return;
-    
+    // Avoid fetching while tab is hidden to prevent refetch on focus/visibility restore
+    if (typeof document !== 'undefined' && document.hidden) return;
+
     try {
       const { data, error } = await supabase
         .from('tasks')
@@ -44,7 +46,7 @@ export function useTasks() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      
+
       const transformedTasks: Task[] = (data || []).map((task: DatabaseTask) => ({
         ...task,
         description: task.description || undefined,
@@ -52,7 +54,7 @@ export function useTasks() {
         status: task.status as 'todo' | 'in-progress' | 'done',
         due_date: task.due_date || undefined,
       }));
-      
+
       setTasks(transformedTasks);
     } catch (error) {
       console.error('Error fetching tasks:', error);
@@ -163,9 +165,31 @@ export function useTasks() {
     }
   };
 
+  // Debounce rapid user changes and only react to user.id changes
+  const fetchTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
-    fetchTasks();
-  }, [user]);
+    // If no user, clear tasks and loading state
+    if (!user?.id) {
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
+    // debounce 150ms to coalesce visibility/auth quick toggles
+    if (fetchTimeoutRef.current) {
+      window.clearTimeout(fetchTimeoutRef.current);
+    }
+    fetchTimeoutRef.current = window.setTimeout(() => {
+      fetchTasks();
+    }, 150);
+
+    return () => {
+      if (fetchTimeoutRef.current) {
+        window.clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, [user?.id]);
 
   return {
     tasks,

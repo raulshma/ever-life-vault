@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, useRef } from "react";
+import { useState, useEffect, createContext, useContext, useRef, useMemo } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -19,18 +19,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const initialLoadRef = useRef(true);
+  const lastUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     // Set up auth state listener
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      const nextUser = nextSession?.user ?? null;
+      const nextUserId = nextUser?.id ?? null;
+      const prevUserId = lastUserIdRef.current;
 
-      // Only navigate on SIGNED_IN if the user is currently on the auth page.
-      // Do NOT redirect on initial load when already signed in; preserve the current route.
+      // Determine if meaningful auth identity changed
+      const identityChanged = prevUserId !== nextUserId;
+
+      // Update refs first
+      lastUserIdRef.current = nextUserId;
+
+      // Only update state for identity changes or explicit sign-in/sign-out
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || identityChanged) {
+        setSession(nextSession ?? null);
+        setUser(nextUser);
+      }
+      // Ensure loading resolved on first event
+      if (loading) {
+        setLoading(false);
+      }
+
+      // Navigation logic remains the same
       if (event === "SIGNED_IN") {
         if (location.pathname === "/auth") {
           navigate("/", { replace: true });
@@ -39,7 +55,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         navigate("/auth", { replace: true });
       }
 
-      // Mark that initial load is complete
       if (initialLoadRef.current) {
         initialLoadRef.current = false;
       }
@@ -47,11 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      const nextUserId = session?.user?.id ?? null;
+      lastUserIdRef.current = nextUserId;
+
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
 
-      // Mark that initial load is complete
       if (initialLoadRef.current) {
         initialLoadRef.current = false;
       }
@@ -67,8 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const ctxValue = useMemo(
+    () => ({ user, session, loading, signOut }),
+    [user?.id, session?.access_token, loading]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, session, loading, signOut }}>
+    <AuthContext.Provider value={ctxValue}>
       {children}
     </AuthContext.Provider>
   );

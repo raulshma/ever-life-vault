@@ -15,7 +15,18 @@ import Documents from "./pages/Documents";
 import Inventory from "./pages/Inventory";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      // Prevent automatic refetch when window/tab regains focus
+      refetchOnWindowFocus: false,
+      // Also prevent refetch on reconnect to avoid surprise reloads
+      refetchOnReconnect: false,
+      // Optional: don't retry immediately on error while user is navigating
+      retry: 1,
+    },
+  },
+});
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();

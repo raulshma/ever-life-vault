@@ -28,7 +28,7 @@ const modules = [
   { name: 'Inventory', path: '/inventory', icon: Package2 },
 ];
 
-export const Layout: React.FC = () => {
+export const Layout: React.FC = React.memo(() => {
   const location = useLocation();
   const { signOut } = useAuth();
   const { viewTransitionsEnabled, setViewTransitionsEnabled } = useSettings();
@@ -191,4 +191,4 @@ export const Layout: React.FC = () => {
       />
     </div>
   );
-};
+});
