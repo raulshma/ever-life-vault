@@ -8,6 +8,13 @@ import {
   EncryptedVaultItem,
   encryptVaultItem,
   decryptVaultItem,
+  encryptData,
+  decryptData,
+  generateIV,
+  arrayBufferToBase64,
+  base64ToArrayBuffer,
+  uint8ArrayToBase64,
+  base64ToUint8Array,
 } from '@/lib/crypto';
 
 export function useEncryptedVault() {
@@ -231,6 +238,141 @@ export function useEncryptedVault() {
     setSearchQuery(query);
   }, []);
 
+  // Export all vault data
+  const exportVaultData = useCallback(async (): Promise<string | null> => {
+    if (!user || !isUnlocked || !masterKey) return null;
+    
+    try {
+      // Create export data structure
+      const exportData = {
+        version: '1.0',
+        timestamp: new Date().toISOString(),
+        itemCount: items.length,
+        items: items.map(item => ({
+          type: item.type,
+          name: item.name,
+          data: item.data,
+          created_at: item.created_at,
+          updated_at: item.updated_at,
+        })),
+      };
+
+      // Encrypt the export data
+      const exportJson = JSON.stringify(exportData, null, 2);
+      const { encryptedData, iv, authTag } = await encryptData(exportJson, masterKey);
+      
+      // Create encrypted export file
+      const encryptedExport = {
+        version: '1.0',
+        encrypted: true,
+        data: arrayBufferToBase64(encryptedData),
+        iv: uint8ArrayToBase64(iv),
+        authTag: uint8ArrayToBase64(authTag),
+        timestamp: new Date().toISOString(),
+      };
+
+      return JSON.stringify(encryptedExport, null, 2);
+    } catch (error) {
+      console.error('Error exporting vault data:', error);
+      toast({
+        title: "Export Error",
+        description: "Failed to export vault data",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [user, isUnlocked, masterKey, items, toast]);
+
+  // Import vault data
+  const importVaultData = useCallback(async (importData: string): Promise<boolean> => {
+    if (!user || !isUnlocked || !masterKey) return false;
+    
+    try {
+      const parsedImport = JSON.parse(importData);
+      
+      // Validate import file structure
+      if (!parsedImport.version || !parsedImport.encrypted || !parsedImport.data) {
+        throw new Error('Invalid import file format');
+      }
+
+      // Decrypt the import data
+      const encryptedData = base64ToArrayBuffer(parsedImport.data);
+      const iv = base64ToUint8Array(parsedImport.iv);
+      const authTag = base64ToUint8Array(parsedImport.authTag);
+      
+      const decryptedJson = await decryptData(encryptedData, masterKey, iv, authTag);
+      const vaultData = JSON.parse(decryptedJson);
+      
+      // Validate decrypted data structure
+      if (!vaultData.items || !Array.isArray(vaultData.items)) {
+        throw new Error('Invalid vault data structure');
+      }
+
+      // Import items one by one
+      let importedCount = 0;
+      let skippedCount = 0;
+      let errorCount = 0;
+      
+      for (const itemData of vaultData.items) {
+        try {
+          // Validate item structure
+          if (!itemData.type || !itemData.name || !itemData.data) {
+            console.warn('Skipping invalid item:', itemData);
+            errorCount++;
+            continue;
+          }
+
+          // Check if item with same name and type already exists
+          const existingItem = items.find(item => 
+            item.name === itemData.name && item.type === itemData.type
+          );
+          
+          if (existingItem) {
+            skippedCount++;
+            continue;
+          }
+
+          // Add the item
+          await addItem({
+            type: itemData.type,
+            name: itemData.name,
+            data: itemData.data,
+          });
+          
+          importedCount++;
+        } catch (itemError) {
+          console.error('Error importing item:', itemData.name, itemError);
+          errorCount++;
+        }
+      }
+
+      // Provide detailed feedback
+      let message = `Imported ${importedCount} items successfully.`;
+      if (skippedCount > 0) {
+        message += ` ${skippedCount} duplicates were skipped.`;
+      }
+      if (errorCount > 0) {
+        message += ` ${errorCount} items had errors and were not imported.`;
+      }
+
+      toast({
+        title: "Import Complete",
+        description: message,
+        variant: importedCount > 0 ? "default" : "destructive",
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error importing vault data:', error);
+      toast({
+        title: "Import Error",
+        description: error instanceof Error ? error.message : "Failed to import vault data",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [user, isUnlocked, masterKey, items, addItem, toast]);
+
   // Filter items based on search query
   const filteredItems = items.filter(item => {
     if (!searchQuery.trim()) return true;
@@ -285,6 +427,8 @@ export function useEncryptedVault() {
     updateItem,
     deleteItem,
     searchItems,
+    exportVaultData,
+    importVaultData,
     refetch: fetchItems,
     
     // Computed

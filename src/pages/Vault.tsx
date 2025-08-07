@@ -5,6 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Shield,
   Key,
   Lock,
@@ -22,6 +32,8 @@ import {
   Settings,
   Zap,
   RefreshCw,
+  Download,
+  Upload,
 } from "lucide-react";
 import { useVaultSession } from "@/hooks/useVaultSession";
 import { useEncryptedVault } from "@/hooks/useEncryptedVault";
@@ -29,6 +41,7 @@ import { MasterPasswordSetup } from "@/components/MasterPasswordSetup";
 import { VaultUnlock } from "@/components/VaultUnlock";
 import { EncryptedVaultDialog } from "@/components/EncryptedVaultDialog";
 import { VaultItem } from "@/lib/crypto";
+import { useToast } from "@/hooks/use-toast";
 
 // Quick Add Credentials Component
 function QuickAddCredentials({
@@ -221,6 +234,9 @@ export default function Vault() {
     updateItem,
     deleteItem,
     searchItems,
+    exportVaultData,
+    importVaultData,
+    totalItems,
   } = useEncryptedVault();
 
   const [visiblePasswords, setVisiblePasswords] = useState<Set<string>>(
@@ -229,6 +245,11 @@ export default function Vault() {
   const [selectedItem, setSelectedItem] = useState<VaultItem | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [copiedItems, setCopiedItems] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
+  const { toast } = useToast();
 
   // Show setup screen if no vault exists
   if (sessionLoading) {
@@ -286,6 +307,104 @@ export default function Vault() {
     setShowDialog(true);
   };
 
+  const handleExport = async () => {
+    if (totalItems === 0) {
+      toast({
+        title: "Nothing to Export",
+        description: "Your vault is empty. Add some items first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const exportData = await exportVaultData();
+      if (exportData) {
+        // Create and download the file
+        const blob = new Blob([exportData], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `vault-backup-${
+          new Date().toISOString().split("T")[0]
+        }.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Export Successful",
+          description: `Exported ${totalItems} vault items to encrypted backup file.`,
+        });
+      }
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast({
+          title: "File Too Large",
+          description: "Import file must be smaller than 10MB.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Basic validation of JSON structure
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        if (!parsed.version || !parsed.encrypted) {
+          throw new Error("Invalid backup file format");
+        }
+
+        // Show confirmation dialog
+        setPendingImportFile(file);
+        setShowImportDialog(true);
+      } catch (parseError) {
+        toast({
+          title: "Invalid File",
+          description: "The selected file is not a valid vault backup.",
+          variant: "destructive",
+        });
+      }
+    };
+    input.click();
+  };
+
+  const confirmImport = async () => {
+    if (!pendingImportFile) return;
+
+    setIsImporting(true);
+    setShowImportDialog(false);
+
+    try {
+      const text = await pendingImportFile.text();
+      await importVaultData(text);
+    } catch (error) {
+      toast({
+        title: "Import Error",
+        description: "Failed to read the import file.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImporting(false);
+      setPendingImportFile(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
@@ -310,6 +429,36 @@ export default function Vault() {
                 <Lock className="w-3 h-3 mr-1" />
                 Encrypted
               </Badge>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="hero"
+                  className="bg-white/20 hover:bg-white/30"
+                  onClick={handleExport}
+                  disabled={isExporting || totalItems === 0}
+                  title={`Export all ${totalItems} vault items to encrypted backup file`}
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 mr-2" />
+                  )}
+                  Export
+                </Button>
+                <Button
+                  variant="hero"
+                  className="bg-white/20 hover:bg-white/30"
+                  onClick={handleImport}
+                  disabled={isImporting}
+                  title="Import vault data from encrypted backup file"
+                >
+                  {isImporting ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Upload className="w-4 h-4 mr-2" />
+                  )}
+                  Import
+                </Button>
+              </div>
               <Button
                 variant="hero"
                 className="bg-white/20 hover:bg-white/30"
@@ -367,6 +516,30 @@ export default function Vault() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Export/Import Info */}
+          {totalItems > 0 && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-4">
+                <div className="flex items-start space-x-3">
+                  <div className="flex space-x-2">
+                    <Download className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <Upload className="w-4 h-4 text-blue-600 mt-0.5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-800 mb-1">
+                      Backup & Restore
+                    </h3>
+                    <p className="text-blue-700 text-sm">
+                      Export your vault to create encrypted backups. Import from
+                      backup files to restore data. All exports are encrypted
+                      with your master password for maximum security.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Quick Add Section */}
           <QuickAddCredentials onAdd={addItem} />
@@ -828,6 +1001,41 @@ export default function Vault() {
           onUpdate={updateItem}
           onDelete={deleteItem}
         />
+
+        {/* Import Confirmation Dialog */}
+        <AlertDialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center">
+                <Upload className="w-5 h-5 mr-2" />
+                Import Vault Data
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You're about to import vault data from a backup file. This will:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Add new items to your vault</li>
+                  <li>Skip items that already exist (duplicates)</li>
+                  <li>Require your master password to decrypt the backup</li>
+                </ul>
+                <p className="mt-3 font-medium">
+                  File: {pendingImportFile?.name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone. Make sure you have a current
+                  backu p before proceeding.
+                </p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setPendingImportFile(null)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={confirmImport}>
+                Import Data
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
