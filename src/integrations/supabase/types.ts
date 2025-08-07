@@ -199,6 +199,7 @@ export type Database = {
       monthly_status_sheets: {
         Row: {
           created_at: string
+          custom_data: Json
           day_number: number
           id: string
           month_year: string
@@ -209,6 +210,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_data?: Json
           day_number: number
           id?: string
           month_year: string
@@ -219,6 +221,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_data?: Json
           day_number?: number
           id?: string
           month_year?: string

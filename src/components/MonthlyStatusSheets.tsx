@@ -21,11 +21,30 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 // Register Handsontable modules
 registerAllModules();
 
-type ExportColumnKey = "Day" | "Weekday" | "Status" | "Notes";
+type BuiltinColumnKey = "Day" | "Weekday" | "Status" | "Notes";
+type ExportColumnKey = BuiltinColumnKey | string;
+
+type CustomColumnType = "text" | "dropdown";
+
+type CustomColumnDef = {
+  id: string;            // stable id
+  title: string;         // header shown
+  type: CustomColumnType;
+  options?: string[];    // for dropdown type
+};
+
+type CustomSchema = {
+  columns: CustomColumnDef[];
+};
+
+type CustomDataRow = Record<string, any>; // key by column id - value
+type CustomMonthData = {
+  [day: number]: CustomDataRow;
+};
 
 type ExportConfig = {
-  columns: Record<ExportColumnKey, boolean>;
-  transforms: Partial<Record<ExportColumnKey, string>>;
+  columns: Record<string, boolean>;
+  transforms: Record<string, string>;
   fileName: string;
   sheetName: string;
   dateFormat: string; // applies to "Day" column presentation if needed
@@ -34,12 +53,7 @@ type ExportConfig = {
 
 const DEFAULT_EXPORT_CONFIG: ExportConfig = {
   columns: { Day: true, Weekday: true, Status: true, Notes: true },
-  transforms: {
-    // Day: "return value;",
-    // Weekday: "return value.toUpperCase();",
-    // Status: "return (value || \"\");",
-    // Notes: "return value;"
-  },
+  transforms: {},
   fileName: "MonthlyStatus_${YYYY}-${MM}.xlsx",
   sheetName: "Monthly Status",
   dateFormat: "d",
@@ -50,7 +64,6 @@ function formatWithMonth(date: Date, pattern: string) {
   const YYYY = format(date, "yyyy");
   const MM = format(date, "MM");
   const MMM = format(date, "MMM");
-  // Use split+join for wide TS lib compatibility instead of String.prototype.replaceAll
   return pattern.split("${YYYY}").join(YYYY).split("${MM}").join(MM).split("${MMM}").join(MMM);
 }
 
@@ -71,6 +84,51 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   const hotRef = useRef<HotTableClass>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { data, loading, fetchData, updateEntry } = useMonthlyStatusSheets();
+
+  // Local persistence keys
+  const LS_SCHEMA_KEY = "mss_custom_schema";
+  const LS_MONTH_DATA_PREFIX = "mss_custom_data_"; // + monthYear
+
+  // Schema state (custom columns)
+  const [schema, setSchema] = useState<CustomSchema>(() => {
+    try {
+      const raw = localStorage.getItem(LS_SCHEMA_KEY);
+      if (raw) return JSON.parse(raw) as CustomSchema;
+    } catch {}
+    return { columns: [] };
+  });
+
+  const persistSchema = useCallback((next: CustomSchema) => {
+    setSchema(next);
+    try {
+      localStorage.setItem(LS_SCHEMA_KEY, JSON.stringify(next));
+    } catch {}
+  }, []);
+
+  // Per month custom values
+  const [customMonthData, setCustomMonthData] = useState<CustomMonthData>(() => {
+    try {
+      const raw = localStorage.getItem(LS_MONTH_DATA_PREFIX + format(new Date(), "yyyy-MM"));
+      if (raw) return JSON.parse(raw) as CustomMonthData;
+    } catch {}
+    return {};
+  });
+
+  const loadMonthCustomData = useCallback((month: string) => {
+    try {
+      const raw = localStorage.getItem(LS_MONTH_DATA_PREFIX + month);
+      return raw ? (JSON.parse(raw) as CustomMonthData) : {};
+    } catch {
+      return {};
+    }
+  }, []);
+
+  const persistMonthCustomData = useCallback((month: string, next: CustomMonthData) => {
+    setCustomMonthData(next);
+    try {
+      localStorage.setItem(LS_MONTH_DATA_PREFIX + month, JSON.stringify(next));
+    } catch {}
+  }, []);
 
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -109,7 +167,9 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
   useEffect(() => {
     fetchData(monthYear);
-  }, [fetchData, monthYear]);
+    const monthData = loadMonthCustomData(monthYear);
+    setCustomMonthData(monthData);
+  }, [fetchData, monthYear, loadMonthCustomData]);
 
   // Helper function to check if a day is weekend (Saturday = 6, Sunday = 0)
   const isWeekend = (date: Date) => {
@@ -121,7 +181,6 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   const tableData = useMemo(() => {
     const preparedData: (string | number)[][] = [];
 
-    // Create rows for each day of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(
         currentMonth.getFullYear(),
@@ -136,38 +195,65 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         defaultStatus = "Holiday";
       }
 
-      preparedData.push([
+      const base = [
         day,
         format(currentDate, "EEEE"),
         existingEntry?.status || defaultStatus,
         existingEntry?.notes || "",
-      ]);
+      ] as (string | number)[];
+
+      // append custom columns by schema order
+      const dayCustom = customMonthData[day] || {};
+      schema.columns.forEach((col) => {
+        base.push(dayCustom[col.id] ?? "");
+      });
+
+      preparedData.push(base);
     }
 
     return preparedData;
-  }, [data, currentMonth, daysInMonth]);
+  }, [data, currentMonth, daysInMonth, schema.columns, customMonthData]);
 
   const handleAfterChange = useCallback(
     (changes: Handsontable.CellChange[] | null) => {
       if (!changes) return;
 
-      changes.forEach(([row, col, oldValue, newValue]) => {
-        if (oldValue !== newValue && row !== null && col !== null) {
-          const dayNumber = row + 1;
-          const status =
-            col === 2
-              ? (newValue as string)
-              : data.find((entry) => entry.day_number === dayNumber)?.status || "";
-          const notes =
-            col === 3
-              ? (newValue as string)
-              : data.find((entry) => entry.day_number === dayNumber)?.notes || "";
+      const nextMonthData: CustomMonthData = { ...customMonthData };
 
-          updateEntry(dayNumber, monthYear, status, notes);
+      changes.forEach(([row, col, oldValue, newValue]) => {
+        // Ensure row/col are numbers before doing arithmetic/comparisons
+        if (oldValue !== newValue && typeof row === "number" && typeof col === "number") {
+          const dayNumber = row + 1;
+
+          // Built-in columns 0..3 managed via Supabase
+          if (col <= 3) {
+            const status =
+              col === 2
+                ? (newValue as string)
+                : data.find((entry) => entry.day_number === dayNumber)?.status || "";
+            const notes =
+              col === 3
+                ? (newValue as string)
+                : data.find((entry) => entry.day_number === dayNumber)?.notes || "";
+
+            updateEntry(dayNumber, monthYear, status, notes);
+          } else {
+            // Custom column index mapping
+            const customIndex = col - 4; // offset after 4 builtins
+            const def = schema.columns[customIndex];
+            if (!def) return;
+
+            const rowData = nextMonthData[dayNumber] ? { ...nextMonthData[dayNumber] } : {};
+            rowData[def.id] = newValue;
+            nextMonthData[dayNumber] = rowData;
+          }
         }
       });
+
+      // persist custom changes once
+      persistMonthCustomData(monthYear, nextMonthData);
     },
-    [data, monthYear, updateEntry]
+    [data, monthYear, updateEntry, schema.columns, customMonthData, persistMonthCustomData]
   );
 
   const navigateMonth = useCallback((direction: "prev" | "next") => {
@@ -227,6 +313,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
   // Export configuration state
   const [exportOpen, setExportOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [exportConfig, setExportConfig] = useState<ExportConfig>(() => {
     const saved = localStorage.getItem("mss_export_config");
     if (saved) {
@@ -247,17 +334,28 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   const performExport = useCallback(
     (cfg: ExportConfig) => {
       // Build export rows from tableData with selection and transforms
-      const columnsOrder: ExportColumnKey[] = ["Day", "Weekday", "Status", "Notes"];
-      const enabledCols = columnsOrder.filter((c) => cfg.columns[c]);
+      const builtinOrder: BuiltinColumnKey[] = ["Day", "Weekday", "Status", "Notes"];
+      const customOrder = schema.columns.map((c) => c.title);
+      const columnTitles = [...builtinOrder, ...customOrder] as ExportColumnKey[];
 
-      const rows = tableData.map((r) => {
-        const rowObj: Record<string, any> = {};
-        const sourceRow = {
+      const enabledCols = columnTitles.filter((c) => cfg.columns[c]);
+
+      const rows = tableData.map((r, idx) => {
+        const dayNum = idx + 1;
+        const customRow = customMonthData[dayNum] || {};
+        const sourceRow: Record<string, any> = {
           Day: r[0],
           Weekday: r[1],
           Status: r[2] || "",
           Notes: r[3] || "",
-        } as Record<ExportColumnKey, any>;
+        };
+        // add custom values by title mapping
+        schema.columns.forEach((def, i) => {
+          const value = customRow[def.id] ?? r[4 + i] ?? "";
+          sourceRow[def.title] = value;
+        });
+
+        const rowObj: Record<string, any> = {};
 
         enabledCols.forEach((col) => {
           let v = sourceRow[col];
@@ -276,7 +374,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         return rowObj;
       });
 
-      const ws = XLSX.utils.json_to_sheet(rows, { header: enabledCols });
+      const ws = XLSX.utils.json_to_sheet(rows, { header: enabledCols as string[] });
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, cfg.sheetName || "Monthly Status");
 
@@ -294,7 +392,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
       XLSX.writeFile(wb, fileName);
     },
-    [tableData, currentMonth]
+    [tableData, currentMonth, schema.columns, customMonthData]
   );
 
   return (
@@ -346,7 +444,19 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 {isFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
               </Button>
 
-              {/* Export - icon only using same button with text hidden for a11y */}
+              {/* Customize Columns */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={() => setCustomizeOpen(true)}
+                aria-label="Customize Columns"
+                title="Customize Columns"
+              >
+                Columns
+              </Button>
+
+              {/* Export - icon only */}
               <Button
                 variant="default"
                 size="icon"
@@ -355,7 +465,6 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 aria-label="Export to Excel"
                 title="Export to Excel"
               >
-                {/* Reuse Maximize2 as placeholder if no export icon lib is available; can be swapped later */}
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M3 3h7v7H3z"></path>
                   <path d="M14 3h7v7h-7z"></path>
@@ -379,10 +488,16 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             <div className={isFullscreen ? "flex-1 flex flex-col min-h-0 space-y-4" : "space-y-4"}>
               <div className={isFullscreen ? "flex-1 min-h-0 overflow-auto" : "overflow-auto"}>
                 <HotTable
-                  key={monthYear} // Force re-render only when month changes
+                  key={monthYear + ":" + schema.columns.map(c => c.id).join(",")}
                   ref={hotRef}
                   data={tableData}
-                  colHeaders={["Day", "Weekday", "Status", "Notes"]}
+                  colHeaders={[
+                    "Day",
+                    "Weekday",
+                    "Status",
+                    "Notes",
+                    ...schema.columns.map((c) => c.title),
+                  ]}
                   columns={[
                     {
                       data: 0,
@@ -416,6 +531,18 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       width: 300,
                       className: "htLeft htMiddle",
                     },
+                    // dynamic custom columns
+                    ...schema.columns.map((colDef, idx) => {
+                      const colIndex = 4 + idx;
+                      const base: any = { data: colIndex, width: 180, className: "htLeft htMiddle" };
+                      if (colDef.type === "dropdown") {
+                        base.type = "dropdown";
+                        base.source = colDef.options || [];
+                        base.strict = false;
+                        base.allowInvalid = true;
+                      }
+                      return base;
+                    }),
                   ]}
                   rowHeaders={false}
                   contextMenu={true}
@@ -559,10 +686,139 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         </CardContent>
       </Card>
 
+      {/* Customize Columns Dialog */}
+      <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
+        {/* Raise dialog z-index above Handsontable and provide portal so popovers/menus render correctly */}
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[2000]">
+          {/* Ensure the dialog creates a new stacking context for popovers */}
+          <div className="sticky top-0 z-[2100] border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+            <DialogHeader className="p-0">
+              <DialogTitle>Customize Columns</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          <div className="p-4 space-y-4">
+            <div className="text-sm text-muted-foreground">
+              Add custom columns that appear after Notes. Values are saved per month locally.
+            </div>
+
+            <div className="space-y-3">
+              {schema.columns.map((c, idx) => (
+                <div key={c.id} className="grid grid-cols-1 md:grid-cols-6 gap-2 items-center">
+                  <Label className="md:col-span-2">Title</Label>
+                  <Input
+                    value={c.title}
+                    onChange={(e) => {
+                      const next = { ...schema, columns: [...schema.columns] };
+                      next.columns[idx] = { ...next.columns[idx], title: e.target.value };
+                      persistSchema(next);
+
+                      // update export config keys if renamed
+                      const oldTitle = c.title;
+                      if (oldTitle !== e.target.value) {
+                        const nextCfg: ExportConfig = {
+                          ...exportConfig,
+                          columns: { ...exportConfig.columns },
+                          transforms: { ...exportConfig.transforms },
+                        };
+                        if (nextCfg.columns[oldTitle] !== undefined) {
+                          nextCfg.columns[e.target.value] = nextCfg.columns[oldTitle];
+                          delete nextCfg.columns[oldTitle];
+                        }
+                        if (nextCfg.transforms[oldTitle] !== undefined) {
+                          nextCfg.transforms[e.target.value] = nextCfg.transforms[oldTitle];
+                          delete nextCfg.transforms[oldTitle];
+                        }
+                        persistExportConfig(nextCfg);
+                      }
+                    }}
+                    className="md:col-span-4"
+                  />
+
+                  <Label className="md:col-span-2">Type</Label>
+                  {/* Wrap Select in a relative container with high z-index so popover is clickable above Handsontable */}
+                  <div className="md:col-span-4 relative z-[2200]">
+                    <Select
+                      value={c.type}
+                      onValueChange={(v) => {
+                        const next = { ...schema, columns: [...schema.columns] };
+                        const newType = (v === "dropdown" ? "dropdown" : "text") as CustomColumnType;
+                        next.columns[idx] = { ...next.columns[idx], type: newType, options: newType === "dropdown" ? (c.options || []) : undefined };
+                        persistSchema(next);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Type">{c.type === "dropdown" ? "Dropdown" : "Text"}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent className="z-[2300]">
+                        <SelectItem value="text">Text</SelectItem>
+                        <SelectItem value="dropdown">Dropdown</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {schema.columns[idx]?.type === "dropdown" && (
+                    <>
+                      <Label className="md:col-span-2">Options (comma separated)</Label>
+                      {/* Elevate input above grid headers for reliable focusing */}
+                      <div className="md:col-span-4 relative z-[2200]">
+                        <Input
+                          value={(schema.columns[idx].options || []).join(", ")}
+                          onChange={(e) => {
+                            const opts = e.target.value.split(",").map(s => s.trim()).filter(Boolean);
+                            const next = { ...schema, columns: [...schema.columns] };
+                            next.columns[idx] = { ...next.columns[idx], options: opts };
+                            persistSchema(next);
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="md:col-span-6 flex justify-end">
+                    <Button
+                      variant="ghost"
+                      className="text-destructive"
+                      onClick={() => {
+                        const next = { ...schema, columns: schema.columns.filter((_, i) => i !== idx) };
+                        persistSchema(next);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <Button
+                onClick={() => {
+                  const id = "col_" + Math.random().toString(36).slice(2, 9);
+                  const next: CustomSchema = {
+                    columns: [...schema.columns, { id, title: "Custom " + (schema.columns.length + 1), type: "text" }],
+                  };
+                  persistSchema(next);
+                }}
+              >
+                Add Column
+              </Button>
+            </div>
+          </div>
+
+          <div className="sticky bottom-0 z-10 border-t bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Export Configuration Dialog */}
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        {/* Force dialog container to sit above Handsontable headers via a high z-index */}
-        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[2000]">
           <div className="sticky top-0 z-10 border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
             <DialogHeader className="p-0">
               <DialogTitle>Configure Export</DialogTitle>
@@ -573,7 +829,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             <div className="space-y-2">
               <Label>Columns</Label>
               <div className="grid grid-cols-2 gap-2">
-                {(["Day", "Weekday", "Status", "Notes"] as ExportColumnKey[]).map((key) => (
+                {[..."Day,Weekday,Status,Notes".split(","), ...schema.columns.map(c => c.title)].map((key) => (
                   <label key={key} className="flex items-center space-x-2">
                     <Checkbox
                       checked={!!exportConfig.columns[key]}
@@ -634,7 +890,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-2">
-            {(["Day", "Weekday", "Status", "Notes"] as ExportColumnKey[]).map((key) => (
+            {[..."Day,Weekday,Status,Notes".split(","), ...schema.columns.map(c => c.title)].map((key) => (
               <div key={key} className="space-y-2">
                 <Label>{key} transform (JS)</Label>
                 <Textarea

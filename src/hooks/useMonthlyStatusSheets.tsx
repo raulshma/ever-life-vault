@@ -10,6 +10,7 @@ export interface MonthlyStatusEntry {
   day_number: number;
   status?: string;
   notes?: string;
+  custom_data?: Record<string, any>; // day-specific custom values object for this row? (we store per month per day)
   created_at?: string;
   updated_at?: string;
 }
@@ -70,7 +71,7 @@ export const useMonthlyStatusSheets = () => {
             .order("day_number", { ascending: true });
 
           if (fetchError) throw fetchError;
-          setData(updatedSheets || []);
+          setData((updatedSheets as unknown as MonthlyStatusEntry[]) || []);
         }
       } catch (error) {
         console.error("Error initializing weekend holidays:", error);
@@ -95,10 +96,10 @@ export const useMonthlyStatusSheets = () => {
 
         if (error) throw error;
 
-        setData(sheets || []);
+        setData((sheets as unknown as MonthlyStatusEntry[]) || []);
 
         // Auto-initialize weekend days as holidays if not already set
-        await initializeWeekendHolidays(monthYear, sheets || []);
+        await initializeWeekendHolidays(monthYear, (sheets as unknown as MonthlyStatusEntry[]) || []);
       } catch (error) {
         console.error("Error fetching monthly status sheets:", error);
         toast({
@@ -118,7 +119,8 @@ export const useMonthlyStatusSheets = () => {
       dayNumber: number,
       monthYear: string,
       status?: string,
-      notes?: string
+      notes?: string,
+      customPatch?: Record<string, any>
     ) => {
       if (!user) return;
 
@@ -137,31 +139,47 @@ export const useMonthlyStatusSheets = () => {
 
         if (existing) {
           // Update existing entry
+          // Prepare update payload merging custom_data if provided
+          let payload: any = { status, notes };
+          if (customPatch) {
+            // merge JSONB: custom_data = custom_data || jsonb_set(...)
+            // Since we can't use expression builder easily here, fetch existing row to merge client-side
+            const { data: currentRow } = await supabase.from("monthly_status_sheets").select("custom_data").eq("id", existing.id).single();
+            const currentCustom = (currentRow?.custom_data ?? {}) as Record<string, any>;
+            const nextCustom = { ...currentCustom, ...customPatch };
+            payload.custom_data = nextCustom;
+          }
+
           const { data: updated, error } = await supabase
             .from("monthly_status_sheets")
-            .update({ status, notes })
+            .update(payload)
             .eq("id", existing.id)
             .select()
             .single();
 
           if (error) throw error;
-          updatedEntry = updated;
+          updatedEntry = (updated as unknown as MonthlyStatusEntry);
         } else {
           // Create new entry
+          const insertPayload: any = {
+            user_id: user.id,
+            month_year: monthYear,
+            day_number: dayNumber,
+            status,
+            notes,
+          };
+          if (customPatch) {
+            insertPayload.custom_data = customPatch;
+          }
+
           const { data: created, error } = await supabase
             .from("monthly_status_sheets")
-            .insert({
-              user_id: user.id,
-              month_year: monthYear,
-              day_number: dayNumber,
-              status,
-              notes,
-            })
+            .insert(insertPayload)
             .select()
             .single();
 
           if (error) throw error;
-          updatedEntry = created;
+          updatedEntry = (created as unknown as MonthlyStatusEntry);
         }
 
         // Update local state without full refresh
@@ -193,10 +211,19 @@ export const useMonthlyStatusSheets = () => {
     [user]
   );
 
+  // Update a single custom value for a day
+  const updateCustomValue = useCallback(
+    async (dayNumber: number, monthYear: string, key: string, value: any) => {
+      await updateEntry(dayNumber, monthYear, undefined, undefined, { [key]: value });
+    },
+    [updateEntry]
+  );
+
   return {
     data,
     loading,
     fetchData,
     updateEntry,
+    updateCustomValue,
   };
 };
