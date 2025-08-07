@@ -96,16 +96,19 @@ export default function DayTracker() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-24 md:pb-8">
+    <div className="min-h-screen bg-gradient-subtle pb-0">
       {/* Header */}
-      <div className="bg-gradient-primary text-white">
-        <div className="container py-6 sm:py-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="relative bg-gradient-primary text-white gradient-sheen">
+        <div className="absolute inset-0 bg-white/5" />
+        <div className="container relative py-8 sm:py-12">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2">Day Tracker</h1>
-              <p className="text-white/90 text-sm sm:text-base">Manage your tasks and track daily productivity</p>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Day Tracker</h1>
+              <p className="text-white/80 text-sm sm:text-base mt-1">
+                Manage your tasks and track daily productivity
+              </p>
             </div>
-            <div className="flex items-center gap-2 text-sm sm:text-base">
+            <div className="glass rounded-xl px-4 py-2 flex items-center gap-2 text-sm sm:text-base shadow-elegant">
               <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="text-white/90">
                 {new Date().toLocaleDateString('en-US', {
@@ -120,15 +123,15 @@ export default function DayTracker() {
         </div>
       </div>
 
-      <div className="container py-6 sm:py-8">
+      <div className="pt-4 pb-0">
         <Tabs defaultValue="monthly" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6 sm:mb-8">
-            <TabsTrigger value="kanban" className="flex items-center gap-2">
+          <TabsList className="tablist-elevated grid w-full grid-cols-2 mb-6 sm:mb-8">
+            <TabsTrigger value="kanban" className="tabtrigger flex items-center gap-2">
               <Calendar className="h-4 w-4" />
               <span className="hidden xs:inline">Daily Tasks</span>
               <span className="xs:hidden">Daily</span>
             </TabsTrigger>
-            <TabsTrigger value="monthly" className="flex items-center gap-2">
+            <TabsTrigger value="monthly" className="tabtrigger flex items-center gap-2">
               <Grid className="h-4 w-4" />
               <span className="hidden xs:inline">Monthly Status</span>
               <span className="xs:hidden">Monthly</span>
@@ -137,11 +140,13 @@ export default function DayTracker() {
 
           <TabsContent value="kanban" className="space-y-6 sm:space-y-8">
             {/* Quick Add Task */}
-            <Card className="bg-gradient-card shadow-card">
-              <CardHeader>
+            <Card className="bg-gradient-card shadow-card border-0 rounded-2xl overflow-hidden">
+              <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2">
-                  <Plus className="w-5 h-5" />
-                  <span>Quick Add Task</span>
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+                    <Plus className="w-3.5 h-3.5 text-primary" />
+                  </span>
+                  <span className="font-semibold">Quick Add Task</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -151,14 +156,14 @@ export default function DayTracker() {
                     value={newTaskTitle}
                     onChange={(e) => setNewTaskTitle(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addTask()}
-                    className="flex-1"
+                    className="flex-1 rounded-xl"
                   />
                   <div className="flex gap-2">
-                    <Button onClick={addTask} variant="default" className="flex-1 sm:flex-none">
+                    <Button onClick={addTask} variant="default" className="flex-1 sm:flex-none rounded-xl">
                       <Plus className="w-4 h-4 mr-2" />
                       Add
                     </Button>
-                    <Button onClick={() => setShowAddDialog(true)} variant="outline" className="flex-1 sm:flex-none">
+                    <Button onClick={() => setShowAddDialog(true)} variant="outline" className="flex-1 sm:flex-none rounded-xl">
                       <Plus className="w-4 h-4 mr-2" />
                       Detailed
                     </Button>
@@ -175,27 +180,25 @@ export default function DayTracker() {
                     <h2 className="text-base sm:text-lg font-semibold text-foreground">
                       {column.title}
                     </h2>
-                    <Badge variant="secondary" className="text-xs">
-                      {getTasksByStatus(column.id).length}
-                    </Badge>
+                    <span className="pill">{getTasksByStatus(column.id).length}</span>
                   </div>
 
                   <div className="space-y-3 min-h-[320px] sm:min-h-[400px]">
                     {getTasksByStatus(column.id).map((task) => (
                       <Card
                         key={task.id}
-                        className="group hover:shadow-card transition-all duration-200 cursor-pointer bg-white border-0"
+                        className="group gradient-border-l hover:shadow-card transition-all duration-300 cursor-pointer bg-white/80 dark:bg-white/5 border border-white/50 dark:border-white/10 backdrop-blur-md rounded-2xl"
                       >
-                        <CardContent className="p-3 sm:p-4">
+                        <CardContent className="p-4 sm:p-5">
                           <div className="flex items-start justify-between mb-2 sm:mb-3">
-                            <h3 className="font-medium text-foreground group-hover:text-primary transition-colors">
+                            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors">
                               {task.title}
                             </h3>
-                            <div className="flex space-x-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8"
+                                className="action-ghost"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleEditTask(task);
@@ -206,7 +209,7 @@ export default function DayTracker() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-destructive hover:text-destructive"
+                                className="action-ghost text-destructive hover:text-destructive"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleDeleteTask(task.id);
@@ -226,7 +229,7 @@ export default function DayTracker() {
                           <div className="flex items-center justify-between">
                             <Badge
                               variant="secondary"
-                              className={priorityColors[task.priority]}
+                              className={`${priorityColors[task.priority]} rounded-full px-2.5 py-1`}
                             >
                               <Flag className="w-3 h-3 mr-1" />
                               {task.priority}
@@ -247,7 +250,7 @@ export default function DayTracker() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => moveTask(task.id, 'todo')}
-                                className="text-xs"
+                                className="text-xs rounded-full"
                               >
                                 To Do
                               </Button>
@@ -257,7 +260,7 @@ export default function DayTracker() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => moveTask(task.id, 'in-progress')}
-                                className="text-xs"
+                                className="text-xs rounded-full"
                               >
                                 In Progress
                               </Button>
@@ -267,7 +270,7 @@ export default function DayTracker() {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => moveTask(task.id, 'done')}
-                                className="text-xs"
+                                className="text-xs rounded-full"
                               >
                                 <CheckCircle2 className="w-3 h-3 mr-1" />
                                 Done
@@ -280,7 +283,7 @@ export default function DayTracker() {
 
                     {getTasksByStatus(column.id).length === 0 && (
                       <div className="text-center py-10 sm:py-12 text-muted-foreground">
-                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                        <div className="empty-bubble w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center mx-auto mb-4">
                           <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8" />
                         </div>
                         <p className="text-sm sm:text-base">No tasks in {column.title.toLowerCase()}</p>

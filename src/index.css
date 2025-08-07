@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
 */
 
@@ -150,4 +150,88 @@ All colors MUST be HSL.
     padding-right: max(env(safe-area-inset-right), 0px);
     padding-right: max(constant(safe-area-inset-right), 0px);
   }
+}
+
+/* Component-level utilities for stunning visuals */
+@layer components {
+  .bg-gradient-primary {
+    background-image: var(--gradient-hero);
+  }
+  .bg-gradient-subtle {
+    background-image: var(--gradient-subtle);
+  }
+  .bg-gradient-card {
+    background-image: var(--gradient-card);
+  }
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+  .shadow-elegant {
+    box-shadow: var(--shadow-elegant);
+  }
+
+  .glass {
+    @apply backdrop-blur-xl;
+    background: hsl(0 0% 100% / 0.6);
+    border: 1px solid hsl(0 0% 100% / 0.35);
+  }
+  .glass-dark {
+    @apply backdrop-blur-xl;
+    background: hsl(222.2 84% 4.9% / 0.35);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+  }
+
+  .gradient-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+  .gradient-sheen::after {
+    content: "";
+    position: absolute;
+    inset: -150% -150% auto -150%;
+    height: 300%;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
+    transform: translateX(-100%);
+    animation: sheen 6s linear infinite;
+  }
+
+  .gradient-border-l {
+    position: relative;
+  }
+  .gradient-border-l::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, hsl(var(--accent)), hsl(var(--primary-glow)));
+    opacity: 0.8;
+  }
+
+  .pill {
+    @apply rounded-full px-3 py-1 text-xs;
+    background: hsl(var(--secondary));
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .tablist-elevated {
+    @apply rounded-lg p-1 bg-white/60 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-card;
+  }
+  .tabtrigger {
+    @apply rounded-md data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border border-transparent transition-all;
+  }
+
+  .action-ghost {
+    @apply h-8 w-8 rounded-full hover:bg-muted transition-colors;
+  }
+
+  .empty-bubble {
+    @apply rounded-2xl bg-muted/50 border;
+  }
+}
+
+@keyframes sheen {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
