@@ -14,45 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      credentials: {
-        Row: {
-          category: string
-          created_at: string
-          encrypted_password: string | null
-          id: string
-          name: string
-          notes: string | null
-          updated_at: string
-          url: string | null
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          category?: string
-          created_at?: string
-          encrypted_password?: string | null
-          id?: string
-          name: string
-          notes?: string | null
-          updated_at?: string
-          url?: string | null
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          category?: string
-          created_at?: string
-          encrypted_password?: string | null
-          id?: string
-          name?: string
-          notes?: string | null
-          updated_at?: string
-          url?: string | null
-          user_id?: string
-          username?: string | null
-        }
-        Relationships: []
-      }
       documents: {
         Row: {
           category: string
@@ -98,6 +59,42 @@ export type Database = {
           updated_at?: string
           user_id?: string
           value?: number | null
+        }
+        Relationships: []
+      }
+      encrypted_vault_items: {
+        Row: {
+          auth_tag: string
+          created_at: string
+          encrypted_data: string
+          id: string
+          item_type: string
+          iv: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth_tag: string
+          created_at?: string
+          encrypted_data: string
+          id?: string
+          item_type: string
+          iv: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth_tag?: string
+          created_at?: string
+          encrypted_data?: string
+          id?: string
+          item_type?: string
+          iv?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -320,6 +317,30 @@ export type Database = {
           priority?: string
           status?: string
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vault_config: {
+        Row: {
+          created_at: string
+          id: string
+          salt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          salt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          salt?: string
           updated_at?: string
           user_id?: string
         }

@@ -10,14 +10,12 @@ import {
 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useNotes } from '@/hooks/useNotes';
-import { useCredentials } from '@/hooks/useCredentials';
 import { useDocuments } from '@/hooks/useDocuments';
 import { useInventory } from '@/hooks/useInventory';
 
 export default function ModuleGrid() {
   const { tasks } = useTasks();
   const { notes } = useNotes();
-  const { credentials } = useCredentials();
   const { documents, getExpiringDocuments } = useDocuments();
   const { items, locations } = useInventory();
 
@@ -48,7 +46,7 @@ export default function ModuleGrid() {
       path: '/vault',
       icon: Shield,
       color: 'from-red-500 to-red-600',
-      stats: { credentials: credentials.length, secure: true }
+      stats: { encrypted: 'Yes', secure: true }
     },
     {
       name: 'Documents',
