@@ -143,6 +143,16 @@ All colors MUST be HSL.
     padding-right: max(env(safe-area-inset-right), 0px);
     padding-right: max(constant(safe-area-inset-right), 0px);
   }
+
+  /* Utility classes for safe areas */
+  .px-safe-left {
+    padding-left: max(env(safe-area-inset-left), 1rem);
+    padding-left: max(constant(safe-area-inset-left), 1rem);
+  }
+  .px-safe-right {
+    padding-right: max(env(safe-area-inset-right), 1rem);
+    padding-right: max(constant(safe-area-inset-right), 1rem);
+  }
 }
 
 /* Component-level utilities for stunning visuals */
@@ -161,6 +171,20 @@ All colors MUST be HSL.
   }
   .shadow-elegant {
     box-shadow: var(--shadow-elegant);
+  }
+
+  /* Hide scrollbars while maintaining functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Improve touch interactions */
+  .touch-manipulation {
+    touch-action: manipulation;
   }
 
   .glass {
@@ -227,4 +251,33 @@ All colors MUST be HSL.
 @keyframes sheen {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 479px) {
+  /* Ensure minimum touch target sizes */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Improve text readability on small screens */
+  .mobile-text-adjust {
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  /* Reduce padding on very small screens */
+  .mobile-compact {
+    padding: 0.5rem;
+  }
+}
+
+/* Landscape phone optimizations */
+@media (max-height: 500px) and (orientation: landscape) {
+  /* Reduce vertical padding in landscape mode */
+  .landscape-compact {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
 }
