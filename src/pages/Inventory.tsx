@@ -93,7 +93,7 @@ export default function Inventory() {
     setSelectedLocation(selectedLocation === locationId ? null : locationId);
   };
 
-  const handleQRItemFound = (item: any) => {
+  const handleQRItemFound = (item: unknown) => {
     setSelectedItem(item);
     setItemDialogMode('view');
     setItemDialogOpen(true);
@@ -122,41 +122,59 @@ export default function Inventory() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
+    <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <div className="bg-gradient-primary text-white">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2 flex items-center">
-                <Package2 className="w-8 h-8 mr-3" />
-                Inventory Tracker
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
+                <Package2 className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-3 flex-shrink-0" />
+                <span className="truncate">Inventory Tracker</span>
               </h1>
-              <p className="text-white/90">Track physical items and their locations</p>
+              <p className="text-white/90 text-sm sm:text-base">Track physical items and their locations</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <Button 
                 variant="ghost" 
-                className="bg-white/10 hover:bg-white/20"
+                className="bg-white/10 hover:bg-white/20 hidden sm:flex"
                 onClick={() => setQrScannerOpen(true)}
               >
                 <QrCode className="w-4 h-4 mr-2" />
                 Scan QR
               </Button>
               <Button 
+                variant="ghost" 
+                size="icon"
+                className="bg-white/10 hover:bg-white/20 sm:hidden"
+                onClick={() => setQrScannerOpen(true)}
+                aria-label="Scan QR"
+              >
+                <QrCode className="w-5 h-5" />
+              </Button>
+              <Button 
                 variant="hero" 
-                className="bg-white/20 hover:bg-white/30"
+                className="bg-white/20 hover:bg-white/30 hidden sm:flex"
                 onClick={handleOpenAddItemDialog}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Item
+              </Button>
+              <Button 
+                variant="hero" 
+                size="icon"
+                className="bg-white/20 hover:bg-white/30 sm:hidden"
+                onClick={handleOpenAddItemDialog}
+                aria-label="Add Item"
+              >
+                <Plus className="w-5 h-5" />
               </Button>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6">
           <div className="flex-1 relative">

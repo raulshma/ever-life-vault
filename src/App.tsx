@@ -53,11 +53,14 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
-      <Route path="/" element={
-        <ProtectedRoute>
-          <Layout />
-        </ProtectedRoute>
-      }>
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
         <Route index element={<Dashboard />} />
         <Route path="day-tracker" element={<DayTracker />} />
         <Route path="knowledge" element={<KnowledgeBase />} />
