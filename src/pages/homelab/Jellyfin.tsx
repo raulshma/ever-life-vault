@@ -276,36 +276,58 @@ export default function Jellyfin() {
             <CardTitle>Configure Jellyfin Connection</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {serviceConfig.availableVaultItems.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Use Existing Credential
-                </label>
-                <Select
-                  value={serviceConfig.linkedVaultItemId || ""}
-                  onValueChange={(val) =>
-                    serviceConfig.linkVaultItem(val === "" ? null : val)
-                  }
-                  disabled={!isUnlocked || serviceConfig.saving}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select saved API credential" />
-                  </SelectTrigger>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Use Vault Credential
+              </label>
+              <Select
+                value={serviceConfig.linkedVaultItemId || ""}
+                onValueChange={(val) =>
+                  serviceConfig.linkVaultItem(val === "" ? null : val)
+                }
+                disabled={
+                  !isUnlocked ||
+                  serviceConfig.saving ||
+                  serviceConfig.availableVaultItems.length === 0
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !isUnlocked
+                        ? "Unlock vault to select saved credential"
+                        : serviceConfig.availableVaultItems.length === 0
+                        ? "No saved credentials found"
+                        : "Select saved credential"
+                    }
+                  />
+                </SelectTrigger>
+                {isUnlocked && serviceConfig.availableVaultItems.length > 0 && (
                   <SelectContent>
-                    <SelectItem value="">Manual configuration</SelectItem>
+                    <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Choose a saved API credential from your secure vault or
-                  configure manually below.
-                </p>
-              </div>
-            )}
+                )}
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                {isUnlocked ? (
+                  serviceConfig.availableVaultItems.length > 0 ? (
+                    <>
+                      Choose a saved credential from your secure vault or
+                      configure manually below.
+                    </>
+                  ) : (
+                    <>No matching credentials in vault. Add one in the Vault page.</>
+                  )
+                ) : (
+                  <>Unlock the vault to reuse stored credentials.</>
+                )}
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium mb-2">
                 Server URL
@@ -389,36 +411,58 @@ export default function Jellyfin() {
             <CardTitle>Jellyfin Configuration</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {serviceConfig.availableVaultItems.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Use Existing Credential
-                </label>
-                <Select
-                  value={serviceConfig.linkedVaultItemId || ""}
-                  onValueChange={(val) =>
-                    serviceConfig.linkVaultItem(val === "" ? null : val)
-                  }
-                  disabled={!isUnlocked || serviceConfig.saving}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select saved API credential" />
-                  </SelectTrigger>
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Use Vault Credential
+              </label>
+              <Select
+                value={serviceConfig.linkedVaultItemId || ""}
+                onValueChange={(val) =>
+                  serviceConfig.linkVaultItem(val === "" ? null : val)
+                }
+                disabled={
+                  !isUnlocked ||
+                  serviceConfig.saving ||
+                  serviceConfig.availableVaultItems.length === 0
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !isUnlocked
+                        ? "Unlock vault to select saved credential"
+                        : serviceConfig.availableVaultItems.length === 0
+                        ? "No saved credentials found"
+                        : "Select saved credential"
+                    }
+                  />
+                </SelectTrigger>
+                {isUnlocked && serviceConfig.availableVaultItems.length > 0 && (
                   <SelectContent>
-                    <SelectItem value="">Manual configuration</SelectItem>
+                    <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
-                </Select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Choose a saved API credential from your secure vault or
-                  configure manually below.
-                </p>
-              </div>
-            )}
+                )}
+              </Select>
+              <p className="text-xs text-gray-500 mt-1">
+                {isUnlocked ? (
+                  serviceConfig.availableVaultItems.length > 0 ? (
+                    <>
+                      Choose a saved credential from your secure vault or
+                      configure manually below.
+                    </>
+                  ) : (
+                    <>No matching credentials in vault. Add one in the Vault page.</>
+                  )
+                ) : (
+                  <>Unlock the vault to reuse stored credentials.</>
+                )}
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium mb-2">
                 Server URL

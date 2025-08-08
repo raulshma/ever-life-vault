@@ -285,7 +285,7 @@ export default function MediaRequests() {
                     <SelectValue placeholder="Select saved API credential" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Manual configuration</SelectItem>
+                    <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map(item => (
                       <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                     ))}

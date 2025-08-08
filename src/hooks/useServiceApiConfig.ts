@@ -51,25 +51,24 @@ export function useServiceApiConfig(serviceName: string): UseServiceApiConfigRet
     );
   }, [itemsByType.api, serviceName, vaultUnlocked]);
 
-  // Collect all api items that have plausible serverUrl/apiKey so user can select
-  const availableVaultItems = useMemo(
-    () =>
-      vaultUnlocked
-        ? itemsByType.api
-            .filter(
-              (i) =>
-                (typeof i.data.serverUrl === 'string' && i.data.serverUrl.length > 0) ||
-                (typeof i.data.apiKey === 'string' && i.data.apiKey.length > 0)
-            )
-            .map((i) => ({
-              id: i.id,
-              name: i.name,
-              serverUrl: i.data.serverUrl as string | undefined,
-              apiKey: i.data.apiKey as string | undefined,
-            }))
-        : [],
-    [itemsByType.api, vaultUnlocked]
-  );
+  // Collect all candidate items (api + login) that have plausible serverUrl/apiKey so user can select
+  // This lets a user reuse a generic API or login credential they already stored.
+  const availableVaultItems = useMemo(() => {
+    if (!vaultUnlocked) return [];
+    const candidates = [...itemsByType.api, ...itemsByType.login];
+    return candidates
+      .filter(
+        (i) =>
+          (typeof i.data.serverUrl === 'string' && i.data.serverUrl.length > 0) ||
+          (typeof i.data.apiKey === 'string' && i.data.apiKey.length > 0)
+      )
+      .map((i) => ({
+        id: i.id,
+        name: i.name,
+        serverUrl: i.data.serverUrl as string | undefined,
+        apiKey: i.data.apiKey as string | undefined,
+      }));
+  }, [itemsByType.api, itemsByType.login, vaultUnlocked]);
 
   const linkedVaultItemId = (serviceItem?.data.linkedVaultItemId as string) || null;
   const linkedItem = useMemo(

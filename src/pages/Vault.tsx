@@ -56,6 +56,7 @@ function QuickAddCredentials({
     type: "login" as "login" | "api",
     name: "",
     secret: "",
+    serverUrl: "",
   });
   // Local toast (separate from parent) so we can surface quick-add errors clearly
   const { toast } = useToast();
@@ -84,12 +85,12 @@ function QuickAddCredentials({
         data:
           quickForm.type === "login"
             ? { password: quickForm.secret }
-            : { apiKey: quickForm.secret },
+            : { apiKey: quickForm.secret, serverUrl: quickForm.serverUrl || undefined },
       };
       const saved = await onAdd(newItem);
       if (saved) {
         // Reset only on success so user doesn't lose unsaved input silently
-        setQuickForm({ type: "login", name: "", secret: "" });
+  setQuickForm({ type: "login", name: "", secret: "", serverUrl: "" });
         toast({
           title: "Item Added",
           description: `Quick ${quickForm.type === "api" ? "API key" : "login password"} stored securely.`,
@@ -140,7 +141,7 @@ function QuickAddCredentials({
         </div>
 
         {/* Responsive Layout */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
           {/* Type Selection */}
           <div className="flex space-x-1 sm:flex-shrink-0">
             <Button
@@ -170,7 +171,17 @@ function QuickAddCredentials({
           </div>
 
           {/* Input Fields Row */}
-          <div className="flex space-x-2 flex-1">
+          <div className="flex space-x-2 flex-1 flex-wrap">
+            {quickForm.type === "api" && (
+              <Input
+                placeholder="Server URL"
+                value={quickForm.serverUrl}
+                onChange={(e) =>
+                  setQuickForm((prev) => ({ ...prev, serverUrl: e.target.value }))
+                }
+                className="h-8 text-sm flex-1 min-w-[12rem]"
+              />
+            )}
             {/* Name Field */}
             <Input
               placeholder={
@@ -212,7 +223,10 @@ function QuickAddCredentials({
             <Button
               onClick={handleQuickAdd}
               disabled={
-                !quickForm.name.trim() || !quickForm.secret.trim() || isAdding
+                !quickForm.name.trim() ||
+                !quickForm.secret.trim() ||
+                (quickForm.type === 'api' && !quickForm.serverUrl.trim()) ||
+                isAdding
               }
               className="h-8 bg-teal-600 hover:bg-teal-700 px-3 flex-shrink-0"
               size="sm"

@@ -319,46 +319,80 @@ export function EncryptedVaultDialog({
             </>
           )}
 
-          {/* API Key Fields */}
+          {/* API / Service Credential Fields */}
           {type === 'api' && (
-            <div className="space-y-2">
-              <Label htmlFor="apiKey">API Key</Label>
-              <div className="flex space-x-2">
-                <div className="relative flex-1">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="serverUrl">Server URL</Label>
+                <div className="flex space-x-2">
                   <Input
-                    id="apiKey"
-                    type={showPassword ? 'text' : 'password'}
-                    value={data.apiKey || ''}
-                    onChange={(e) => updateData('apiKey', e.target.value)}
-                    placeholder="Enter API key"
-                    className="pr-20"
+                    id="serverUrl"
+                    value={data.serverUrl || ''}
+                    onChange={(e) => updateData('serverUrl', e.target.value)}
+                    placeholder="http://localhost:8096"
                   />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex space-x-1">
+                  {data.serverUrl && (
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="icon"
-                      className="h-6 w-6"
-                      onClick={() => setShowPassword(!showPassword)}
+                      onClick={() => copyToClipboard(data.serverUrl, 'serverUrl')}
                     >
-                      {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                      {copied === 'serverUrl' ? (
+                        <Check className="w-4 h-4 text-emerald-600" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
                     </Button>
-                    {data.apiKey && (
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Base URL of the service (e.g. Jellyfin, Jellyseerr, Sonarr, etc.)
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="apiKey">API Key</Label>
+                <div className="flex space-x-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="apiKey"
+                      type={showPassword ? 'text' : 'password'}
+                      value={data.apiKey || ''}
+                      onChange={(e) => updateData('apiKey', e.target.value)}
+                      placeholder="Enter API key"
+                      className="pr-20"
+                    />
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex space-x-1">
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
                         className="h-6 w-6"
-                        onClick={() => copyToClipboard(data.apiKey, 'apiKey')}
+                        onClick={() => setShowPassword(!showPassword)}
                       >
-                        {copied === 'apiKey' ? 
-                          <Check className="w-3 h-3 text-emerald-600" /> : 
-                          <Copy className="w-3 h-3" />
-                        }
+                        {showPassword ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
                       </Button>
-                    )}
+                      {data.apiKey && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => copyToClipboard(data.apiKey, 'apiKey')}
+                        >
+                          {copied === 'apiKey' ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Store service API key securely. You can link this credential on service pages.
+                </p>
               </div>
             </div>
           )}
