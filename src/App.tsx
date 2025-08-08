@@ -18,6 +18,7 @@ import HomelabServers from "./pages/homelab/Servers";
 import HomelabMonitoring from "./pages/homelab/Monitoring";
 import HomelabNetwork from "./pages/homelab/Network";
 import HomelabStorage from "./pages/homelab/Storage";
+import HomelabMediaRequests from "./pages/homelab/MediaRequests";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -76,6 +77,10 @@ function AppRoutes() {
         <Route path="homelab/monitoring" element={<HomelabMonitoring />} />
         <Route path="homelab/network" element={<HomelabNetwork />} />
         <Route path="homelab/storage" element={<HomelabStorage />} />
+        <Route
+          path="homelab/media-requests"
+          element={<HomelabMediaRequests />}
+        />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>
