@@ -80,6 +80,7 @@ export function useEncryptedVault() {
   const addItem = useCallback(async (
     itemData: Omit<VaultItem, 'id' | 'created_at' | 'updated_at'>
   ): Promise<VaultItem | null> => {
+    console.log(user, isUnlocked, masterKey);
     if (!user || !isUnlocked || !masterKey) return null;
     
     try {

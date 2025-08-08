@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { deriveKey, generateSalt, uint8ArrayToBase64, base64ToUint8Array, validateMasterPassword } from '@/lib/crypto';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
@@ -21,7 +21,22 @@ interface VaultConfig {
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes in milliseconds
 
-export function useVaultSession() {
+// Exposed context type
+interface UseVaultSessionReturn {
+  isUnlocked: boolean;
+  hasVault: boolean;
+  loading: boolean;
+  masterKey: CryptoKey | null;
+  initializeVault: (masterPassword: string) => Promise<boolean>;
+  unlockVault: (masterPassword: string) => Promise<boolean>;
+  lockVault: () => void;
+  changeMasterPassword: (currentPassword: string, newPassword: string) => Promise<boolean>;
+  resetInactivityTimer: () => void;
+}
+
+const VaultSessionContext = createContext<UseVaultSessionReturn | undefined>(undefined);
+
+function useVaultSessionInternal() {
   const [session, setSession] = useState<VaultSession>({
     isUnlocked: false,
     masterKey: null,
@@ -321,19 +336,31 @@ export function useVaultSession() {
   }, []);
 
   return {
-    // State
     isUnlocked: session.isUnlocked,
     hasVault,
     loading,
     masterKey: session.masterKey,
-    
-    // Actions
     initializeVault,
     unlockVault,
     lockVault,
     changeMasterPassword,
-    
-    // Utilities
     resetInactivityTimer,
-  };
+  } as UseVaultSessionReturn;
+}
+
+export function VaultSessionProvider({ children }: { children: React.ReactNode }) {
+  const value = useVaultSessionInternal();
+  return (
+    <VaultSessionContext.Provider value={value}>
+      {children}
+    </VaultSessionContext.Provider>
+  );
+}
+
+export function useVaultSession(): UseVaultSessionReturn {
+  const ctx = useContext(VaultSessionContext);
+  if (!ctx) {
+    throw new Error('useVaultSession must be used within a VaultSessionProvider');
+  }
+  return ctx;
 }

@@ -57,16 +57,20 @@ function QuickAddCredentials({
     name: "",
     secret: "",
   });
+  // Local toast (separate from parent) so we can surface quick-add errors clearly
+  const { toast } = useToast();
 
   const generateSecret = () => {
     const chars =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
-    let result = "";
-    const length = quickForm.type === "api" ? 32 : 16; // Longer for API keys
+    const length = quickForm.type === "api" ? 40 : 20; // Slightly longer defaults for stronger secrets
+    const randomValues = new Uint32Array(length);
+    crypto.getRandomValues(randomValues);
+    let generated = "";
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      generated += chars[randomValues[i] % chars.length];
     }
-    setQuickForm((prev) => ({ ...prev, secret: result }));
+    setQuickForm((prev) => ({ ...prev, secret: generated }));
   };
 
   const handleQuickAdd = async () => {
@@ -82,11 +86,21 @@ function QuickAddCredentials({
             ? { password: quickForm.secret }
             : { apiKey: quickForm.secret },
       };
-
-      await onAdd(newItem);
-
-      // Reset form
-      setQuickForm({ type: "login", name: "", secret: "" });
+      const saved = await onAdd(newItem);
+      if (saved) {
+        // Reset only on success so user doesn't lose unsaved input silently
+        setQuickForm({ type: "login", name: "", secret: "" });
+        toast({
+          title: "Item Added",
+          description: `Quick ${quickForm.type === "api" ? "API key" : "login password"} stored securely.`,
+        });
+      } else {
+        toast({
+          title: "Save Failed",
+          description: "Couldn't store the item. Please try again.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsAdding(false);
     }
