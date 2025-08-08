@@ -29,7 +29,7 @@ export default function ModuleGrid() {
       description: 'Manage tasks and track daily productivity',
       path: '/day-tracker',
       icon: Calendar,
-      color: 'from-blue-500 to-blue-600',
+      color: 'from-teal-400 to-teal-500',
       stats: { active: activeTasks, completed: completedTasks }
     },
     {
@@ -37,7 +37,7 @@ export default function ModuleGrid() {
       description: 'Store and organize your research and notes',
       path: '/knowledge',
       icon: BookOpen,
-      color: 'from-green-500 to-green-600',
+      color: 'from-emerald-400 to-emerald-500',
       stats: { notes: notes.length, favorites: notes.filter(n => n.is_favorite).length }
     },
     {
@@ -45,7 +45,7 @@ export default function ModuleGrid() {
       description: 'Securely store credentials and sensitive data',
       path: '/vault',
       icon: Shield,
-      color: 'from-red-500 to-red-600',
+      color: 'from-cyan-500 to-cyan-600',
       stats: { encrypted: 'Yes', secure: true }
     },
     {
@@ -53,7 +53,7 @@ export default function ModuleGrid() {
       description: 'Organize important personal documents',
       path: '/documents',
       icon: FileText,
-      color: 'from-purple-500 to-purple-600',
+      color: 'from-sky-400 to-sky-500',
       stats: { documents: documents.length, expiring: expiringDocs }
     },
     {
@@ -61,7 +61,7 @@ export default function ModuleGrid() {
       description: 'Track physical items and their locations',
       path: '/inventory',
       icon: Package2,
-      color: 'from-orange-500 to-orange-600',
+      color: 'from-lime-400 to-lime-500',
       stats: { items: items.length, locations: locations.length }
     }
   ];
@@ -69,7 +69,8 @@ export default function ModuleGrid() {
   return (
     <div className="mb-8 sm:mb-12">
       <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">Your Life Modules</h2>
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Responsive fluid grid that adapts to small devices smoothly */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
         {modules.map((module) => {
           const Icon = module.icon;
           return (

@@ -46,9 +46,9 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
 
   const passwordStrength = getPasswordStrength();
   const getStrengthColor = () => {
-    if (passwordStrength < 40) return 'bg-red-500';
+  if (passwordStrength < 40) return 'bg-red-500';
     if (passwordStrength < 70) return 'bg-yellow-500';
-    return 'bg-green-500';
+  return 'bg-emerald-500';
   };
 
   const getStrengthText = () => {
@@ -69,7 +69,7 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-blue-600" />
+            <Shield className="w-8 h-8 text-teal-600" />
           </div>
           <CardTitle className="text-2xl">Create Master Password</CardTitle>
           <p className="text-muted-foreground">
@@ -109,7 +109,7 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
                     <span>Password Strength</span>
                     <span className={`font-medium ${
                       passwordStrength < 40 ? 'text-red-600' :
-                      passwordStrength < 70 ? 'text-yellow-600' : 'text-green-600'
+                      passwordStrength < 70 ? 'text-yellow-600' : 'text-emerald-600'
                     }`}>
                       {getStrengthText()}
                     </span>
@@ -150,8 +150,8 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
                 <div className="flex items-center space-x-2 text-sm">
                   {passwordsMatch ? (
                     <>
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-green-600">Passwords match</span>
+                      <CheckCircle className="w-4 h-4 text-emerald-600" />
+                      <span className="text-emerald-600">Passwords match</span>
                     </>
                   ) : (
                     <>

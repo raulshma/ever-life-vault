@@ -601,7 +601,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       <div className="text-2xl font-bold text-green-700">
                         {monthlyStats.working}
                       </div>
-                      <div className="text-sm text-green-600">Working Days</div>
+                      <div className="text-sm text-emerald-600">Working Days</div>
                     </div>
                     <div className="bg-red-50 p-3 rounded-lg text-center">
                       <div className="text-2xl font-bold text-red-700">
@@ -610,10 +610,10 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       <div className="text-sm text-red-600">Holidays</div>
                     </div>
                     <div className="bg-blue-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-blue-700">
+                      <div className="text-2xl font-bold text-teal-700">
                         {monthlyStats.workFromHome}
                       </div>
-                      <div className="text-sm text-blue-600">WFH Days</div>
+                      <div className="text-sm text-sky-600">WFH Days</div>
                     </div>
                     <div className="bg-purple-50 p-3 rounded-lg text-center">
                       <div className="text-2xl font-bold text-purple-700">

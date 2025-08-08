@@ -121,7 +121,7 @@ function QuickAddCredentials({
     <Card className="border-blue-200 bg-blue-50 shadow-sm hover:shadow-md transition-shadow duration-200">
       <CardContent className="p-3">
         <div className="flex items-center space-x-2 mb-2">
-          <Zap className="w-4 h-4 text-blue-600" />
+          <Zap className="w-4 h-4 text-teal-500" />
           <h3 className="font-semibold text-blue-800 text-sm">Quick Add</h3>
         </div>
 
@@ -200,7 +200,7 @@ function QuickAddCredentials({
               disabled={
                 !quickForm.name.trim() || !quickForm.secret.trim() || isAdding
               }
-              className="h-8 bg-blue-600 hover:bg-blue-700 px-3 flex-shrink-0"
+              className="h-8 bg-teal-600 hover:bg-teal-700 px-3 flex-shrink-0"
               size="sm"
             >
               {isAdding ? (
@@ -502,7 +502,7 @@ export default function Vault() {
           <Card className="border-green-200 bg-green-50">
             <CardContent className="p-6">
               <div className="flex items-start space-x-3">
-                <Shield className="w-5 h-5 text-green-600 mt-0.5" />
+                <Shield className="w-5 h-5 text-emerald-500 mt-0.5" />
                 <div className="flex-1">
                   <h3 className="font-semibold text-green-800 mb-1">
                     End-to-End Encryption Active
@@ -523,14 +523,14 @@ export default function Vault() {
               <CardContent className="p-4">
                 <div className="flex items-start space-x-3">
                   <div className="flex space-x-2">
-                    <Download className="w-4 h-4 text-blue-600 mt-0.5" />
-                    <Upload className="w-4 h-4 text-blue-600 mt-0.5" />
+                    <Download className="w-4 h-4 text-teal-500 mt-0.5" />
+                    <Upload className="w-4 h-4 text-teal-500 mt-0.5" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-blue-800 mb-1">
                       Backup & Restore
                     </h3>
-                    <p className="text-blue-700 text-sm">
+                    <p className="text-teal-700 text-sm">
                       Export your vault to create encrypted backups. Import from
                       backup files to restore data. All exports are encrypted
                       with your master password for maximum security.
@@ -557,7 +557,7 @@ export default function Vault() {
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Key className="w-5 h-5 mr-2 text-blue-600" />
+                  <Key className="w-5 h-5 mr-2 text-cyan-500" />
                   Login Credentials ({itemsByType.login.length})
                 </CardTitle>
               </CardHeader>
@@ -618,7 +618,7 @@ export default function Vault() {
                                 }
                               >
                                 {copiedItems.has(`${item.id}-username`) ? (
-                                  <Check className="w-3 h-3 text-green-600" />
+                                  <Check className="w-3 h-3 text-emerald-500" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -652,7 +652,7 @@ export default function Vault() {
                                 }
                               >
                                 {copiedItems.has(`${item.id}-password`) ? (
-                                  <Check className="w-3 h-3 text-green-600" />
+                                  <Check className="w-3 h-3 text-emerald-500" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -671,7 +671,7 @@ export default function Vault() {
 
                 <Button
                   variant="ghost"
-                  className="w-full mt-4 text-blue-600"
+                  className="w-full mt-4 text-teal-600"
                   onClick={() => handleAddItem("login")}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -684,7 +684,7 @@ export default function Vault() {
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Lock className="w-5 h-5 mr-2 text-green-600" />
+                  <Lock className="w-5 h-5 mr-2 text-emerald-500" />
                   Secure Notes ({itemsByType.note.length})
                 </CardTitle>
               </CardHeader>
@@ -747,7 +747,7 @@ export default function Vault() {
 
                 <Button
                   variant="ghost"
-                  className="w-full mt-4 text-green-600"
+                  className="w-full mt-4 text-emerald-600"
                   onClick={() => handleAddItem("note")}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -809,7 +809,7 @@ export default function Vault() {
                                 }
                               >
                                 {copiedItems.has(`${item.id}-key`) ? (
-                                  <Check className="w-3 h-3 text-green-600" />
+                                  <Check className="w-3 h-3 text-emerald-500" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -951,7 +951,7 @@ export default function Vault() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="text-center">
                 <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Lock className="w-6 h-6 text-green-600" />
+                  <Lock className="w-6 h-6 text-emerald-500" />
                 </div>
                 <h3 className="font-semibold mb-2">AES-256-GCM</h3>
                 <p className="text-sm text-muted-foreground">
@@ -961,7 +961,7 @@ export default function Vault() {
 
               <div className="text-center">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Key className="w-6 h-6 text-blue-600" />
+                  <Key className="w-6 h-6 text-cyan-500" />
                 </div>
                 <h3 className="font-semibold mb-2">PBKDF2</h3>
                 <p className="text-sm text-muted-foreground">

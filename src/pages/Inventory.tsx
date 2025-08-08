@@ -185,14 +185,14 @@ export default function Inventory() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-4 sm:p-6 text-center">
-              <Package className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-1 sm:mb-2" />
+              <Package className="w-7 h-7 sm:w-8 sm:h-8 text-teal-600 mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{totalItems}</div>
               <div className="text-sm text-muted-foreground">Total Items</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-4 sm:p-6 text-center">
-              <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-green-600 mx-auto mb-1 sm:mb-2" />
+              <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-500 mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{totalLocations}</div>
               <div className="text-sm text-muted-foreground">Locations</div>
             </CardContent>
@@ -339,7 +339,7 @@ export default function Inventory() {
                                 )}
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="font-semibold text-green-600 text-sm sm:text-base">
+                                <div className="font-semibold text-emerald-600 text-sm sm:text-base">
                                   {item.value ? `$${item.value.toLocaleString()}` : 'N/A'}
                                 </div>
                                 <div className="flex flex-wrap gap-1 mt-1 justify-end">

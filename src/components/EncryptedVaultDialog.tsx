@@ -193,7 +193,7 @@ export function EncryptedVaultDialog({
                       onClick={() => copyToClipboard(data.username, 'username')}
                     >
                       {copied === 'username' ? 
-                        <Check className="w-4 h-4 text-green-600" /> : 
+                        <Check className="w-4 h-4 text-emerald-600" /> : 
                         <Copy className="w-4 h-4" />
                       }
                     </Button>
@@ -233,7 +233,7 @@ export function EncryptedVaultDialog({
                             onClick={() => copyToClipboard(data.password, 'password')}
                           >
                             {copied === 'password' ? 
-                              <Check className="w-3 h-3 text-green-600" /> : 
+                              <Check className="w-3 h-3 text-emerald-600" /> : 
                               <Copy className="w-3 h-3" />
                             }
                           </Button>
@@ -352,7 +352,7 @@ export function EncryptedVaultDialog({
                         onClick={() => copyToClipboard(data.apiKey, 'apiKey')}
                       >
                         {copied === 'apiKey' ? 
-                          <Check className="w-3 h-3 text-green-600" /> : 
+                          <Check className="w-3 h-3 text-emerald-600" /> : 
                           <Copy className="w-3 h-3" />
                         }
                       </Button>
