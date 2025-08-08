@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Film,
   Play,
+  Bookmark,
   Menu,
   Sparkles,
   Pause,
@@ -68,6 +69,7 @@ const moduleCategories = {
     { name: "Storage", path: "/homelab/storage", icon: Database },
     { name: "Jellyfin", path: "/homelab/jellyfin", icon: Play },
     { name: "Media Requests", path: "/homelab/media-requests", icon: Film },
+    { name: "Karakeep", path: "/homelab/karakeep", icon: Bookmark },
   ],
 };
 

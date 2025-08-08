@@ -13,6 +13,7 @@ import {
   Database,
   Play,
   Film,
+  Bookmark,
 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useNotes } from '@/hooks/useNotes';
@@ -117,6 +118,14 @@ export default function ModuleGrid() {
       path: '/homelab/media-requests',
       icon: Film,
       color: 'from-fuchsia-400 to-fuchsia-500',
+      stats: { category: 'Homelab' }
+    },
+    {
+      name: 'Karakeep',
+      description: 'Bookmarks, notes and assets via Karakeep',
+      path: '/homelab/karakeep',
+      icon: Bookmark,
+      color: 'from-cyan-400 to-cyan-600',
       stats: { category: 'Homelab' }
     }
   ];

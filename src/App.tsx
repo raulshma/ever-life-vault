@@ -20,6 +20,7 @@ import HomelabNetwork from "./pages/homelab/Network";
 import HomelabStorage from "./pages/homelab/Storage";
 import HomelabMediaRequests from "./pages/homelab/MediaRequests";
 import HomelabJellyfin from "./pages/homelab/Jellyfin";
+import HomelabKarakeep from "./pages/homelab/Karakeep";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="homelab/network" element={<HomelabNetwork />} />
         <Route path="homelab/storage" element={<HomelabStorage />} />
         <Route path="homelab/jellyfin" element={<HomelabJellyfin />} />
+        <Route path="homelab/karakeep" element={<HomelabKarakeep />} />
         <Route
           path="homelab/media-requests"
           element={<HomelabMediaRequests />}
