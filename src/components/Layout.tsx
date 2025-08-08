@@ -22,6 +22,7 @@ import {
   ChevronDown,
   Film,
   Play,
+  Menu,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -31,13 +32,23 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
+import {
+  SidebarProvider,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarSeparator,
+  SidebarInset,
+  useSidebar,
+} from "@/components/ui/sidebar";
 
 const moduleCategories = {
   daily: [
@@ -58,139 +69,185 @@ const moduleCategories = {
   ],
 };
 
-// Helper function to check if any item in a category is active
-const isCategoryActive = (category: typeof moduleCategories.daily) => {
-  return category.some((module) => window.location.pathname === module.path);
-};
-
-// Category Dropdown Component
-const CategoryDropdown: React.FC<{
-  title: string;
-  items: typeof moduleCategories.daily;
+// Sidebar navigation for desktop + mobile drawer
+const SidebarNavigation: React.FC<{
   location: ReturnType<typeof useLocation>;
-}> = ({ title, items, location }) => {
-  const isActive = items.some((item) => location.pathname === item.path);
+  onOpenSearch: () => void;
+  onOpenQuickAdd: () => void;
+}> = ({ location, onOpenSearch, onOpenQuickAdd }) => {
+  const navGroups = [
+    { title: "Daily", items: moduleCategories.daily },
+    { title: "Homelab", items: moduleCategories.homelab },
+  ];
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className={cn(
-            "flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 touch-manipulation",
-            isActive
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted"
-          )}
-        >
-          <span>{title}</span>
-          <ChevronDown size={14} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
-        {items.map((item) => {
-          const Icon = item.icon;
-          return (
-            <DropdownMenuItem key={item.path} asChild>
-              <ViewTransitionLink
-                to={item.path}
-                className={cn(
-                  "flex items-center space-x-2 w-full",
-                  location.pathname === item.path &&
-                    "bg-primary/10 text-primary"
-                )}
-              >
-                <Icon size={16} />
-                <span>{item.name}</span>
-              </ViewTransitionLink>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <SidebarHeader className="px-3 py-3">
+        <ViewTransitionLink to="/" className="flex items-center gap-2">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 text-white grid place-items-center shadow-sm">
+            <span className="font-bold text-xs">LOS</span>
+          </div>
+          <span className="font-semibold text-base">Life OS</span>
+        </ViewTransitionLink>
+      </SidebarHeader>
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel className="text-[11px] tracking-wide uppercase text-sidebar-foreground/60">
+            Actions
+          </SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onOpenSearch}>
+                  <Search className="h-4 w-4" />
+                  <span>Search</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={onOpenQuickAdd}>
+                  <Plus className="h-4 w-4" />
+                  <span>Quick Add</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        {navGroups.map((group) => (
+          <SidebarGroup key={group.title}>
+            <SidebarGroupLabel className="text-[11px] tracking-wide uppercase text-sidebar-foreground/60">
+              {group.title}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.name}
+                      >
+                        <ViewTransitionLink
+                          to={item.path}
+                          className={cn(
+                            "flex items-center gap-2",
+                            isActive && "font-medium"
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          <span>{item.name}</span>
+                        </ViewTransitionLink>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
+      <SidebarSeparator />
+      <SidebarFooter>
+        <div className="flex items-center gap-2 px-2">
+          <FooterActions />
+        </div>
+      </SidebarFooter>
+    </>
   );
 };
 
-// Mobile Category Dropdown Component
-const MobileCategoryDropdown: React.FC<{
-  title: string;
-  items: typeof moduleCategories.daily;
-  location: ReturnType<typeof useLocation>;
-}> = ({ title, items, location }) => {
-  const isActive = items.some((item) => location.pathname === item.path);
-  const activeItem = items.find((item) => location.pathname === item.path);
+// Footer actions reused in sidebar footer and topbar
+const FooterActions: React.FC = () => {
+  const { signOut } = useAuth();
+  const { viewTransitionsEnabled, setViewTransitionsEnabled } = useSettings();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          className={cn(
-            "flex flex-col items-center justify-center py-2 px-3 transition-colors min-h-[3.5rem] touch-manipulation min-w-[4rem]",
-            isActive
-              ? "text-primary"
-              : "text-muted-foreground active:text-foreground"
-          )}
-        >
-          <div
-            className={cn(
-              "flex items-center justify-center w-6 h-6 mb-1 transition-transform",
-              isActive && "scale-110"
-            )}
-          >
-            {activeItem ? (
-              <activeItem.icon size={18} />
-            ) : (
-              <ChevronDown size={18} />
-            )}
-          </div>
-          <span
-            className={cn(
-              "text-[9px] font-medium leading-tight text-center max-w-full",
-              "xs:text-[10px]"
-            )}
-          >
-            {activeItem
-              ? activeItem.name === "Day Tracker"
-                ? "Day"
-                : activeItem.name === "Knowledge Base"
-                ? "KB"
-                : activeItem.name === "Documents"
-                ? "Docs"
-                : activeItem.name === "Dashboard"
-                ? "Home"
-                : activeItem.name
-              : title}
-          </span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" side="top" className="w-48 mb-2">
-        {items.map((item) => {
-          const Icon = item.icon;
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setViewTransitionsEnabled(!viewTransitionsEnabled)}
+        className="text-muted-foreground hover:text-foreground"
+        title={`${viewTransitionsEnabled ? "Disable" : "Enable"} view transitions`}
+      >
+        {viewTransitionsEnabled ? "🔄" : "⏸️"}
+        <span className="sr-only">Toggle view transitions</span>
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => signOut()}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <LogOut className="w-4 h-4" />
+        <span className="ml-2">Sign Out</span>
+      </Button>
+    </>
+  );
+};
+
+// Mobile bottom tab bar with quick access and a More (opens drawer)
+const MobileTabBar: React.FC<{ location: ReturnType<typeof useLocation>; onQuickAdd: () => void }> = ({
+  location,
+  onQuickAdd,
+}) => {
+  const { setOpenMobile } = useSidebar();
+
+  const tabs = [
+    { name: "Home", path: "/", icon: Home },
+    { name: "Day", path: "/day-tracker", icon: Calendar },
+    { name: "KB", path: "/knowledge", icon: BookOpen },
+    { name: "Vault", path: "/vault", icon: Shield },
+  ];
+
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-border safe-bottom safe-left safe-right">
+      <div className="flex items-stretch justify-between px-2 py-1">
+        {tabs.map((t) => {
+          const Icon = t.icon;
+          const isActive = location.pathname === t.path;
           return (
-            <DropdownMenuItem key={item.path} asChild>
-              <ViewTransitionLink
-                to={item.path}
-                className={cn(
-                  "flex items-center space-x-2 w-full",
-                  location.pathname === item.path &&
-                    "bg-primary/10 text-primary"
-                )}
-              >
-                <Icon size={16} />
-                <span>{item.name}</span>
-              </ViewTransitionLink>
-            </DropdownMenuItem>
+            <ViewTransitionLink
+              key={t.path}
+              to={t.path}
+              className={cn(
+                "flex-1 grid place-items-center py-2 rounded-xl mx-1 transition-all",
+                isActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+              )}
+            >
+              <Icon className={cn("h-5 w-5 mb-0.5", isActive && "scale-110")} />
+              <span className="text-[10px] font-medium">{t.name}</span>
+            </ViewTransitionLink>
           );
         })}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        <button
+          onClick={() => setOpenMobile(true)}
+          className="flex-1 grid place-items-center py-2 rounded-xl mx-1 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          aria-label="More"
+        >
+          <Menu className="h-5 w-5 mb-0.5" />
+          <span className="text-[10px] font-medium">More</span>
+        </button>
+      </div>
+      <div className="pointer-events-none absolute -top-7 right-4">
+        <Button
+          variant="hero"
+          size="icon"
+          className="w-12 h-12 rounded-full shadow-glow pointer-events-auto"
+          onClick={onQuickAdd}
+          aria-label="Quick Add Task"
+        >
+          <Plus size={22} />
+        </Button>
+      </div>
+    </nav>
   );
 };
 
 export const Layout: React.FC = React.memo(() => {
   const location = useLocation();
-  const { signOut } = useAuth();
-  const { viewTransitionsEnabled, setViewTransitionsEnabled } = useSettings();
 
   // Local UI state for Search (Command Palette) and Quick Add
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -203,8 +260,6 @@ export const Layout: React.FC = React.memo(() => {
     priority?: "low" | "medium" | "high",
     dueDate?: string
   ) => {
-    // TODO: Wire to tasks creation hook when available.
-    // For now, just log and close dialog to give immediate feedback.
     console.debug("Quick Add task:", { title, description, priority, dueDate });
     return Promise.resolve();
   };
@@ -225,139 +280,27 @@ export const Layout: React.FC = React.memo(() => {
 
   return (
     <div className="min-h-screen bg-gradient-subtle safe-top safe-bottom">
-      {/* Desktop Navigation */}
-      <nav className="hidden md:flex fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-border shadow-card safe-top">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 safe-left safe-right">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center min-w-0 flex-1">
-              <ViewTransitionLink
-                to="/"
-                className="flex items-center space-x-2 flex-shrink-0 mr-4 lg:mr-8"
-              >
-                <div className="w-8 h-8 bg-gradient-primary rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">LOS</span>
-                </div>
-                <span className="text-xl font-semibold text-foreground hidden lg:inline">
-                  Life OS
-                </span>
-                <span className="text-lg font-semibold text-foreground lg:hidden">
-                  LOS
-                </span>
-              </ViewTransitionLink>
-
-              {/* Navigation with dropdowns */}
-              <div className="flex items-center space-x-2 min-w-0 flex-1">
-                <CategoryDropdown
-                  title="Daily"
-                  items={moduleCategories.daily}
-                  location={location}
-                />
-                <CategoryDropdown
-                  title="Homelab"
-                  items={moduleCategories.homelab}
-                  location={location}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSearchOpen(true)}
-                aria-label="Open Search (Ctrl/Cmd+K)"
-                className="h-9 w-9"
-              >
-                <Search size={18} />
-              </Button>
-              <Button
-                variant="hero"
-                size="sm"
-                className="hidden lg:inline-flex"
-                onClick={() => setIsQuickAddOpen(true)}
-              >
-                <Plus size={16} />
-                <span className="ml-1">Quick Add</span>
-              </Button>
-              <Button
-                variant="hero"
-                size="icon"
-                className="lg:hidden h-9 w-9"
-                onClick={() => setIsQuickAddOpen(true)}
-                aria-label="Quick Add"
-              >
-                <Plus size={18} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() =>
-                  setViewTransitionsEnabled(!viewTransitionsEnabled)
-                }
-                className="text-muted-foreground hover:text-foreground hidden xl:inline-flex"
-                title={`${
-                  viewTransitionsEnabled ? "Disable" : "Enable"
-                } view transitions`}
-              >
-                {viewTransitionsEnabled ? "🔄" : "⏸️"}
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => signOut()}
-                className="text-muted-foreground hover:text-foreground h-9"
-              >
-                <LogOut className="w-4 h-4" />
-                <span className="hidden sm:inline ml-2">Sign Out</span>
-              </Button>
-            </div>
+      <SidebarProvider>
+        <Sidebar variant="inset" collapsible="icon">
+          <SidebarNavigation
+            location={location}
+            onOpenSearch={() => setIsSearchOpen(true)}
+            onOpenQuickAdd={() => setIsQuickAddOpen(true)}
+          />
+        </Sidebar>
+        <SidebarInset>
+          {/* Main Content */}
+          <div className="px-2 sm:px-4 pt-3 pb-24 md:pb-6 safe-left safe-right">
+            <Outlet />
           </div>
-        </div>
-      </nav>
 
-      {/* Main Content */}
-      <main className="sm:pt-4 md:pt-20 pb-24 md:pb-4">
-        <div className="min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-5rem)] safe-left safe-right">
-          <Outlet />
-        </div>
-      </main>
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-border safe-bottom safe-left safe-right">
-        <div className="flex justify-center py-2">
-          <div className="flex items-center space-x-4">
-            <MobileCategoryDropdown
-              title="Daily"
-              items={moduleCategories.daily}
-              location={location}
-            />
-            <MobileCategoryDropdown
-              title="Homelab"
-              items={moduleCategories.homelab}
-              location={location}
-            />
-          </div>
-        </div>
-      </nav>
-
-      {/* Mobile Floating Action Button */}
-      <div
-        className="md:hidden fixed right-4 z-40 transition-transform active:scale-95"
-        style={{
-          bottom: "calc(4.75rem + env(safe-area-inset-bottom))",
-          right: "max(1rem, env(safe-area-inset-right))",
-        }}
-      >
-        <Button
-          variant="hero"
-          size="icon"
-          className="w-14 h-14 rounded-full shadow-glow touch-manipulation hover:scale-105 transition-transform"
-          onClick={() => setIsQuickAddOpen(true)}
-          aria-label="Quick Add Task"
-        >
-          <Plus size={24} />
-        </Button>
-      </div>
+          {/* Mobile Bottom Tab Bar */}
+          <MobileTabBar
+            location={location}
+            onQuickAdd={() => setIsQuickAddOpen(true)}
+          />
+        </SidebarInset>
+      </SidebarProvider>
 
       {/* Search Command Palette */}
       <CommandDialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>

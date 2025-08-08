@@ -9,6 +9,15 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     historyApiFallback: true,
+    headers: {
+      // Enforce frame-ancestors via server header (meta tag can't enforce it)
+      "Content-Security-Policy": "frame-ancestors 'none'",
+    },
+  },
+  preview: {
+    headers: {
+      "Content-Security-Policy": "frame-ancestors 'none'",
+    },
   },
   plugins: [
     react({
