@@ -4,17 +4,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Shield, 
   Eye, 
   EyeOff, 
   Lock, 
   Key,
-  AlertTriangle
+  AlertTriangle,
+  Clock
 } from 'lucide-react';
 
 interface VaultUnlockProps {
-  onUnlock: (password: string) => Promise<boolean>;
+  onUnlock: (password: string, timeoutMinutes?: number) => Promise<boolean>;
   loading?: boolean;
   error?: string;
 }
@@ -23,17 +25,30 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [attempts, setAttempts] = useState(0);
+  const [timeoutMinutes, setTimeoutMinutes] = useState<number>(15);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password.trim() || loading) return;
     
-    const success = await onUnlock(password);
+    const success = await onUnlock(password, timeoutMinutes);
     if (!success) {
       setAttempts(prev => prev + 1);
       setPassword(''); // Clear password on failed attempt
+    } else {
+      setPassword(''); // Clear password on success as well
     }
   };
+
+  const timeoutOptions = [
+    { value: 5, label: '5 minutes' },
+    { value: 15, label: '15 minutes' },
+    { value: 30, label: '30 minutes' },
+    { value: 60, label: '1 hour' },
+    { value: 120, label: '2 hours' },
+    { value: 240, label: '4 hours' },
+    { value: 480, label: '8 hours' },
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
@@ -73,6 +88,29 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </Button>
               </div>
+            </div>
+
+            {/* Auto-lock Duration */}
+            <div className="space-y-2">
+              <Label htmlFor="timeout">Keep unlocked for</Label>
+              <Select value={timeoutMinutes.toString()} onValueChange={(value) => setTimeoutMinutes(Number(value))}>
+                <SelectTrigger>
+                  <div className="flex items-center">
+                    <Clock className="w-4 h-4 mr-2 text-muted-foreground" />
+                    <SelectValue />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {timeoutOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value.toString()}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Vault will automatically lock after this time period
+              </p>
             </div>
 
             {/* Error Message */}
@@ -122,7 +160,8 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
                 <ul className="text-muted-foreground space-y-1">
                   <li>• End-to-end encryption</li>
                   <li>• Zero-knowledge architecture</li>
-                  <li>• Auto-lock after inactivity</li>
+                  <li>• Time-based auto-lock</li>
+                  <li>• Cross-device session sync</li>
                 </ul>
               </div>
             </div>

@@ -346,12 +346,42 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_sessions: {
+        Row: {
+          created_at: string | null
+          expires_at: string
+          id: string
+          server_secret: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          server_secret: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          server_secret?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_vault_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

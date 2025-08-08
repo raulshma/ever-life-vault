@@ -5,7 +5,7 @@
 
 // Crypto configuration constants
 export const CRYPTO_CONFIG = {
-  PBKDF2_ITERATIONS: 100000, // OWASP recommended minimum
+  PBKDF2_ITERATIONS: 310000, // Increased for stronger KDF per OWASP 2023+ guidance
   SALT_LENGTH: 32, // 256 bits
   IV_LENGTH: 12, // 96 bits for GCM
   KEY_LENGTH: 32, // 256 bits
@@ -29,7 +29,7 @@ export function generateIV(): Uint8Array {
 /**
  * Derive encryption key from master password using PBKDF2
  */
-export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+export async function deriveKey(password: string, salt: Uint8Array, extractable: boolean = false): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const passwordBuffer = encoder.encode(password);
   
@@ -46,7 +46,7 @@ export async function deriveKey(password: string, salt: Uint8Array): Promise<Cry
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-  salt: new Uint8Array(salt),
+      salt: new Uint8Array(salt),
       iterations: CRYPTO_CONFIG.PBKDF2_ITERATIONS,
       hash: 'SHA-256',
     },
@@ -55,7 +55,7 @@ export async function deriveKey(password: string, salt: Uint8Array): Promise<Cry
       name: 'AES-GCM',
       length: CRYPTO_CONFIG.KEY_LENGTH * 8, // Convert to bits
     },
-    false, // Not extractable
+    extractable, // Extractable toggled based on caller need
     ['encrypt', 'decrypt']
   );
 }
@@ -82,7 +82,7 @@ export async function encryptData(
   const encryptedBuffer = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-  iv: new Uint8Array(actualIV),
+      iv: new Uint8Array(actualIV),
       tagLength: CRYPTO_CONFIG.TAG_LENGTH * 8, // Convert to bits
     },
     key,
@@ -119,7 +119,7 @@ export async function decryptData(
     const decryptedBuffer = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-  iv: new Uint8Array(iv),
+        iv: new Uint8Array(iv),
         tagLength: CRYPTO_CONFIG.TAG_LENGTH * 8,
       },
       key,
@@ -207,55 +207,36 @@ export function validateMasterPassword(password: string): {
   };
 }
 
-/**
- * Encrypted vault item structure for database storage
- */
-// NOTE: DB schema stores name, created_at, updated_at as top-level columns.
-// Earlier code wrapped these in metadata, which caused runtime errors on fetch.
-// We flatten the interface to match the actual table shape.
-export interface EncryptedVaultItem {
-  id: string;
-  user_id: string;
-  encrypted_data: string; // Base64 encoded encrypted JSON
-  iv: string; // Base64 encoded IV
-  auth_tag: string; // Base64 encoded authentication tag
-  item_type: 'login' | 'note' | 'api' | 'document';
-  name: string; // Unencrypted for search/display
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Decrypted vault item structure for client use
- */
-export interface VaultItem {
+export type VaultItem = {
   id: string;
   type: 'login' | 'note' | 'api' | 'document';
   name: string;
-  data: {
-    username?: string;
-    password?: string;
-    url?: string;
-    notes?: string;
-    apiKey?: string;
-    content?: string;
-    [key: string]: any;
-  };
+  data: Record<string, any>;
   created_at: string;
   updated_at: string;
-}
+};
 
-/**
- * Encrypt a vault item for storage
- */
+export type EncryptedVaultItem = {
+  id: string;
+  user_id: string;
+  encrypted_data: string; // base64
+  iv: string; // base64
+  auth_tag: string; // base64
+  item_type: 'login' | 'note' | 'api' | 'document';
+  name: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export async function encryptVaultItem(
   item: Omit<VaultItem, 'id' | 'created_at' | 'updated_at'>,
   key: CryptoKey,
   userId: string
-): Promise<Omit<EncryptedVaultItem, 'id'>> {
-  const itemData = JSON.stringify(item.data);
-  const { encryptedData, iv, authTag } = await encryptData(itemData, key);
-  const now = new Date().toISOString();
+): Promise<Omit<EncryptedVaultItem, 'id' | 'created_at' | 'updated_at'>> {
+  const iv = generateIV();
+  const plaintext = JSON.stringify(item.data);
+  const { encryptedData, authTag } = await encryptData(plaintext, key, iv);
+
   return {
     user_id: userId,
     encrypted_data: arrayBufferToBase64(encryptedData),
@@ -263,28 +244,25 @@ export async function encryptVaultItem(
     auth_tag: uint8ArrayToBase64(authTag),
     item_type: item.type,
     name: item.name,
-    created_at: now,
-    updated_at: now,
   };
 }
 
-/**
- * Decrypt a vault item from storage
- */
 export async function decryptVaultItem(
   encryptedItem: EncryptedVaultItem,
   key: CryptoKey
 ): Promise<VaultItem> {
-  const encryptedData = base64ToArrayBuffer(encryptedItem.encrypted_data);
-  const iv = base64ToUint8Array(encryptedItem.iv);
-  const authTag = base64ToUint8Array(encryptedItem.auth_tag);
-  const decryptedDataString = await decryptData(encryptedData, key, iv, authTag);
-  const data = JSON.parse(decryptedDataString);
+  const plaintext = await decryptData(
+    base64ToArrayBuffer(encryptedItem.encrypted_data),
+    key,
+    base64ToUint8Array(encryptedItem.iv),
+    base64ToUint8Array(encryptedItem.auth_tag)
+  );
+
   return {
     id: encryptedItem.id,
     type: encryptedItem.item_type,
     name: encryptedItem.name,
-    data,
+    data: JSON.parse(plaintext),
     created_at: encryptedItem.created_at,
     updated_at: encryptedItem.updated_at,
   };

@@ -115,7 +115,7 @@ export const useJellyfin = (config: JellyfinConfig) => {
         const url = `${base}${endpoint}`;
         const response = await fetch(url, {
           ...options,
-            headers: {
+          headers: {
             "X-Emby-Token": config.apiKey,
             "Content-Type": "application/json",
             ...options.headers,
