@@ -21,6 +21,7 @@ import {
   Database,
   ChevronDown,
   Film,
+  Play,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -52,6 +53,7 @@ const moduleCategories = {
     { name: "Monitoring", path: "/homelab/monitoring", icon: Monitor },
     { name: "Network", path: "/homelab/network", icon: Network },
     { name: "Storage", path: "/homelab/storage", icon: Database },
+    { name: "Jellyfin", path: "/homelab/jellyfin", icon: Play },
     { name: "Media Requests", path: "/homelab/media-requests", icon: Film },
   ],
 };
