@@ -32,29 +32,29 @@ ALTER TABLE public.encrypted_vault_items ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies for vault_config
 CREATE POLICY "Users can view their own vault config" ON public.vault_config
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own vault config" ON public.vault_config
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own vault config" ON public.vault_config
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own vault config" ON public.vault_config
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create RLS policies for encrypted_vault_items
 CREATE POLICY "Users can view their own vault items" ON public.encrypted_vault_items
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own vault items" ON public.encrypted_vault_items
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own vault items" ON public.encrypted_vault_items
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own vault items" ON public.encrypted_vault_items
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create triggers for automatic timestamp updates
 CREATE TRIGGER update_vault_config_updated_at

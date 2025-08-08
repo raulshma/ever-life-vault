@@ -48,42 +48,42 @@ CREATE POLICY "Users can update their own profile" ON public.profiles
 -- tasks
 DROP POLICY IF EXISTS "Users can update their own tasks" ON public.tasks;
 CREATE POLICY "Users can update their own tasks" ON public.tasks
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- notes
 DROP POLICY IF EXISTS "Users can update their own notes" ON public.notes;
 CREATE POLICY "Users can update their own notes" ON public.notes
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- documents
 DROP POLICY IF EXISTS "Users can update their own documents" ON public.documents;
 CREATE POLICY "Users can update their own documents" ON public.documents
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- locations
 DROP POLICY IF EXISTS "Users can update their own locations" ON public.locations;
 CREATE POLICY "Users can update their own locations" ON public.locations
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- inventory_items
 DROP POLICY IF EXISTS "Users can update their own inventory items" ON public.inventory_items;
 CREATE POLICY "Users can update their own inventory items" ON public.inventory_items
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- vault_config
 DROP POLICY IF EXISTS "Users can update their own vault config" ON public.vault_config;
 CREATE POLICY "Users can update their own vault config" ON public.vault_config
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- encrypted_vault_items
 DROP POLICY IF EXISTS "Users can update their own vault items" ON public.encrypted_vault_items;
 CREATE POLICY "Users can update their own vault items" ON public.encrypted_vault_items
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- monthly_status_sheets
 DROP POLICY IF EXISTS "Users can update their own monthly status sheets" ON public.monthly_status_sheets;
 CREATE POLICY "Users can update their own monthly status sheets" ON public.monthly_status_sheets
-  FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- =============================================================
 -- 4. (Optional future step) Consider adding a domain or check to ensure user_id

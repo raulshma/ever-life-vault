@@ -119,81 +119,81 @@ CREATE POLICY "Users can insert their own profile" ON public.profiles
 
 -- Create RLS policies for tasks
 CREATE POLICY "Users can view their own tasks" ON public.tasks
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own tasks" ON public.tasks
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own tasks" ON public.tasks
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own tasks" ON public.tasks
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create RLS policies for notes
 CREATE POLICY "Users can view their own notes" ON public.notes
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own notes" ON public.notes
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own notes" ON public.notes
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own notes" ON public.notes
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create RLS policies for credentials
 CREATE POLICY "Users can view their own credentials" ON public.credentials
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own credentials" ON public.credentials
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own credentials" ON public.credentials
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own credentials" ON public.credentials
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create RLS policies for documents
 CREATE POLICY "Users can view their own documents" ON public.documents
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own documents" ON public.documents
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own documents" ON public.documents
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own documents" ON public.documents
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create RLS policies for locations
 CREATE POLICY "Users can view their own locations" ON public.locations
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own locations" ON public.locations
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own locations" ON public.locations
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own locations" ON public.locations
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create RLS policies for inventory items
 CREATE POLICY "Users can view their own inventory items" ON public.inventory_items
-  FOR SELECT USING (auth.uid() = user_id);
+  FOR SELECT USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own inventory items" ON public.inventory_items
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+  FOR INSERT WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own inventory items" ON public.inventory_items
-  FOR UPDATE USING (auth.uid() = user_id);
+  FOR UPDATE USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own inventory items" ON public.inventory_items
-  FOR DELETE USING (auth.uid() = user_id);
+  FOR DELETE USING ((SELECT auth.uid()) = user_id);
 
 -- Create storage bucket for document uploads
 INSERT INTO storage.buckets (id, name, public) 

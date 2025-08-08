@@ -18,22 +18,22 @@ ALTER TABLE public.monthly_status_sheets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view their own monthly status sheets" 
 ON public.monthly_status_sheets 
 FOR SELECT 
-USING (auth.uid() = user_id);
+USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can create their own monthly status sheets" 
 ON public.monthly_status_sheets 
 FOR INSERT 
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can update their own monthly status sheets" 
 ON public.monthly_status_sheets 
 FOR UPDATE 
-USING (auth.uid() = user_id);
+USING ((SELECT auth.uid()) = user_id);
 
 CREATE POLICY "Users can delete their own monthly status sheets" 
 ON public.monthly_status_sheets 
 FOR DELETE 
-USING (auth.uid() = user_id);
+USING ((SELECT auth.uid()) = user_id);
 
 -- Create trigger for automatic timestamp updates
 CREATE TRIGGER update_monthly_status_sheets_updated_at
