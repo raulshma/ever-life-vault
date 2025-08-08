@@ -33,12 +33,12 @@ export default function HeroSection() {
   return (
   <div className="relative overflow-hidden bg-gradient-hero text-white">
       <div className="absolute inset-0 bg-black/10"></div>
-    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-12 md:py-20 lg:py-24">
+    <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-8">
         <div className="text-center">
-      <h1 className="font-bold mb-6 text-[clamp(2.25rem,6vw,3.5rem)] leading-tight">
+      <h1 className="font-bold mb-4 text-[clamp(1.75rem,4vw,2.5rem)] leading-tight">
             Life OS
           </h1>
-      <p className="mb-8 text-white/90 max-w-2xl md:max-w-3xl mx-auto text-[clamp(1.05rem,2.4vw,1.5rem)] leading-relaxed px-1">
+      <p className="mb-4 text-white/90 max-w-2xl md:max-w-3xl mx-auto text-[clamp(0.95rem,2vw,1.25rem)] leading-relaxed px-1">
             Organize your digital and physical life with speed, security, and simplicity
           </p>
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center w-full max-w-xl mx-auto">
@@ -48,7 +48,7 @@ export default function HeroSection() {
                 <Button
                   key={index}
                   variant={action.variant}
-          size="xl"
+          size="lg"
           onClick={action.action}
           className="shadow-glow w-full sm:w-auto"
                 >

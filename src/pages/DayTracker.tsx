@@ -170,16 +170,16 @@ export default function DayTracker() {
       {/* Header */}
       <div className="relative bg-gradient-primary text-white gradient-sheen">
         <div className="absolute inset-0 bg-white/5" />
-        <div className="container relative py-8 sm:py-12">
+        <div className="container relative py-5 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Day Tracker</h1>
-              <p className="text-white/80 text-sm sm:text-base mt-1">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Day Tracker</h1>
+              <p className="text-white/80 text-xs sm:text-sm mt-1">
                 Manage your tasks and track daily productivity
               </p>
             </div>
-            <div className="glass rounded-xl px-4 py-2 flex items-center gap-2 text-sm sm:text-base shadow-elegant">
-              <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
+            <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs sm:text-sm shadow-elegant">
+              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="text-white/90">
                 {new Date().toLocaleDateString('en-US', {
                   weekday: 'long',

@@ -90,11 +90,11 @@ export default function Documents() {
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
       <div className="bg-gradient-primary text-white">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2 flex items-center">
-                <FileText className="w-8 h-8 mr-3" />
+              <h1 className="text-2xl font-bold mb-1 flex items-center">
+                <FileText className="w-6 h-6 mr-2" />
                 Document Hub
               </h1>
               <p className="text-white/90">Securely manage your important personal documents</p>

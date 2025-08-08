@@ -79,10 +79,10 @@ export default function KnowledgeBase() {
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
       <div className="bg-gradient-primary text-white">
-        <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Knowledge Base</h1>
+              <h1 className="text-2xl font-bold mb-1">Knowledge Base</h1>
               <p className="text-white/90">Store and organize your research and notes</p>
             </div>
             <div className="flex items-center space-x-3">

@@ -438,11 +438,11 @@ export default function Vault() {
       {/* Header */}
       <div className="bg-gradient-hero text-white relative overflow-hidden">
         <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-7xl mx-auto px-6 py-8">
+        <div className="relative max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold mb-2 flex items-center">
-                <Shield className="w-8 h-8 mr-3" />
+              <h1 className="text-2xl font-bold mb-1 flex items-center">
+                <Shield className="w-6 h-6 mr-2" />
                 Secure Vault
               </h1>
               <p className="text-white/90">

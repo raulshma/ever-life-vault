@@ -125,14 +125,14 @@ export default function Inventory() {
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
       <div className="bg-gradient-primary text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold mb-2 flex items-center">
-                <Package2 className="w-6 h-6 sm:w-8 sm:h-8 mr-2 sm:mr-3 flex-shrink-0" />
+              <h1 className="text-xl sm:text-2xl font-bold mb-1 flex items-center">
+                <Package2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
                 <span className="truncate">Inventory Tracker</span>
               </h1>
-              <p className="text-white/90 text-sm sm:text-base">Track physical items and their locations</p>
+              <p className="text-white/90 text-xs sm:text-sm">Track physical items and their locations</p>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3">
               <Button 
