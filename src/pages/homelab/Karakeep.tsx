@@ -129,10 +129,18 @@ export default function Karakeep() {
           <Bookmark className="w-6 h-6 text-primary" />
           <h1 className="text-xl sm:text-2xl font-bold">Karakeep</h1>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowConfig((v) => !v)}>
+        <Button variant="outline" size="sm" onClick={() => setShowConfig((v) => !v)} disabled={!isUnlocked}>
           <Settings className="w-4 h-4 mr-2" /> Settings
         </Button>
       </div>
+
+      {!isUnlocked && (
+        <Card className="border-amber-200 bg-amber-50 mb-4">
+          <CardContent className="pt-6">
+            <p className="text-amber-700 text-sm font-medium">Unlock your secure vault to access Karakeep integration.</p>
+          </CardContent>
+        </Card>
+      )}
 
       {showConfig && (
         <Card className="mb-4 bg-gradient-card">
@@ -140,6 +148,27 @@ export default function Karakeep() {
             <CardTitle>Configuration</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
+            {serviceConfig.availableVaultItems.length > 0 && (
+              <div>
+                <label className="text-sm font-medium">Use Existing Credential</label>
+                <Select
+                  value={serviceConfig.linkedVaultItemId || ''}
+                  onValueChange={(val) => serviceConfig.linkVaultItem(val === '' ? null : val)}
+                  disabled={!isUnlocked || serviceConfig.saving}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select saved API credential" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Manual configuration</SelectItem>
+                    {serviceConfig.availableVaultItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">Pick a saved API credential from your secure vault.</p>
+              </div>
+            )}
             <div className="grid sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-muted-foreground">Server URL</label>
@@ -147,6 +176,7 @@ export default function Karakeep() {
                   placeholder="https://your-domain/api/v1"
                   value={localServerUrl}
                   onChange={(e) => setLocalServerUrl(e.target.value)}
+                  disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
                 />
               </div>
               <div>
@@ -155,12 +185,16 @@ export default function Karakeep() {
                   placeholder="••••••••"
                   value={localApiKey}
                   onChange={(e) => setLocalApiKey(e.target.value)}
+                  disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
                 />
+                {serviceConfig.source === 'linked' && (
+                  <p className="text-xs text-emerald-600 mt-1">Using linked vault credential.</p>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleSaveConfig}>Save</Button>
-              <Button variant="secondary" onClick={handleTestConnection}>
+              <Button onClick={handleSaveConfig} disabled={!isUnlocked || serviceConfig.saving}>Save</Button>
+              <Button variant="secondary" onClick={handleTestConnection} disabled={!isUnlocked || !serviceConfig.isConfigured}>
                 <RefreshCw className="w-4 h-4 mr-2" /> Test
               </Button>
             </div>
@@ -181,7 +215,7 @@ export default function Karakeep() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && runSearch()}
               />
-              <Button onClick={runSearch} disabled={isSearching || !searchQuery.trim()}>
+              <Button onClick={runSearch} disabled={isSearching || !searchQuery.trim() || !isUnlocked || !isConfigured}>
                 {isSearching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               </Button>
             </div>
@@ -255,7 +289,7 @@ export default function Karakeep() {
               <label className="text-xs text-muted-foreground">Tags (comma separated)</label>
               <Input value={addTags} onChange={(e) => setAddTags(e.target.value)} placeholder="reading, research" />
             </div>
-            <Button onClick={handleAdd} disabled={karakeep.loading}>
+            <Button onClick={handleAdd} disabled={karakeep.loading || !isUnlocked || !isConfigured}>
               <Plus className="w-4 h-4 mr-2" /> Add
             </Button>
           </CardContent>
