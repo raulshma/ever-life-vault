@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -21,10 +22,14 @@ import {
   Trash2
 } from 'lucide-react';
 import { useJellyseerr, type MediaRequest, type SearchResult } from '@/hooks/useJellyseerr';
+import { useServiceApiConfig } from '@/hooks/useServiceApiConfig';
+import { useVaultSession } from '@/hooks/useVaultSession';
 
 export default function MediaRequests() {
   const { toast } = useToast();
-  const jellyseerr = useJellyseerr();
+  const { isUnlocked } = useVaultSession();
+  const serviceConfig = useServiceApiConfig('jellyseerr');
+  const jellyseerr = useJellyseerr(serviceConfig.config);
   
   const [requests, setRequests] = useState<MediaRequest[]>([]);
   const [showConfig, setShowConfig] = useState(false);
@@ -197,6 +202,15 @@ export default function MediaRequests() {
     declined: requests.filter(r => r.status === 'declined').length
   };
 
+  // Helper: disabled if vault locked
+  const vaultLockedBanner = !isUnlocked && (
+    <Card className="border-amber-200 bg-amber-50">
+      <CardContent className="pt-6">
+        <p className="text-amber-700 text-sm font-medium">Unlock your secure vault to access Jellyseerr integration.</p>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -205,6 +219,7 @@ export default function MediaRequests() {
           <Button 
             variant="outline" 
             onClick={() => setShowConfig(!showConfig)}
+            disabled={!isUnlocked}
           >
             <Settings className="w-4 h-4 mr-2" />
             Configure
@@ -212,20 +227,22 @@ export default function MediaRequests() {
           <Button 
             variant="outline"
             onClick={loadRequests}
-            disabled={isLoadingRequests || !jellyseerr.isConnected}
+            disabled={isLoadingRequests || !jellyseerr.isConnected || !isUnlocked}
           >
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingRequests ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={() => setShowSearch(!showSearch)} disabled={!jellyseerr.isConnected}>
+          <Button onClick={() => setShowSearch(!showSearch)} disabled={!jellyseerr.isConnected || !isUnlocked}>
             <Plus className="w-4 h-4 mr-2" />
             New Request
           </Button>
         </div>
       </div>
 
+      {vaultLockedBanner}
+
       {/* Connection Status */}
-      <Card>
+  <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -238,7 +255,7 @@ export default function MediaRequests() {
               )}
             </div>
             <div className="text-sm text-gray-600">
-              {jellyseerr.config.serverUrl || 'Not configured'}
+      {jellyseerr.config.serverUrl || 'Not configured'}
             </div>
           </div>
           {jellyseerr.error && (
@@ -256,12 +273,34 @@ export default function MediaRequests() {
             <CardTitle>Jellyseerr Configuration</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {serviceConfig.availableVaultItems.length > 0 && (
+              <div>
+                <label className="text-sm font-medium">Use Existing Credential</label>
+                <Select
+                  value={serviceConfig.linkedVaultItemId || ''}
+                  onValueChange={(val) => serviceConfig.linkVaultItem(val === '' ? null : val)}
+                  disabled={!isUnlocked || serviceConfig.saving}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select saved API credential" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Manual configuration</SelectItem>
+                    {serviceConfig.availableVaultItems.map(item => (
+                      <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">Pick a saved API credential from your secure vault.</p>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium">Server URL</label>
               <Input
                 placeholder="http://localhost:5055"
-                value={jellyseerr.config.serverUrl}
-                onChange={(e) => jellyseerr.updateConfig({ serverUrl: e.target.value })}
+                value={serviceConfig.config.serverUrl}
+                onChange={(e) => serviceConfig.updateConfig({ serverUrl: e.target.value })}
+                disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
               />
               <p className="text-xs text-gray-500 mt-1">
                 The URL where your Jellyseerr instance is running
@@ -272,15 +311,19 @@ export default function MediaRequests() {
               <Input
                 type="password"
                 placeholder="Your Jellyseerr API key"
-                value={jellyseerr.config.apiKey}
-                onChange={(e) => jellyseerr.updateConfig({ apiKey: e.target.value })}
+                value={serviceConfig.config.apiKey}
+                onChange={(e) => serviceConfig.updateConfig({ apiKey: e.target.value })}
+                disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
               />
               <p className="text-xs text-gray-500 mt-1">
                 Found in Jellyseerr Settings → General → API Key
               </p>
+              {serviceConfig.source === 'linked' && (
+                <p className="text-xs text-emerald-600 mt-1">Using linked vault credential.</p>
+              )}
             </div>
             <div className="flex gap-2">
-              <Button onClick={handleTestConnection} disabled={jellyseerr.loading}>
+              <Button onClick={handleTestConnection} disabled={jellyseerr.loading || !serviceConfig.isConfigured || !isUnlocked}>
                 {jellyseerr.loading ? (
                   <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                 ) : null}
@@ -338,7 +381,7 @@ export default function MediaRequests() {
       </div>
 
       {/* Search Panel */}
-      {showSearch && (
+  {showSearch && isUnlocked && (
         <Card>
           <CardHeader>
             <CardTitle>Search Media</CardTitle>
@@ -427,7 +470,7 @@ export default function MediaRequests() {
 
 
       {/* Requests List */}
-      {isLoadingRequests ? (
+  {isLoadingRequests ? (
         <Card>
           <CardContent className="pt-6">
             <div className="text-center py-8">
@@ -545,9 +588,9 @@ export default function MediaRequests() {
               <Film className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
               <p className="text-gray-600">
-                {!jellyseerr.isConnected 
+                {!isUnlocked ? 'Unlock the vault to access Jellyseerr.' : (!jellyseerr.isConnected 
                   ? 'Connect to Jellyseerr to view requests.' 
-                  : 'No media requests have been made yet.'}
+                  : 'No media requests have been made yet.')}
               </p>
             </div>
           </CardContent>

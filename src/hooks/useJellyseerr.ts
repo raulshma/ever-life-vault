@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useVaultSession } from './useVaultSession';
 
 export interface JellyseerrConfig {
   serverUrl: string;
@@ -55,30 +56,25 @@ export interface SearchResult {
   };
 }
 
-export const useJellyseerr = () => {
-  const [config, setConfig] = useState<JellyseerrConfig>({
-    serverUrl: localStorage.getItem('jellyseerr_url') || '',
-    apiKey: localStorage.getItem('jellyseerr_api_key') || '',
-  });
+export const useJellyseerr = (initialConfig?: JellyseerrConfig) => {
+  // If the secure vault is used, the parent should pass initialConfig from vault items.
+  const { isUnlocked } = useVaultSession();
+  const [config, setConfig] = useState<JellyseerrConfig>(
+    initialConfig || { serverUrl: '', apiKey: '' }
+  );
   
   const [isConnected, setIsConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const updateConfig = useCallback((newConfig: Partial<JellyseerrConfig>) => {
-    setConfig(prev => {
-      const updated = { ...prev, ...newConfig };
-      if (newConfig.serverUrl) {
-        localStorage.setItem('jellyseerr_url', newConfig.serverUrl);
-      }
-      if (newConfig.apiKey) {
-        localStorage.setItem('jellyseerr_api_key', newConfig.apiKey);
-      }
-      return updated;
-    });
+    setConfig(prev => ({ ...prev, ...newConfig }));
   }, []);
 
   const makeRequest = useCallback(async (endpoint: string, options: RequestInit = {}) => {
+    if (!isUnlocked) {
+      throw new Error('Vault locked - unlock to use Jellyseerr');
+    }
     if (!config.serverUrl || !config.apiKey) {
       throw new Error('Jellyseerr server URL and API key are required');
     }
@@ -99,7 +95,7 @@ export const useJellyseerr = () => {
     }
 
     return response.json();
-  }, [config]);
+  }, [config, isUnlocked]);
 
   const testConnection = useCallback(async (): Promise<boolean> => {
     setLoading(true);
@@ -117,6 +113,13 @@ export const useJellyseerr = () => {
       setLoading(false);
     }
   }, [makeRequest]);
+
+  // If initialConfig prop changes (from vault), sync it in.
+  useEffect(() => {
+    if (initialConfig) {
+      setConfig(initialConfig);
+    }
+  }, [initialConfig?.apiKey, initialConfig?.serverUrl]);
 
   const getRequests = useCallback(async (take = 20, skip = 0): Promise<{ results: MediaRequest[]; pageInfo: { pages: number; pageSize: number; results: number; page: number } }> => {
     return makeRequest(`/request?take=${take}&skip=${skip}&sort=added&filter=all`);
@@ -163,7 +166,7 @@ export const useJellyseerr = () => {
   }, [makeRequest]);
 
   return {
-    config,
+  config,
     updateConfig,
     isConnected,
     loading,

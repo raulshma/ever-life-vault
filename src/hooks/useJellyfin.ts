@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useVaultSession } from "./useVaultSession";
 
 export interface JellyfinConfig {
   serverUrl: string;
@@ -91,19 +92,30 @@ export interface JellyfinSystemInfo {
 }
 
 export const useJellyfin = (config: JellyfinConfig) => {
+  const { isUnlocked } = useVaultSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const makeRequest = useCallback(
     async (endpoint: string, options: RequestInit = {}) => {
+      if (!isUnlocked) {
+        throw new Error("Vault locked - unlock to use Jellyfin");
+      }
+      if (!config.serverUrl || !config.apiKey) {
+        throw new Error("Jellyfin server URL and API key are required");
+      }
       try {
         setLoading(true);
         setError(null);
 
-        const url = `${config.serverUrl}${endpoint}`;
+        const base = config.serverUrl.endsWith("/")
+          ? config.serverUrl.slice(0, -1)
+          : config.serverUrl;
+        const url = `${base}${endpoint}`;
         const response = await fetch(url, {
           ...options,
-          headers: {
+            headers: {
             "X-Emby-Token": config.apiKey,
             "Content-Type": "application/json",
             ...options.headers,
@@ -116,19 +128,21 @@ export const useJellyfin = (config: JellyfinConfig) => {
 
         return await response.json();
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Unknown error occurred";
+        const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
         setError(errorMessage);
         throw err;
       } finally {
         setLoading(false);
       }
     },
-    [config.serverUrl, config.apiKey]
+    [config.serverUrl, config.apiKey, isUnlocked]
   );
 
   const getSystemInfo = useCallback(async (): Promise<JellyfinSystemInfo> => {
-    return makeRequest("/System/Info");
+    const info = await makeRequest("/System/Info");
+    // If we can fetch system info successfully we consider the connection established
+    setIsConnected(true);
+    return info;
   }, [makeRequest]);
 
   const getUsers = useCallback(async (): Promise<JellyfinUser[]> => {
@@ -197,9 +211,21 @@ export const useJellyfin = (config: JellyfinConfig) => {
     [makeRequest]
   );
 
+  const testConnection = useCallback(async (): Promise<boolean> => {
+    try {
+      await getSystemInfo();
+      return true;
+    } catch {
+      setIsConnected(false);
+      return false;
+    }
+  }, [getSystemInfo]);
+
   return {
     loading,
     error,
+    isConnected,
+    testConnection,
     getSystemInfo,
     getUsers,
     getSessions,
