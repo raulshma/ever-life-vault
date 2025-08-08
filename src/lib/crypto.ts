@@ -46,7 +46,7 @@ export async function deriveKey(password: string, salt: Uint8Array): Promise<Cry
   return crypto.subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt: salt,
+  salt: new Uint8Array(salt),
       iterations: CRYPTO_CONFIG.PBKDF2_ITERATIONS,
       hash: 'SHA-256',
     },
@@ -82,7 +82,7 @@ export async function encryptData(
   const encryptedBuffer = await crypto.subtle.encrypt(
     {
       name: 'AES-GCM',
-      iv: actualIV,
+  iv: new Uint8Array(actualIV),
       tagLength: CRYPTO_CONFIG.TAG_LENGTH * 8, // Convert to bits
     },
     key,
@@ -119,7 +119,7 @@ export async function decryptData(
     const decryptedBuffer = await crypto.subtle.decrypt(
       {
         name: 'AES-GCM',
-        iv: iv,
+  iv: new Uint8Array(iv),
         tagLength: CRYPTO_CONFIG.TAG_LENGTH * 8,
       },
       key,
@@ -162,7 +162,7 @@ export function base64ToArrayBuffer(base64: string): ArrayBuffer {
  * Convert Uint8Array to base64 string
  */
 export function uint8ArrayToBase64(array: Uint8Array): string {
-  return arrayBufferToBase64(array.buffer);
+  return arrayBufferToBase64(array.buffer as ArrayBuffer);
 }
 
 /**
@@ -210,6 +210,9 @@ export function validateMasterPassword(password: string): {
 /**
  * Encrypted vault item structure for database storage
  */
+// NOTE: DB schema stores name, created_at, updated_at as top-level columns.
+// Earlier code wrapped these in metadata, which caused runtime errors on fetch.
+// We flatten the interface to match the actual table shape.
 export interface EncryptedVaultItem {
   id: string;
   user_id: string;
@@ -217,11 +220,9 @@ export interface EncryptedVaultItem {
   iv: string; // Base64 encoded IV
   auth_tag: string; // Base64 encoded authentication tag
   item_type: 'login' | 'note' | 'api' | 'document';
-  metadata: {
-    name: string; // Unencrypted for search/display
-    created_at: string;
-    updated_at: string;
-  };
+  name: string; // Unencrypted for search/display
+  created_at: string;
+  updated_at: string;
 }
 
 /**
@@ -254,18 +255,16 @@ export async function encryptVaultItem(
 ): Promise<Omit<EncryptedVaultItem, 'id'>> {
   const itemData = JSON.stringify(item.data);
   const { encryptedData, iv, authTag } = await encryptData(itemData, key);
-  
+  const now = new Date().toISOString();
   return {
     user_id: userId,
     encrypted_data: arrayBufferToBase64(encryptedData),
     iv: uint8ArrayToBase64(iv),
     auth_tag: uint8ArrayToBase64(authTag),
     item_type: item.type,
-    metadata: {
-      name: item.name,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
+    name: item.name,
+    created_at: now,
+    updated_at: now,
   };
 }
 
@@ -279,16 +278,14 @@ export async function decryptVaultItem(
   const encryptedData = base64ToArrayBuffer(encryptedItem.encrypted_data);
   const iv = base64ToUint8Array(encryptedItem.iv);
   const authTag = base64ToUint8Array(encryptedItem.auth_tag);
-  
   const decryptedDataString = await decryptData(encryptedData, key, iv, authTag);
   const data = JSON.parse(decryptedDataString);
-  
   return {
     id: encryptedItem.id,
     type: encryptedItem.item_type,
-    name: encryptedItem.metadata.name,
+    name: encryptedItem.name,
     data,
-    created_at: encryptedItem.metadata.created_at,
-    updated_at: encryptedItem.metadata.updated_at,
+    created_at: encryptedItem.created_at,
+    updated_at: encryptedItem.updated_at,
   };
 }

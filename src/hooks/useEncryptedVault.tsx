@@ -50,7 +50,13 @@ export function useEncryptedVault() {
       
       for (const encryptedItem of data || []) {
         try {
-          const decryptedItem = await decryptVaultItem(encryptedItem, masterKey);
+          const decryptedItem = await decryptVaultItem(
+            {
+              ...encryptedItem,
+              item_type: encryptedItem.item_type as 'login' | 'note' | 'api' | 'document',
+            },
+            masterKey
+          );
           decryptedItems.push(decryptedItem);
         } catch (decryptError) {
           console.error('Failed to decrypt item:', encryptedItem.id, decryptError);
@@ -80,7 +86,6 @@ export function useEncryptedVault() {
   const addItem = useCallback(async (
     itemData: Omit<VaultItem, 'id' | 'created_at' | 'updated_at'>
   ): Promise<VaultItem | null> => {
-    console.log(user, isUnlocked, masterKey);
     if (!user || !isUnlocked || !masterKey) return null;
     
     try {
@@ -96,7 +101,7 @@ export function useEncryptedVault() {
           iv: encryptedData.iv,
           auth_tag: encryptedData.auth_tag,
           item_type: encryptedData.item_type,
-          name: encryptedData.metadata.name,
+          name: encryptedData.name,
         })
         .select()
         .single();
@@ -170,7 +175,7 @@ export function useEncryptedVault() {
           iv: encryptedData.iv,
           auth_tag: encryptedData.auth_tag,
           item_type: encryptedData.item_type,
-          name: encryptedData.metadata.name,
+          name: encryptedData.name,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
