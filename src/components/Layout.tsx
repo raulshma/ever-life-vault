@@ -15,6 +15,11 @@ import {
   Home,
   Search,
   LogOut,
+  Server,
+  Monitor,
+  Network,
+  Database,
+  ChevronDown,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -24,16 +29,159 @@ import {
   CommandGroup,
   CommandItem,
 } from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
 
-const modules = [
-  { name: "Dashboard", path: "/", icon: Home },
-  { name: "Day Tracker", path: "/day-tracker", icon: Calendar },
-  { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
-  { name: "Vault", path: "/vault", icon: Shield },
-  { name: "Documents", path: "/documents", icon: FileText },
-  { name: "Inventory", path: "/inventory", icon: Package2 },
-];
+const moduleCategories = {
+  daily: [
+    { name: "Dashboard", path: "/", icon: Home },
+    { name: "Day Tracker", path: "/day-tracker", icon: Calendar },
+    { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
+    { name: "Vault", path: "/vault", icon: Shield },
+    { name: "Documents", path: "/documents", icon: FileText },
+    { name: "Inventory", path: "/inventory", icon: Package2 },
+  ],
+  homelab: [
+    { name: "Servers", path: "/homelab/servers", icon: Server },
+    { name: "Monitoring", path: "/homelab/monitoring", icon: Monitor },
+    { name: "Network", path: "/homelab/network", icon: Network },
+    { name: "Storage", path: "/homelab/storage", icon: Database },
+  ],
+};
+
+// Helper function to check if any item in a category is active
+const isCategoryActive = (category: typeof moduleCategories.daily) => {
+  return category.some((module) => window.location.pathname === module.path);
+};
+
+// Category Dropdown Component
+const CategoryDropdown: React.FC<{
+  title: string;
+  items: typeof moduleCategories.daily;
+  location: ReturnType<typeof useLocation>;
+}> = ({ title, items, location }) => {
+  const isActive = items.some((item) => location.pathname === item.path);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className={cn(
+            "flex items-center space-x-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 touch-manipulation",
+            isActive
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted"
+          )}
+        >
+          <span>{title}</span>
+          <ChevronDown size={14} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <DropdownMenuItem key={item.path} asChild>
+              <ViewTransitionLink
+                to={item.path}
+                className={cn(
+                  "flex items-center space-x-2 w-full",
+                  location.pathname === item.path &&
+                    "bg-primary/10 text-primary"
+                )}
+              >
+                <Icon size={16} />
+                <span>{item.name}</span>
+              </ViewTransitionLink>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+// Mobile Category Dropdown Component
+const MobileCategoryDropdown: React.FC<{
+  title: string;
+  items: typeof moduleCategories.daily;
+  location: ReturnType<typeof useLocation>;
+}> = ({ title, items, location }) => {
+  const isActive = items.some((item) => location.pathname === item.path);
+  const activeItem = items.find((item) => location.pathname === item.path);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className={cn(
+            "flex flex-col items-center justify-center py-2 px-3 transition-colors min-h-[3.5rem] touch-manipulation min-w-[4rem]",
+            isActive
+              ? "text-primary"
+              : "text-muted-foreground active:text-foreground"
+          )}
+        >
+          <div
+            className={cn(
+              "flex items-center justify-center w-6 h-6 mb-1 transition-transform",
+              isActive && "scale-110"
+            )}
+          >
+            {activeItem ? (
+              <activeItem.icon size={18} />
+            ) : (
+              <ChevronDown size={18} />
+            )}
+          </div>
+          <span
+            className={cn(
+              "text-[9px] font-medium leading-tight text-center max-w-full",
+              "xs:text-[10px]"
+            )}
+          >
+            {activeItem
+              ? activeItem.name === "Day Tracker"
+                ? "Day"
+                : activeItem.name === "Knowledge Base"
+                ? "KB"
+                : activeItem.name === "Documents"
+                ? "Docs"
+                : activeItem.name === "Dashboard"
+                ? "Home"
+                : activeItem.name
+              : title}
+          </span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" side="top" className="w-48 mb-2">
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <DropdownMenuItem key={item.path} asChild>
+              <ViewTransitionLink
+                to={item.path}
+                className={cn(
+                  "flex items-center space-x-2 w-full",
+                  location.pathname === item.path &&
+                    "bg-primary/10 text-primary"
+                )}
+              >
+                <Icon size={16} />
+                <span>{item.name}</span>
+              </ViewTransitionLink>
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 export const Layout: React.FC = React.memo(() => {
   const location = useLocation();
@@ -93,33 +241,18 @@ export const Layout: React.FC = React.memo(() => {
                 </span>
               </ViewTransitionLink>
 
-              {/* Scrollable navigation for medium screens */}
-              <div className="relative flex items-center space-x-1 overflow-x-auto scrollbar-hide min-w-0 flex-1">
-                <div className="flex items-center space-x-1 flex-nowrap">
-                  {modules.slice(1).map((module) => {
-                    const Icon = module.icon;
-                    return (
-                      <ViewTransitionLink
-                        key={module.path}
-                        to={module.path}
-                        className={cn(
-                          "flex items-center space-x-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap flex-shrink-0 touch-manipulation",
-                          location.pathname === module.path
-                            ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:text-foreground hover:bg-muted active:bg-muted/80"
-                        )}
-                      >
-                        <Icon size={16} />
-                        <span className="hidden lg:inline">{module.name}</span>
-                        <span className="lg:hidden text-xs">
-                          {module.name.split(" ")[0]}
-                        </span>
-                      </ViewTransitionLink>
-                    );
-                  })}
-                </div>
-                {/* Fade gradient for overflow indication */}
-                <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white/80 to-transparent pointer-events-none lg:hidden" />
+              {/* Navigation with dropdowns */}
+              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                <CategoryDropdown
+                  title="Daily"
+                  items={moduleCategories.daily}
+                  location={location}
+                />
+                <CategoryDropdown
+                  title="Homelab"
+                  items={moduleCategories.homelab}
+                  location={location}
+                />
               </div>
             </div>
 
@@ -187,50 +320,19 @@ export const Layout: React.FC = React.memo(() => {
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-border safe-bottom safe-left safe-right">
-        <div className="grid grid-cols-6 py-2">
-          {modules.map((module) => {
-            const Icon = module.icon;
-            const isActive = location.pathname === module.path;
-            return (
-              <ViewTransitionLink
-                key={module.path}
-                to={module.path}
-                className={cn(
-                  "flex flex-col items-center justify-center py-2 px-1 transition-colors min-h-[3.5rem] touch-manipulation",
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground active:text-foreground"
-                )}
-              >
-                <div
-                  className={cn(
-                    "flex items-center justify-center w-6 h-6 mb-1 transition-transform",
-                    isActive && "scale-110"
-                  )}
-                >
-                  <Icon size={20} />
-                </div>
-                <span
-                  className={cn(
-                    "text-[10px] font-medium leading-tight text-center max-w-full",
-                    "xs:text-[11px]"
-                  )}
-                >
-                  {/* Show abbreviated names on very small screens */}
-                  <span className="xs:hidden">
-                    {module.name === "Day Tracker"
-                      ? "Day"
-                      : module.name === "Knowledge Base"
-                      ? "KB"
-                      : module.name === "Documents"
-                      ? "Docs"
-                      : module.name}
-                  </span>
-                  <span className="hidden xs:inline">{module.name}</span>
-                </span>
-              </ViewTransitionLink>
-            );
-          })}
+        <div className="flex justify-center py-2">
+          <div className="flex items-center space-x-4">
+            <MobileCategoryDropdown
+              title="Daily"
+              items={moduleCategories.daily}
+              location={location}
+            />
+            <MobileCategoryDropdown
+              title="Homelab"
+              items={moduleCategories.homelab}
+              location={location}
+            />
+          </div>
         </div>
       </nav>
 
@@ -261,8 +363,22 @@ export const Layout: React.FC = React.memo(() => {
         />
         <CommandList className="max-h-[60vh] md:max-h-[400px]">
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Navigation">
-            {modules.map((m) => (
+          <CommandGroup heading="Daily">
+            {moduleCategories.daily.map((m) => (
+              <CommandItem
+                key={m.path}
+                onSelect={() => {
+                  setIsSearchOpen(false);
+                }}
+                className="py-3 md:py-2 text-base md:text-sm"
+              >
+                <m.icon className="mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span>{m.name}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandGroup heading="Homelab">
+            {moduleCategories.homelab.map((m) => (
               <CommandItem
                 key={m.path}
                 onSelect={() => {
