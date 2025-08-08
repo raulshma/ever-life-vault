@@ -1,12 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { 
-  Calendar, 
-  BookOpen, 
-  Shield, 
-  FileText, 
-  Package2
+import {
+  Calendar,
+  BookOpen,
+  Shield,
+  FileText,
+  Package2,
+  Server,
+  Monitor,
+  Network,
+  Database,
+  Play,
+  Film,
 } from 'lucide-react';
 import { useTasks } from '@/hooks/useTasks';
 import { useNotes } from '@/hooks/useNotes';
@@ -63,23 +69,74 @@ export default function ModuleGrid() {
       icon: Package2,
       color: 'from-lime-400 to-lime-500',
       stats: { items: items.length, locations: locations.length }
+    },
+    // Homelab modules
+    {
+      name: 'Servers',
+      description: 'Manage and monitor your home servers',
+      path: '/homelab/servers',
+      icon: Server,
+      color: 'from-indigo-400 to-indigo-500',
+      stats: { category: 'Homelab' }
+    },
+    {
+      name: 'Monitoring',
+      description: 'System health, metrics, and alerts',
+      path: '/homelab/monitoring',
+      icon: Monitor,
+      color: 'from-purple-400 to-purple-500',
+      stats: { category: 'Homelab' }
+    },
+    {
+      name: 'Network',
+      description: 'Devices, bandwidth and security status',
+      path: '/homelab/network',
+      icon: Network,
+      color: 'from-orange-400 to-orange-500',
+      stats: { category: 'Homelab' }
+    },
+    {
+      name: 'Storage',
+      description: 'Disks, arrays, backups and capacity',
+      path: '/homelab/storage',
+      icon: Database,
+      color: 'from-rose-400 to-rose-500',
+      stats: { category: 'Homelab' }
+    },
+    {
+      name: 'Jellyfin',
+      description: 'Media server sessions, users and stats',
+      path: '/homelab/jellyfin',
+      icon: Play,
+      color: 'from-violet-400 to-violet-500',
+      stats: { category: 'Homelab' }
+    },
+    {
+      name: 'Media Requests',
+      description: 'Request and manage movies and TV shows',
+      path: '/homelab/media-requests',
+      icon: Film,
+      color: 'from-fuchsia-400 to-fuchsia-500',
+      stats: { category: 'Homelab' }
     }
   ];
 
   return (
-    <div className="mb-8 sm:mb-12">
-      <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">Your Life Modules</h2>
-      {/* Responsive fluid grid that adapts to small devices smoothly */}
+    <div className="mb-10 sm:mb-14">
+      <div className="flex items-center justify-between mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground">Your Life Modules</h2>
+        <span className="hidden sm:inline text-xs pill">Tap a module to jump in</span>
+      </div>
       <div className="grid gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
         {modules.map((module) => {
           const Icon = module.icon;
           return (
             <Link key={module.path} to={module.path}>
-              <Card className="group hover:shadow-elegant transition-all duration-300 hover:scale-[1.02] sm:hover:scale-105 bg-gradient-card border-0">
-                <CardHeader className="pb-3 sm:pb-4">
+              <Card className="tilt shine-card bg-gradient-card border-0 hover-lift group">
+                <CardHeader className="pb-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${module.color} rounded-lg flex items-center justify-center shadow-card`}>
-                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r ${module.color} rounded-xl flex items-center justify-center shadow-card`}>
+                      <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-xs sm:text-sm text-muted-foreground">

@@ -73,7 +73,7 @@ export default function QuickStats() {
     return (
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
         {[1, 2, 3, 4].map((index) => (
-          <Card key={index} className="bg-gradient-card shadow-card">
+          <Card key={index} className="glass shadow-card">
             <CardContent className="p-6 text-center">
               <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" />
               <div className="text-sm text-muted-foreground">Loading...</div>
@@ -89,7 +89,7 @@ export default function QuickStats() {
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         return (
-          <Card key={index} className="bg-gradient-card shadow-card">
+          <Card key={index} className="glass shadow-card shine-card hover-lift">
             <CardContent className="p-6 text-center">
               <div className={`flex items-center justify-center w-12 h-12 rounded-lg mx-auto mb-3 ${colorMap[stat.color]}`}>
                 <Icon className="w-6 h-6" />

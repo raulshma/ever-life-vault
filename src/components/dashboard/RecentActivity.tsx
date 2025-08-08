@@ -82,7 +82,7 @@ export default function RecentActivity() {
     return (
       <div>
         <h2 className="text-2xl font-bold text-foreground mb-6">Recent Activity</h2>
-        <Card className="bg-gradient-card shadow-card">
+        <Card className="glass shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -97,14 +97,14 @@ export default function RecentActivity() {
   return (
     <div>
       <h2 className="text-2xl font-bold text-foreground mb-6">Recent Activity</h2>
-      <Card className="bg-gradient-card shadow-card">
+      <Card className="glass shadow-card">
         <CardContent className="p-6">
-          <div className="space-y-4">
+          <div className="space-y-4 gradient-border-l pl-4">
             {recentActivity.length > 0 ? (
               recentActivity.map((activity, index) => {
                 const Icon = activity.icon;
                 return (
-                  <div key={index} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div key={index} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
                     <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                       <Icon className="w-5 h-5 text-muted-foreground" />
                     </div>
