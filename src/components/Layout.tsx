@@ -23,6 +23,8 @@ import {
   Film,
   Play,
   Menu,
+  Sparkles,
+  Pause,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -172,7 +174,11 @@ const FooterActions: React.FC = () => {
         className="text-muted-foreground hover:text-foreground"
         title={`${viewTransitionsEnabled ? "Disable" : "Enable"} view transitions`}
       >
-        {viewTransitionsEnabled ? "🔄" : "⏸️"}
+        {viewTransitionsEnabled ? (
+          <Sparkles className="w-4 h-4" />
+        ) : (
+          <Pause className="w-4 h-4" />
+        )}
         <span className="sr-only">Toggle view transitions</span>
       </Button>
       <Button
