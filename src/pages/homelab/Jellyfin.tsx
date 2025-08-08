@@ -2,7 +2,13 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import {
@@ -40,8 +46,11 @@ export default function Jellyfin() {
     serverUrl: serviceConfig.config.serverUrl || "http://localhost:8096",
     apiKey: serviceConfig.config.apiKey || "",
   });
+  // Show configuration panel even after initial setup
+  const [showConfig, setShowConfig] = useState(false);
   const isConfigured =
-    isUnlocked && !!(serviceConfig.config.serverUrl && serviceConfig.config.apiKey);
+    isUnlocked &&
+    !!(serviceConfig.config.serverUrl && serviceConfig.config.apiKey);
   const [sessions, setSessions] = useState<JellyfinSession[]>([]);
   const [users, setUsers] = useState<JellyfinUser[]>([]);
   const [stats, setStats] = useState<JellyfinStats | null>(null);
@@ -53,10 +62,10 @@ export default function Jellyfin() {
   const [seekTimeout, setSeekTimeout] = useState<NodeJS.Timeout | null>(null);
 
   const {
-  loading,
-  error,
-  isConnected,
-  testConnection,
+    loading,
+    error,
+    isConnected,
+    testConnection,
     getSystemInfo,
     getUsers,
     getSessions,
@@ -104,7 +113,10 @@ export default function Jellyfin() {
   const handleConfigSave = async () => {
     if (!isUnlocked) return;
     if (config.serverUrl && config.apiKey) {
-      await serviceConfig.updateConfig({ serverUrl: config.serverUrl, apiKey: config.apiKey });
+      await serviceConfig.updateConfig({
+        serverUrl: config.serverUrl,
+        apiKey: config.apiKey,
+      });
       // attempt a connection test
       await testConnection();
       fetchData();
@@ -118,7 +130,7 @@ export default function Jellyfin() {
       serviceConfig.config.serverUrl !== config.serverUrl ||
       serviceConfig.config.apiKey !== config.apiKey
     ) {
-      setConfig(prev => ({
+      setConfig((prev) => ({
         ...prev,
         serverUrl: serviceConfig.config.serverUrl || prev.serverUrl,
         apiKey: serviceConfig.config.apiKey || prev.apiKey,
@@ -252,7 +264,9 @@ export default function Jellyfin() {
         {!isUnlocked && (
           <Card className="border-amber-200 bg-amber-50">
             <CardContent className="pt-6">
-              <p className="text-amber-700 text-sm font-medium">Unlock the secure vault to configure Jellyfin.</p>
+              <p className="text-amber-700 text-sm font-medium">
+                Unlock the secure vault to configure Jellyfin.
+              </p>
             </CardContent>
           </Card>
         )}
@@ -264,7 +278,9 @@ export default function Jellyfin() {
           <CardContent className="space-y-4">
             {serviceConfig.availableVaultItems.length > 0 && (
               <div>
-                <label className="block text-sm font-medium mb-2">Use Existing Credential</label>
+                <label className="block text-sm font-medium mb-2">
+                  Use Existing Credential
+                </label>
                 <Select
                   value={serviceConfig.linkedVaultItemId || ""}
                   onValueChange={(val) =>
@@ -285,7 +301,8 @@ export default function Jellyfin() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-gray-500 mt-1">
-                  Choose a saved API credential from your secure vault or configure manually below.
+                  Choose a saved API credential from your secure vault or
+                  configure manually below.
                 </p>
               </div>
             )}
@@ -299,12 +316,18 @@ export default function Jellyfin() {
                 onChange={(e) =>
                   setConfig({ ...config, serverUrl: e.target.value })
                 }
-                disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
+                disabled={
+                  !isUnlocked ||
+                  serviceConfig.saving ||
+                  !!serviceConfig.linkedVaultItemId
+                }
               />
               <div className="text-xs text-gray-500 mt-1 flex gap-2">
                 <span>The base URL of your Jellyfin server.</span>
                 {serviceConfig.source === "linked" && (
-                  <span className="text-emerald-600 font-medium">(Using linked credential)</span>
+                  <span className="text-emerald-600 font-medium">
+                    (Using linked credential)
+                  </span>
                 )}
               </div>
             </div>
@@ -317,17 +340,28 @@ export default function Jellyfin() {
                 onChange={(e) =>
                   setConfig({ ...config, apiKey: e.target.value })
                 }
-                disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
+                disabled={
+                  !isUnlocked ||
+                  serviceConfig.saving ||
+                  !!serviceConfig.linkedVaultItemId
+                }
               />
               {serviceConfig.source === "linked" && (
-                <p className="text-xs text-emerald-600 mt-1">API Key provided by linked vault credential.</p>
+                <p className="text-xs text-emerald-600 mt-1">
+                  API Key provided by linked vault credential.
+                </p>
               )}
             </div>
             <Button
               onClick={handleConfigSave}
-              disabled={!config.serverUrl || !config.apiKey || !isUnlocked || serviceConfig.saving}
+              disabled={
+                !config.serverUrl ||
+                !config.apiKey ||
+                !isUnlocked ||
+                serviceConfig.saving
+              }
             >
-              {loading ? 'Connecting...' : 'Connect to Jellyfin'}
+              {loading ? "Connecting..." : "Connect to Jellyfin"}
             </Button>
           </CardContent>
         </Card>
@@ -338,12 +372,129 @@ export default function Jellyfin() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-  <h1 className="text-3xl font-bold">Jellyfin Media Server</h1>
-  <Button variant="outline" onClick={() => setConfig({ ...config, apiKey: config.apiKey })} disabled={!isUnlocked}>
+        <h1 className="text-3xl font-bold">Jellyfin Media Server</h1>
+        <Button
+          variant="outline"
+          onClick={() => setShowConfig(!showConfig)}
+          disabled={!isUnlocked}
+        >
           <Settings className="w-4 h-4 mr-2" />
-          Settings
+          {showConfig ? "Close" : "Settings"}
         </Button>
       </div>
+
+      {showConfig && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Jellyfin Configuration</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {serviceConfig.availableVaultItems.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Use Existing Credential
+                </label>
+                <Select
+                  value={serviceConfig.linkedVaultItemId || ""}
+                  onValueChange={(val) =>
+                    serviceConfig.linkVaultItem(val === "" ? null : val)
+                  }
+                  disabled={!isUnlocked || serviceConfig.saving}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select saved API credential" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Manual configuration</SelectItem>
+                    {serviceConfig.availableVaultItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose a saved API credential from your secure vault or
+                  configure manually below.
+                </p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Server URL
+              </label>
+              <Input
+                placeholder="http://localhost:8096"
+                value={config.serverUrl}
+                onChange={(e) =>
+                  setConfig({ ...config, serverUrl: e.target.value })
+                }
+                disabled={
+                  !isUnlocked ||
+                  serviceConfig.saving ||
+                  !!serviceConfig.linkedVaultItemId
+                }
+              />
+              <div className="text-xs text-gray-500 mt-1 flex gap-2">
+                <span>The base URL of your Jellyfin server.</span>
+                {serviceConfig.source === "linked" && (
+                  <span className="text-emerald-600 font-medium">
+                    (Using linked credential)
+                  </span>
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">API Key</label>
+              <Input
+                type="password"
+                placeholder="Your Jellyfin API Key"
+                value={config.apiKey}
+                onChange={(e) =>
+                  setConfig({ ...config, apiKey: e.target.value })
+                }
+                disabled={
+                  !isUnlocked ||
+                  serviceConfig.saving ||
+                  !!serviceConfig.linkedVaultItemId
+                }
+              />
+              {serviceConfig.source === "linked" && (
+                <p className="text-xs text-emerald-600 mt-1">
+                  API Key provided by linked vault credential.
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleConfigSave}
+                disabled={
+                  !config.serverUrl ||
+                  !config.apiKey ||
+                  !isUnlocked ||
+                  serviceConfig.saving
+                }
+              >
+                {loading ? "Connecting..." : "Save & Test"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  // revert to stored values
+                  setConfig({
+                    serverUrl:
+                      serviceConfig.config.serverUrl || "http://localhost:8096",
+                    apiKey: serviceConfig.config.apiKey || "",
+                  });
+                }}
+                disabled={serviceConfig.saving}
+              >
+                Reset
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <Card className="border-red-200 bg-red-50">
