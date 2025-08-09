@@ -42,6 +42,7 @@ import { VaultUnlock } from "@/components/VaultUnlock";
 import { EncryptedVaultDialog } from "@/components/EncryptedVaultDialog";
 import { VaultItem } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
+import PageHeader from "@/components/PageHeader";
 
 // Quick Add Credentials Component
 function QuickAddCredentials({
@@ -435,79 +436,53 @@ export default function Vault() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
-      {/* Header */}
-      <div className="bg-gradient-hero text-primary-foreground relative overflow-hidden">
-        <div className="absolute inset-0 bg-foreground/20"></div>
-        <div className="relative max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold mb-1 flex items-center">
-                <Shield className="w-6 h-6 mr-2" />
-                Secure Vault
-              </h1>
-              <p className="text-primary-foreground/90">
-                End-to-end encrypted credential storage
-              </p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Badge
-                variant="success"
-              >
-                <Lock className="w-3 h-3 mr-1" />
-                Encrypted
-              </Badge>
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="hero"
-                  className="bg-card/30 hover:bg-card/40"
-                  onClick={handleExport}
-                  disabled={isExporting || totalItems === 0}
-                  title={`Export all ${totalItems} vault items to encrypted backup file`}
-                >
-                  {isExporting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4 mr-2" />
-                  )}
-                  Export
-                </Button>
-                <Button
-                  variant="hero"
-                  className="bg-card/30 hover:bg-card/40"
-                  onClick={handleImport}
-                  disabled={isImporting}
-                  title="Import vault data from encrypted backup file"
-                >
-                  {isImporting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Upload className="w-4 h-4 mr-2" />
-                  )}
-                  Import
-                </Button>
-              </div>
-              <Button
-                variant="hero"
-                className="bg-card/30 hover:bg-card/40"
-                onClick={lockVault}
-              >
-                <Lock className="w-4 h-4 mr-2" />
-                Lock Vault
-              </Button>
-              <Button
-                variant="hero"
-                className="bg-card/30 hover:bg-card/40"
-                onClick={() => handleAddItem("login")}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Item
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Secure Vault"
+        description="End-to-end encrypted credential storage"
+        icon={Shield}
+        meta={
+          <Badge variant="success">
+            <Lock className="w-3 h-3 mr-1" /> Encrypted
+          </Badge>
+        }
+      >
+        <Button
+          variant="outline"
+          onClick={handleExport}
+          disabled={isExporting || totalItems === 0}
+          title={`Export all ${totalItems} vault items to encrypted backup file`}
+        >
+          {isExporting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4 mr-2" />
+          )}
+          Export
+        </Button>
+        <Button
+          variant="outline"
+          onClick={handleImport}
+          disabled={isImporting}
+          title="Import vault data from encrypted backup file"
+        >
+          {isImporting ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Upload className="w-4 h-4 mr-2" />
+          )}
+          Import
+        </Button>
+        <Button variant="outline" onClick={lockVault}>
+          <Lock className="w-4 h-4 mr-2" />
+          Lock Vault
+        </Button>
+        <Button variant="default" onClick={() => handleAddItem("login")}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Item
+        </Button>
+      </PageHeader>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-6 sm:py-8">
         {/* Search and Security Notice */}
         <div className="mb-8 space-y-4">
           {/* Search Bar */}

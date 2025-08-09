@@ -23,6 +23,7 @@ import { useInventory } from '@/hooks/useInventory';
 import { InventoryDialog } from '@/components/InventoryDialog';
 import { LocationDialog } from '@/components/LocationDialog';
 import { QRScanner } from '@/components/QRScanner';
+import PageHeader from '@/components/PageHeader';
 
 export default function Inventory() {
   const { items, locations, loading, getItemsByLocation, getTotalValue, getItemsWithQR } = useInventory();
@@ -123,56 +124,26 @@ export default function Inventory() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
-      {/* Header */}
-      <div className="bg-gradient-primary text-primary-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <h1 className="text-xl sm:text-2xl font-bold mb-1 flex items-center">
-                <Package2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
-                <span className="truncate">Inventory Tracker</span>
-              </h1>
-              <p className="text-primary-foreground/90 text-xs sm:text-sm">Track physical items and their locations</p>
-            </div>
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <Button 
-                variant="ghost" 
-                className="bg-card/20 hover:bg-card/30 hidden sm:flex"
-                onClick={() => setQrScannerOpen(true)}
-              >
-                <QrCode className="w-4 h-4 mr-2" />
-                Scan QR
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="bg-card/20 hover:bg-card/30 sm:hidden"
-                onClick={() => setQrScannerOpen(true)}
-                aria-label="Scan QR"
-              >
-                <QrCode className="w-5 h-5" />
-              </Button>
-              <Button 
-                variant="hero" 
-                className="bg-card/30 hover:bg-card/40 hidden sm:flex"
-                onClick={handleOpenAddItemDialog}
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Item
-              </Button>
-              <Button 
-                variant="hero" 
-                size="icon"
-                className="bg-card/30 hover:bg-card/40 sm:hidden"
-                onClick={handleOpenAddItemDialog}
-                aria-label="Add Item"
-              >
-                <Plus className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Inventory Tracker"
+        description="Track physical items and their locations"
+        icon={Package2}
+      >
+        <Button variant="outline" className="hidden sm:flex" onClick={() => setQrScannerOpen(true)}>
+          <QrCode className="w-4 h-4 mr-2" />
+          Scan QR
+        </Button>
+        <Button variant="default" className="hidden sm:flex" onClick={handleOpenAddItemDialog}>
+          <Plus className="w-4 h-4 mr-2" />
+          Add Item
+        </Button>
+        <Button variant="outline" size="icon" className="sm:hidden" onClick={() => setQrScannerOpen(true)} aria-label="Scan QR">
+          <QrCode className="w-5 h-5" />
+        </Button>
+        <Button variant="default" size="icon" className="sm:hidden" onClick={handleOpenAddItemDialog} aria-label="Add Item">
+          <Plus className="w-5 h-5" />
+        </Button>
+      </PageHeader>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Search and Filter */}

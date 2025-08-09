@@ -24,6 +24,7 @@ import { useTasks } from '@/hooks/useTasks';
 import { TaskEditDialog } from '@/components/TaskEditDialog';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { MonthlyStatusSheets } from '@/components/MonthlyStatusSheets';
+import PageHeader from '@/components/PageHeader';
 
 const columns = [
   { id: 'todo', title: 'To Do' },
@@ -167,31 +168,21 @@ export default function DayTracker() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-0">
-      {/* Header */}
-      <div className="relative bg-gradient-primary text-primary-foreground gradient-sheen">
-        <div className="absolute inset-0 bg-foreground/10" />
-        <div className="container relative py-5 sm:py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Day Tracker</h1>
-              <p className="text-primary-foreground/80 text-xs sm:text-sm mt-1">
-                Manage your tasks and track daily productivity
-              </p>
-            </div>
-            <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs sm:text-sm shadow-elegant">
-              <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-primary-foreground/90">
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
-            </div>
+      <PageHeader
+        title="Day Tracker"
+        description="Manage your tasks and track daily productivity"
+        icon={Calendar}
+        meta={
+          <div className="rounded-md px-2 py-0.5 text-xs bg-muted text-muted-foreground">
+            {new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="pt-4 pb-0">
         <Tabs defaultValue="monthly" className="w-full">

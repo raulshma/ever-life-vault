@@ -16,6 +16,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
+import PageHeader from '@/components/PageHeader';
 
 const tagClass = 'bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))]';
 
@@ -70,32 +71,23 @@ export default function KnowledgeBase() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
-      {/* Header */}
-      <div className="bg-gradient-primary text-primary-foreground">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold mb-1">Knowledge Base</h1>
-              <p className="text-primary-foreground/90">Store and organize your research and notes</p>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="bg-card/20 rounded-lg px-3 py-2">
-                <span className="text-sm text-primary-foreground/90">{notes.length} notes</span>
-              </div>
-              <Button 
-                variant="hero" 
-                onClick={() => setIsCreating(true)}
-               className="bg-card/30 hover:bg-card/40"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Note
-              </Button>
-            </div>
+      <PageHeader
+        title="Knowledge Base"
+        description="Store and organize your research and notes"
+        icon={BookOpen}
+        meta={
+          <div className="bg-muted rounded-md px-2 py-0.5 text-xs text-muted-foreground">
+            {notes.length} notes
           </div>
-        </div>
-      </div>
+        }
+      >
+        <Button variant="default" onClick={() => setIsCreating(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          New Note
+        </Button>
+      </PageHeader>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-6 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Notes List */}
           <div className="lg:col-span-1 space-y-6">

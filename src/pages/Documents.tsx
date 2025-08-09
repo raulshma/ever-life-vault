@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useDocuments } from '@/hooks/useDocuments';
 import { DocumentDialog } from '@/components/DocumentDialog';
+import PageHeader from '@/components/PageHeader';
 
 export default function Documents() {
   const { documents, loading, getDocumentsByCategory, getExpiringDocuments } = useDocuments();
@@ -88,30 +89,18 @@ export default function Documents() {
 
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
-      {/* Header */}
-      <div className="bg-gradient-primary text-primary-foreground">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold mb-1 flex items-center">
-                <FileText className="w-6 h-6 mr-2" />
-                Document Hub
-              </h1>
-              <p className="text-primary-foreground/90">Securely manage your important personal documents</p>
-            </div>
-            <Button 
-              variant="hero" 
-              className="bg-card/30 hover:bg-card/40"
-              onClick={handleOpenAddDialog}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload Document
-            </Button>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Document Hub"
+        description="Securely manage your important personal documents"
+        icon={FileText}
+      >
+        <Button variant="default" onClick={handleOpenAddDialog}>
+          <Upload className="w-4 h-4 mr-2" />
+          Upload Document
+        </Button>
+      </PageHeader>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-6 py-6 sm:py-8">
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
