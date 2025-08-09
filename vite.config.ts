@@ -16,6 +16,18 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/proxy/, ""),
       },
+      "/agp": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+      "/dyn": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+      "/integrations": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
     },
     headers: {
       // Enforce frame-ancestors via server header (meta tag can't enforce it)

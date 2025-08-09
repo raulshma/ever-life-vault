@@ -60,6 +60,18 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Development
+
+- Install deps and run the web app: `pnpm i && pnpm dev`
+- Run the proxy server for external integrations: `pnpm proxy`
+- Supabase types: `pnpm types:generate`
+
+### Feeds Aggregator
+
+- New page `Feeds` aggregates top Reddit posts, RSS feeds, and unread Gmail/Outlook messages. Twitter/Facebook/Instagram are scaffolded for future tokens.
+- OAuth for Reddit, Google, Microsoft flows through the local proxy. Configure `server/.env` as documented in `server/README.md`.
+- All credentials/tokens are stored in the encrypted vault (client-side encryption). No tokens are stored on the server.
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/87dffade-1086-4054-881a-911f105b44c6) and click on Share -> Publish.

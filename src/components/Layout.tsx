@@ -64,6 +64,7 @@ const moduleCategories = {
     { name: "Dashboard", path: "/", icon: Home },
     { name: "Day Tracker", path: "/day-tracker", icon: Calendar },
     { name: "Focus", path: "/focus", icon: Sparkles },
+    { name: "Feeds", path: "/feeds", icon: Bookmark },
     { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
     { name: "Vault", path: "/vault", icon: Shield },
     { name: "Documents", path: "/documents", icon: FileText },

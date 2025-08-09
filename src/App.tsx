@@ -29,6 +29,7 @@ import Focus from "./pages/Focus";
 import LiveShareNew from "./pages/LiveShareNew";
 import LiveShareRoom from "./pages/LiveShareRoom";
 import Profile from "./pages/Profile";
+import Feeds from "./pages/Feeds";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ function AppRoutes() {
         <Route path="day-tracker" element={<DayTracker />} />
         <Route path="knowledge" element={<KnowledgeBase />} />
         <Route path="focus" element={<Focus />} />
+        <Route path="feeds" element={<Feeds />} />
         <Route path="share/new" element={<LiveShareNew />} />
         <Route path="profile" element={<Profile />} />
         <Route path="vault" element={<Vault />} />
