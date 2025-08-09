@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { useToast } from '@/hooks/use-toast';
@@ -538,7 +538,7 @@ export function QRScanner({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-[90vw] sm:max-w-md p-4 sm:p-6">
+      <DialogContent className="max-w-[90vw] sm:max-w-md max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <QrCode className="w-5 h-5 mr-2" />
@@ -617,17 +617,18 @@ export function QRScanner({
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleClose} className="flex-1">
-              <X className="w-4 h-4 mr-2" />
-              Close
-            </Button>
-          </div>
+          <div className="min-h-2" />
 
           <div className="text-xs text-muted-foreground text-center">
             Position the QR code within the camera view. Ensure your browser has camera permissions enabled.
           </div>
         </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose}>
+            <X className="w-4 h-4 mr-2" />
+            Close
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

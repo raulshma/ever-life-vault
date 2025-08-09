@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogSubheader,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -108,6 +109,10 @@ export function TaskEditDialog({
             {task ? 'Edit Task' : 'Create Task'}
           </DialogTitle>
         </DialogHeader>
+        <DialogSubheader>
+          {task ? `Status: ${status.replace('-', ' ')}` : `Priority: ${priority}`}
+          {dueDate ? ` • Due: ${format(dueDate, 'PPP')}` : ''}
+        </DialogSubheader>
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">
@@ -198,27 +203,23 @@ export function TaskEditDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter>
           {task && (
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
-              className="mr-auto"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           )}
-          
-          <div className="space-x-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!title.trim()}>
-              {task ? 'Save Changes' : 'Create Task'}
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!title.trim()}>
+            {task ? 'Save Changes' : 'Create Task'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

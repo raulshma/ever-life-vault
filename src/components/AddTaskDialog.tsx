@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogSubheader,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +66,10 @@ export function AddTaskDialog({ open, onOpenChange, onAdd }: AddTaskDialogProps)
         <DialogHeader>
           <DialogTitle>Add New Task</DialogTitle>
         </DialogHeader>
+        <DialogSubheader>
+          Priority: {priority.charAt(0).toUpperCase() + priority.slice(1)}
+          {dueDate ? ` • Due: ${format(dueDate, 'PPP')}` : ''}
+        </DialogSubheader>
         
         <div className="space-y-4 py-4">
           <div className="space-y-2">

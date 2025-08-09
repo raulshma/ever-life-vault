@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -234,7 +234,7 @@ export function InventoryDialog({ item, mode, trigger, open, onOpenChange }: Inv
   };
 
   const content = (
-    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+    <DialogContent className="max-w-2xl max-h-[85vh]">
       <DialogHeader>
         <DialogTitle className="flex items-center">
           <Package className="w-5 h-5 mr-2" />
@@ -460,59 +460,57 @@ export function InventoryDialog({ item, mode, trigger, open, onOpenChange }: Inv
           )}
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-4">
-          {mode === 'view' ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                className="flex-1"
-              >
-                Close
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={loading}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={loading}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={loading || uploading}
-                className="flex-1"
-              >
-                {loading ? (
-                  <>Loading...</>
-                ) : mode === 'add' ? (
-                  <>
-                    <Package className="w-4 h-4 mr-2" />
-                    Add Item
-                  </>
-                ) : (
-                  <>
-                    <Edit3 className="w-4 h-4 mr-2" />
-                    Update Item
-                  </>
-                )}
-              </Button>
-            </>
-          )}
-        </div>
+        {/* Footer actions moved into sticky footer below */}
       </div>
+
+      <DialogFooter>
+        {mode === 'view' ? (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={loading}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading || uploading}
+            >
+              {loading ? (
+                <>Loading...</>
+              ) : mode === 'add' ? (
+                <>
+                  <Package className="w-4 h-4 mr-2" />
+                  Add Item
+                </>
+              ) : (
+                <>
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Update Item
+                </>
+              )}
+            </Button>
+          </>
+        )}
+      </DialogFooter>
     </DialogContent>
   );
 

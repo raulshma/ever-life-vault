@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -145,7 +145,7 @@ export function LocationDialog({ location, mode, trigger, open, onOpenChange }: 
   const IconComponent = selectedIcon?.icon || Home;
 
   const content = (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-lg max-h-[85vh]">
       <DialogHeader>
         <DialogTitle className="flex items-center">
           <MapPin className="w-5 h-5 mr-2" />
@@ -211,59 +211,57 @@ export function LocationDialog({ location, mode, trigger, open, onOpenChange }: 
           />
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-4">
-          {mode === 'view' ? (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                className="flex-1"
-              >
-                Close
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={loading}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={loading}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={loading}
-                className="flex-1"
-              >
-                {loading ? (
-                  <>Loading...</>
-                ) : mode === 'add' ? (
-                  <>
-                    <MapPin className="w-4 h-4 mr-2" />
-                    Add Location
-                  </>
-                ) : (
-                  <>
-                    <Edit3 className="w-4 h-4 mr-2" />
-                    Update Location
-                  </>
-                )}
-              </Button>
-            </>
-          )}
-        </div>
+        {/* Footer actions moved into sticky footer below */}
       </div>
+
+      <DialogFooter>
+        {mode === 'view' ? (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+            >
+              Close
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={loading}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => handleOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? (
+                <>Loading...</>
+              ) : mode === 'add' ? (
+                <>
+                  <MapPin className="w-4 h-4 mr-2" />
+                  Add Location
+                </>
+              ) : (
+                <>
+                  <Edit3 className="w-4 h-4 mr-2" />
+                  Update Location
+                </>
+              )}
+            </Button>
+          </>
+        )}
+      </DialogFooter>
     </DialogContent>
   );
 

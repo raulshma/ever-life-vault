@@ -687,14 +687,12 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
 
       {/* Customize Columns Dialog */}
       <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
-        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
-          <div className="sticky top-0 z-10 border-b bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-            <DialogHeader className="p-0">
-              <DialogTitle>Customize Columns</DialogTitle>
-            </DialogHeader>
-          </div>
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] z-[1000]">
+          <DialogHeader>
+            <DialogTitle>Customize Columns</DialogTitle>
+          </DialogHeader>
 
-          <div className="p-4 space-y-4">
+          <div className="space-y-4">
             <div className="text-sm text-muted-foreground">
               Add custom columns that appear after Notes. Values are saved per month locally (in this browser).
             </div>
@@ -853,24 +851,20 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-10 border-t bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Export Configuration Dialog */}
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
-        <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
-          <div className="sticky top-0 z-10 border-b bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-            <DialogHeader className="p-0">
-              <DialogTitle>Configure Export</DialogTitle>
-            </DialogHeader>
-          </div>
+        <DialogContent className="sm:max-w-[720px] max-h-[85vh] z-[1000]">
+          <DialogHeader>
+            <DialogTitle>Configure Export</DialogTitle>
+          </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
             <div className="space-y-2">
@@ -954,22 +948,19 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
               </div>
             ))}
           </div>
-
-          <div className="sticky bottom-0 z-10 border-t bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
-            <DialogFooter className="gap-2 sm:gap-2">
-              <Button variant="outline" onClick={() => setExportOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  performExport(exportConfig);
-                  setExportOpen(false);
-                }}
-              >
-                Export
-              </Button>
-            </DialogFooter>
-          </div>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="outline" onClick={() => setExportOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                performExport(exportConfig);
+                setExportOpen(false);
+              }}
+            >
+              Export
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

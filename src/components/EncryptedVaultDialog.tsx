@@ -136,7 +136,7 @@ export function EncryptedVaultDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <Shield className="w-5 h-5 mr-2" />
@@ -448,27 +448,23 @@ export function EncryptedVaultDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter>
           {item && (
             <Button
               variant="destructive"
               onClick={handleDelete}
               disabled={isDeleting}
-              className="mr-auto"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           )}
-          
-          <div className="space-x-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} disabled={!name.trim()}>
-              {item ? 'Save Changes' : 'Add Item'}
-            </Button>
-          </div>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!name.trim()}>
+            {item ? 'Save Changes' : 'Add Item'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
