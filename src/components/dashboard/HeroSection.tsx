@@ -62,7 +62,7 @@ export default function HeroSection() {
           <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-stretch sm:items-center w-full max-w-2xl mx-auto">
             <button
               onClick={handleOpenSearch}
-              className="group glass hover:shadow-elegant hover-lift rounded-xl px-4 py-3 sm:px-5 sm:py-3.5 text-left flex items-center gap-3"
+              className="group glass hover:shadow-elegant hover-lift rounded-xl px-4 py-3 sm:px-5 sm:py-3.5 text-left flex items-center gap-3 w-full"
             >
               <span className="i-lucide-search h-5 w-5 text-muted-foreground" aria-hidden />
               <span className="flex-1 text-sm sm:text-base text-muted-foreground">
@@ -70,7 +70,7 @@ export default function HeroSection() {
                 <span className="ml-2 hidden sm:inline text-xs text-muted-foreground/70">Ctrl/⌘ + K</span>
               </span>
             </button>
-            <div className="flex gap-2 sm:gap-3">
+            <div className="flex flex-col xs:flex-row w-full gap-2 sm:gap-3">
               {quickActions.map((action, index) => {
                 const Icon = action.icon;
                 return (
@@ -79,7 +79,7 @@ export default function HeroSection() {
                     variant={action.variant}
                     size="lg"
                     onClick={action.action}
-                    className="shadow-glow w-full sm:w-auto"
+                    className="shadow-glow w-full xs:w-auto"
                   >
                     <Icon size={18} />
                     {action.label}

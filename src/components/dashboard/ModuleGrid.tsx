@@ -145,30 +145,30 @@ export default function ModuleGrid() {
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">Your Life Modules</h2>
         <span className="hidden sm:inline text-xs pill">Tap a module to jump in</span>
       </div>
-      <div className="grid gap-4 sm:gap-6 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr">
+      <div className="grid gap-3 sm:gap-6 grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 auto-rows-auto">
         {modules.map((module) => {
           const Icon = module.icon;
           return (
-            <Link key={module.path} to={module.path}>
-              <Card className="tilt shine-card bg-gradient-card border-0 hover-lift group">
+            <Link key={module.path} to={module.path} className="block">
+              <Card className="tilt shine-card bg-gradient-card border-0 hover-lift group h-full">
                 <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between gap-3 min-w-0">
                       <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r ${module.color} rounded-xl flex items-center justify-center shadow-card`}>
                       <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-primary-foreground" />
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-xs sm:text-sm text-muted-foreground">
+                    <div className="text-right min-w-0">
+                      <div className="text-xs sm:text-sm text-muted-foreground truncate">
                         {Object.keys(module.stats)[0]}
                       </div>
-                      <div className="text-base sm:text-lg font-semibold">
+                      <div className="text-base sm:text-lg font-semibold truncate">
                         {Object.values(module.stats)[0]}
                       </div>
                     </div>
                   </div>
-                  <CardTitle className="text-lg sm:text-xl group-hover:text-primary transition-colors">
+                  <CardTitle className="text-lg sm:text-xl group-hover:text-primary transition-colors truncate">
                     {module.name}
                   </CardTitle>
-                  <CardDescription className="text-sm text-muted-foreground">
+                  <CardDescription className="text-sm text-muted-foreground line-clamp-2">
                     {module.description}
                   </CardDescription>
                 </CardHeader>

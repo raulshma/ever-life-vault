@@ -81,7 +81,7 @@ export default function RecentActivity() {
   if (loading) {
     return (
       <div>
-        <h2 className="text-2xl font-bold text-foreground mb-6">Recent Activity</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">Recent Activity</h2>
         <Card className="glass shadow-card">
           <CardContent className="p-6">
             <div className="flex items-center justify-center py-8">
@@ -96,21 +96,21 @@ export default function RecentActivity() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-foreground mb-6">Recent Activity</h2>
+      <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">Recent Activity</h2>
       <Card className="glass shadow-card">
         <CardContent className="p-6">
-          <div className="space-y-4 gradient-border-l pl-4">
+          <div className="space-y-3 sm:space-y-4 gradient-border-l pl-3 sm:pl-4">
             {recentActivity.length > 0 ? (
               recentActivity.map((activity, index) => {
                 const Icon = activity.icon;
                 return (
-                  <div key={index} className="flex items-center gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-muted-foreground" />
+                  <div key={index} className="flex items-center gap-3 sm:gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 bg-muted rounded-lg flex items-center justify-center shrink-0">
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
                     </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">{activity.title}</div>
-                      <div className="text-sm text-muted-foreground">{activity.time}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-foreground truncate">{activity.title}</div>
+                      <div className="text-xs sm:text-sm text-muted-foreground">{activity.time}</div>
                     </div>
                   </div>
                 );

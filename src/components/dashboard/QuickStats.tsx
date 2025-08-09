@@ -71,7 +71,7 @@ export default function QuickStats() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+      <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-12">
         {[1, 2, 3, 4].map((index) => (
           <Card key={index} className="glass shadow-card">
             <CardContent className="p-6 text-center">
@@ -85,7 +85,7 @@ export default function QuickStats() {
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+    <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-12">
       {stats.map((stat, index) => {
         const Icon = stat.icon;
         return (
