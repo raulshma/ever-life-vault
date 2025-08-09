@@ -24,6 +24,8 @@ import HomelabJellyfin from "./pages/homelab/Jellyfin";
 import HomelabKarakeep from "./pages/homelab/Karakeep";
 import NotFound from "./pages/NotFound";
 import Focus from "./pages/Focus";
+import LiveShareNew from "./pages/LiveShareNew";
+import LiveShareRoom from "./pages/LiveShareRoom";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -63,6 +65,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
+      {/* Public share routes - accessible without auth */}
+      <Route path="/share/:id" element={<LiveShareRoom />} />
       <Route
         path="/"
         element={
@@ -75,6 +79,7 @@ function AppRoutes() {
         <Route path="day-tracker" element={<DayTracker />} />
         <Route path="knowledge" element={<KnowledgeBase />} />
         <Route path="focus" element={<Focus />} />
+        <Route path="share/new" element={<LiveShareNew />} />
         <Route path="vault" element={<Vault />} />
         <Route path="documents" element={<Documents />} />
         <Route path="inventory" element={<Inventory />} />

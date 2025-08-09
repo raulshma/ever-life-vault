@@ -29,6 +29,7 @@ import {
   Sun,
   Moon,
   Laptop2,
+  Share2,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -66,6 +67,9 @@ const moduleCategories = {
     { name: "Vault", path: "/vault", icon: Shield },
     { name: "Documents", path: "/documents", icon: FileText },
     { name: "Inventory", path: "/inventory", icon: Package2 },
+  ],
+  share: [
+    { name: "Live Share", path: "/share/new", icon: Share2 },
   ],
   homelab: [
     { name: "Servers", path: "/homelab/servers", icon: Server },
@@ -146,6 +150,7 @@ const SidebarNavigation: React.FC<{
 }> = ({ location, onOpenSearch, onOpenQuickAdd }) => {
   const navGroups = [
     { title: "Daily", items: moduleCategories.daily },
+    { title: "Share", items: moduleCategories.share },
     { title: "Homelab", items: moduleCategories.homelab },
   ];
 
@@ -389,6 +394,20 @@ export const Layout: React.FC = React.memo(() => {
           <CommandEmpty>No results found.</CommandEmpty>
           <CommandGroup heading="Daily">
             {moduleCategories.daily.map((m) => (
+              <CommandItem
+                key={m.path}
+                onSelect={() => {
+                  setIsSearchOpen(false);
+                }}
+                className="py-3 md:py-2 text-base md:text-sm"
+              >
+                <m.icon className="mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4" />
+                <span>{m.name}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandGroup heading="Share">
+            {moduleCategories.share.map((m) => (
               <CommandItem
                 key={m.path}
                 onSelect={() => {
