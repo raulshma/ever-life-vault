@@ -267,3 +267,30 @@ export async function decryptVaultItem(
     updated_at: encryptedItem.updated_at,
   };
 }
+
+/**
+ * Generate a new AES‑256‑GCM key.
+ */
+export async function generateAesKey(extractable: boolean = true): Promise<CryptoKey> {
+  return crypto.subtle.generateKey(
+    { name: 'AES-GCM', length: 256 },
+    extractable,
+    ['encrypt', 'decrypt']
+  );
+}
+
+/**
+ * Export an AES key (raw) to base64 for transport/storage.
+ */
+export async function exportAesKeyToBase64(key: CryptoKey): Promise<string> {
+  const raw = await crypto.subtle.exportKey('raw', key);
+  return arrayBufferToBase64(raw);
+}
+
+/**
+ * Import an AES key from a base64 string.
+ */
+export async function importAesKeyFromBase64(keyB64: string, extractable: boolean = true): Promise<CryptoKey> {
+  const raw = base64ToArrayBuffer(keyB64);
+  return crypto.subtle.importKey('raw', raw, 'AES-GCM', extractable, ['encrypt', 'decrypt']);
+}

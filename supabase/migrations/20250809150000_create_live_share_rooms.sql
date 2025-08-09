@@ -2,7 +2,11 @@ create table if not exists public.live_share_rooms (
   id text primary key,
   max_peers smallint not null check (max_peers >= 2 and max_peers <= 8),
   created_by uuid references auth.users(id) on delete set null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  password_salt text,
+  password_proof text,
+  expires_at timestamptz,
+  locked boolean not null default false
 );
 
 alter table public.live_share_rooms enable row level security;

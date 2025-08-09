@@ -225,6 +225,66 @@ export type Database = {
           },
         ]
       }
+      live_share_events: {
+        Row: {
+          created_at: string
+          encryption_enabled: boolean | null
+          event: string
+          id: string
+          peer_id: string | null
+          room_id: string
+        }
+        Insert: {
+          created_at?: string
+          encryption_enabled?: boolean | null
+          event: string
+          id?: string
+          peer_id?: string | null
+          room_id: string
+        }
+        Update: {
+          created_at?: string
+          encryption_enabled?: boolean | null
+          event?: string
+          id?: string
+          peer_id?: string | null
+          room_id?: string
+        }
+        Relationships: []
+      }
+      live_share_rooms: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          locked: boolean
+          max_peers: number
+          password_proof: string | null
+          password_salt: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id: string
+          locked?: boolean
+          max_peers: number
+          password_proof?: string | null
+          password_salt?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          locked?: boolean
+          max_peers?: number
+          password_proof?: string | null
+          password_salt?: string | null
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           created_at: string
@@ -440,6 +500,10 @@ export type Database = {
       cleanup_expired_vault_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      verify_live_share_access: {
+        Args: { _id: string; _proof: string }
+        Returns: boolean
       }
     }
     Enums: {

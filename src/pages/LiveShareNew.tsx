@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { arrayBufferToBase64, generateSalt } from "@/lib/crypto";
+import { arrayBufferToBase64, generateSalt, generateAesKey, exportAesKeyToBase64 } from "@/lib/crypto";
 import { supabase } from "@/integrations/supabase/client";
 
 function base64UrlEncode(input: string) {
@@ -36,13 +36,10 @@ export default function LiveShareNew() {
       url.pathname = `/share/${shareId}`;
       url.searchParams.set("max", String(maxPeers));
 
-      // Persist authoritative room config server-side (idempotent)
-      const { error: upsertErr } = await supabase
-        .from("live_share_rooms" as any)
-        .upsert({ id: shareId, max_peers: Math.min(8, Math.max(2, maxPeers)) }, { onConflict: "id" });
-      if (upsertErr) {
-        throw upsertErr;
-      }
+      // Prepare optional password salt/proof or ephemeral key (default-on encryption)
+      let saltB64: string | null = null;
+      let proof: string | null = null;
+      let keyB64: string | null = null;
 
       if (passwordEnabled) {
         if (!password || password.length < 6) {
@@ -50,10 +47,30 @@ export default function LiveShareNew() {
           return;
         }
         const salt = generateSalt();
-        const saltB64 = arrayBufferToBase64(salt.buffer);
-        const proof = await sha256Base64(`${shareId}:${password}:${saltB64}`);
+        saltB64 = arrayBufferToBase64(salt.buffer);
+        proof = await sha256Base64(`${shareId}:${password}:${saltB64}`);
         url.searchParams.set("s", saltB64);
         url.searchParams.set("proof", proof);
+      } else {
+        // No password: generate ephemeral AES key and embed in link
+        const key = await generateAesKey(true);
+        keyB64 = await exportAesKeyToBase64(key);
+        url.searchParams.set("k", keyB64);
+      }
+
+      // Persist authoritative room config server-side (idempotent)
+      const payload: any = { id: shareId, max_peers: Math.min(8, Math.max(2, maxPeers)) };
+      // Default expiry: 24h
+      payload.expires_at = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      if (saltB64 && proof) {
+        payload.password_salt = saltB64;
+        payload.password_proof = proof;
+      }
+      const { error: upsertErr } = await supabase
+        .from("live_share_rooms" as any)
+        .upsert(payload, { onConflict: "id" });
+      if (upsertErr) {
+        throw upsertErr;
       }
 
       setLink(url.toString());
