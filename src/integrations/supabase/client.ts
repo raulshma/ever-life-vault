@@ -8,10 +8,26 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Use a stable storage key so we can selectively clear it for non-remembered sessions
+export const SUPABASE_AUTH_STORAGE_KEY = 'elsb-auth';
+export const SUPABASE_NO_REMEMBER_FLAG_KEY = 'elsb-no-remember';
+
+const getAuthStorage = (): Storage | undefined => {
+  if (typeof window === 'undefined') return undefined as unknown as Storage;
+  try {
+    const noRemember = window.sessionStorage.getItem(SUPABASE_NO_REMEMBER_FLAG_KEY) === '1';
+    return noRemember ? window.sessionStorage : window.localStorage;
+  } catch {
+    return window.localStorage;
+  }
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: sessionStorage,
+    storage: getAuthStorage(),
+    storageKey: SUPABASE_AUTH_STORAGE_KEY,
     persistSession: true,
     autoRefreshToken: true,
+    detectSessionInUrl: true,
   }
 });

@@ -1,6 +1,6 @@
 import { useState, useEffect, createContext, useContext, useRef, useMemo } from "react";
 import { User, Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_AUTH_STORAGE_KEY, SUPABASE_NO_REMEMBER_FLAG_KEY } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
 
 interface AuthContextType {
@@ -45,6 +45,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (loading) {
         setLoading(false);
       }
+
+      // If user chose not to be remembered, ensure tokens never persist in localStorage
+      try {
+        const noRemember = sessionStorage.getItem(SUPABASE_NO_REMEMBER_FLAG_KEY) === '1';
+        if (noRemember && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED")) {
+          localStorage.removeItem(SUPABASE_AUTH_STORAGE_KEY);
+        }
+        if (event === "SIGNED_OUT") {
+          sessionStorage.removeItem(SUPABASE_NO_REMEMBER_FLAG_KEY);
+        }
+      } catch {}
 
       // Navigation logic remains the same
       if (event === "SIGNED_IN") {

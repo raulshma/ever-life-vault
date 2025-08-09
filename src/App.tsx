@@ -26,6 +26,7 @@ import NotFound from "./pages/NotFound";
 import Focus from "./pages/Focus";
 import LiveShareNew from "./pages/LiveShareNew";
 import LiveShareRoom from "./pages/LiveShareRoom";
+import Profile from "./pages/Profile";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +81,7 @@ function AppRoutes() {
         <Route path="knowledge" element={<KnowledgeBase />} />
         <Route path="focus" element={<Focus />} />
         <Route path="share/new" element={<LiveShareNew />} />
+        <Route path="profile" element={<Profile />} />
         <Route path="vault" element={<Vault />} />
         <Route path="documents" element={<Documents />} />
         <Route path="inventory" element={<Inventory />} />

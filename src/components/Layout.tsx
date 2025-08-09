@@ -30,6 +30,7 @@ import {
   Moon,
   Laptop2,
   Share2,
+  User,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -79,6 +80,9 @@ const moduleCategories = {
     { name: "Jellyfin", path: "/homelab/jellyfin", icon: Play },
     { name: "Media Requests", path: "/homelab/media-requests", icon: Film },
     { name: "Karakeep", path: "/homelab/karakeep", icon: Bookmark },
+  ],
+  account: [
+    { name: "Profile", path: "/profile", icon: User },
   ],
 };
 
@@ -152,6 +156,7 @@ const SidebarNavigation: React.FC<{
     { title: "Daily", items: moduleCategories.daily },
     { title: "Share", items: moduleCategories.share },
     { title: "Homelab", items: moduleCategories.homelab },
+    { title: "Account", items: moduleCategories.account },
   ];
 
   return (
