@@ -494,7 +494,36 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      live_share_rooms_public: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string | null
+          locked: boolean | null
+          max_peers: number | null
+          password_salt: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string | null
+          locked?: boolean | null
+          max_peers?: number | null
+          password_salt?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string | null
+          locked?: boolean | null
+          max_peers?: number | null
+          password_salt?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cleanup_expired_vault_sessions: {

@@ -30,7 +30,8 @@ export default function LiveShareNew() {
   const [password, setPassword] = useState<string>("");
   const [link, setLink] = useState<string>("");
 
-  const shareId = useMemo(() => crypto.randomUUID().split("-")[0], []);
+  // Use a full 128-bit random id (UUID v4 without dashes) to prevent easy enumeration
+  const shareId = useMemo(() => crypto.randomUUID().replace(/-/g, ""), []);
 
   const createLink = async () => {
     try {
@@ -44,20 +45,24 @@ export default function LiveShareNew() {
       let keyB64: string | null = null;
 
       if (passwordEnabled) {
-        if (!password || password.length < 6) {
-          toast({ title: "Password too short", description: "Use at least 6 characters.", variant: "destructive" });
+        if (!password || password.length < 8) {
+          toast({ title: "Password too short", description: "Use at least 8 characters.", variant: "destructive" });
           return;
         }
         const salt = generateSalt();
         saltB64 = arrayBufferToBase64(salt.buffer);
         proof = await sha256Base64(`${shareId}:${password}:${saltB64}`);
-        url.searchParams.set("s", saltB64);
-        url.searchParams.set("proof", proof);
+        // Do NOT put proof/salt in query string. Place in URL fragment to avoid referrer/log leakage.
+        const hash = new URLSearchParams();
+        hash.set("proof", proof);
+        url.hash = hash.toString();
       } else {
-        // No password: generate ephemeral AES key and embed in link
+        // No password: generate ephemeral AES key and embed in URL fragment
         const key = await generateAesKey(true);
         keyB64 = await exportAesKeyToBase64(key);
-        url.searchParams.set("k", keyB64);
+        const hash = new URLSearchParams();
+        hash.set("k", keyB64);
+        url.hash = hash.toString();
       }
 
       // Persist authoritative room config server-side (idempotent)
@@ -78,8 +83,8 @@ export default function LiveShareNew() {
       setLink(url.toString());
       await navigator.clipboard.writeText(url.toString());
       toast({ title: "Link created", description: "Copied to clipboard." });
-      // Navigate host directly into the room; they don't need to join via the link
-      navigate(`${url.pathname}${url.search}`);
+      // Navigate host directly into the room; include hash so encryption/proof is available client-side only
+      navigate(`${url.pathname}${url.search}${url.hash}`);
     } catch (e: any) {
       toast({ title: "Failed to create link", description: e?.message ?? String(e), variant: "destructive" });
     }

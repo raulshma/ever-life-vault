@@ -24,23 +24,29 @@ export default function LiveShareRoom() {
   const [ephemeralKeyPresent, setEphemeralKeyPresent] = useState<boolean>(false);
 
   const maxPeers = Math.min(8, Math.max(2, Number(params.get("max")) || 2));
-  const saltB64 = params.get("s");
-  const proof = params.get("proof");
-  const keyB64 = params.get("k");
+  // Sensitive data are passed via URL fragment to avoid referrer leakage
+  const fragment = useMemo(() => {
+    try {
+      const raw = window.location.hash?.replace(/^#/, "") ?? "";
+      return new URLSearchParams(raw);
+    } catch {
+      return new URLSearchParams();
+    }
+  }, []);
+  const proof = fragment.get("proof") || params.get("proof") || undefined;
+  const keyB64 = fragment.get("k") || params.get("k") || undefined;
 
   useEffect(() => {
     // Load server-side room config to determine if password-protected
     const run = async () => {
       try {
         const { data } = await supabase
-          .from("live_share_rooms" as any)
-          .select("password_salt, password_proof, max_peers")
+          .from("live_share_rooms_public")
+          .select("password_salt, max_peers")
           .eq("id", id)
           .maybeSingle();
-        const salt = (data as any)?.password_salt as string | null;
+        const salt = data?.password_salt as string | null;
         setServerSalt(salt || null);
-        const proofFromDb = (data as any)?.password_proof as string | null;
-        setServerProof(proofFromDb || null);
         const protectedRoom = Boolean(salt);
         setNeedsPassword(protectedRoom);
         if (protectedRoom && proof) {
@@ -60,12 +66,12 @@ export default function LiveShareRoom() {
           } catch {}
         }
       } catch {
-        // On failure, allow join but without verification indicator
-        setVerified(!saltB64);
+        // On failure, only allow if ephemeral key is present in fragment
+        setVerified(Boolean(keyB64));
       }
     };
     if (id) run();
-  }, [id, proof, saltB64, keyB64]);
+  }, [id, proof, keyB64]);
 
   async function sha256Base64(data: string): Promise<string> {
     const enc = new TextEncoder();
@@ -75,7 +81,7 @@ export default function LiveShareRoom() {
 
   const setupKey = async () => {
     try {
-      const saltStr = serverSalt || saltB64;
+      const saltStr = serverSalt;
       if (!saltStr) return;
       const salt = Uint8Array.from(atob(saltStr), (c) => c.charCodeAt(0));
       const k = await deriveKey(password, salt, false);

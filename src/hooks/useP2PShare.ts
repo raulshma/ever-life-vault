@@ -509,7 +509,6 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
 
   const handleBroadcastText = useCallback(
     async (rawPayload: any) => {
-      if (!withinCapacityRef.current) return;
       try {
         let decoded: any = rawPayload;
         if (rawPayload && typeof rawPayload === "object" && "e" in rawPayload) {
@@ -535,6 +534,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           return;
         }
         if ((decoded as any).type === "y") {
+          if (!withinCapacityRef.current) return;
           const uB64 = (decoded as any).u as string;
           if (uB64) {
             try {
@@ -546,6 +546,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           return;
         }
         if ((decoded as any).type === "aw") {
+          if (!withinCapacityRef.current) return;
           const uB64 = (decoded as any).u as string;
           if (uB64) {
             try {
@@ -557,8 +558,8 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           return;
         }
         if ((decoded as any).type === "text") {
-          const allow = ((decoded as any).allow as string[] | undefined) || [];
-          if (!allow.includes(myPeerId)) return;
+          const allow = (decoded as any).allow as string[] | undefined;
+          if (Array.isArray(allow) && !allow.includes(myPeerId)) return;
           const incomingText = (decoded as any).text as string;
           if (incomingText !== latestTextRef.current) {
             latestTextRef.current = incomingText;
@@ -569,8 +570,8 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         if ((decoded as any).type === "typing") {
           const from = (decoded as any).from as string | undefined;
           const isTyping = Boolean((decoded as any).isTyping);
-          const allow = ((decoded as any).allow as string[] | undefined) || [];
-          if (from && allow.includes(myPeerId)) {
+          const allow = (decoded as any).allow as string[] | undefined;
+          if (from && (!Array.isArray(allow) || allow.includes(myPeerId))) {
             if (isTyping) typingPeersRef.current.add(from);
             else typingPeersRef.current.delete(from);
             setState((s) => ({ ...s, typingPeerIds: Array.from(typingPeersRef.current) }));
@@ -578,8 +579,8 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           return;
         }
         if ((decoded as any).type === "chat") {
-          const allow = ((decoded as any).allow as string[] | undefined) || [];
-          if (!allow.includes(myPeerId)) return;
+          const allow = (decoded as any).allow as string[] | undefined;
+          if (Array.isArray(allow) && !allow.includes(myPeerId)) return;
           const from = (decoded as any).from as string | undefined;
           const text = (decoded as any).text as string | undefined;
           const ts = Number((decoded as any).ts) || Date.now();
@@ -978,7 +979,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
             myUserIdRef.current = sess?.session?.user?.id ?? null;
           } catch {}
           const { data } = await supabase
-            .from("live_share_rooms" as any)
+            .from("live_share_rooms_public" as any)
             .select("max_peers, locked, expires_at, created_by")
             .eq("id", shareId)
             .maybeSingle();
