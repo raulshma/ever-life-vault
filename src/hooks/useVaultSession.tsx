@@ -412,15 +412,11 @@ function useVaultSessionInternal() {
         .from('vault_config')
         .select('*')
         .eq('user_id', user.id)
-        .single();
-      
-      if (error && (error as any).code !== 'PGRST116') { // PGRST116 = no rows returned
-        throw error;
-      }
-      
-      setHasVault(!!data);
+        .maybeSingle();
+      if (error) throw error;
+      setHasVault(Boolean(data));
       if (data) {
-        setSession(prev => ({ ...prev, salt: base64ToUint8Array(data.salt) }));
+        setSession(prev => ({ ...prev, salt: base64ToUint8Array((data as any).salt) }));
       }
     } catch (error) {
       console.error('Error checking vault existence:', error);

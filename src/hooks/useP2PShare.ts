@@ -113,6 +113,21 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const isHostRef = useRef<boolean>(false);
   const participantsRef = useRef<number>(0);
   const encryptionKeyRef = useRef<CryptoKey | null>(encryptionKey ?? null);
+  // Dedup cache for chat messages to avoid double rendering when both P2P and Realtime deliver the same payload
+  const chatSeenIdsRef = useRef<Set<string>>(new Set());
+  const chatSeenQueueRef = useRef<string[]>([]);
+  const rememberChatId = useCallback((id: string): boolean => {
+    if (!id) return true;
+    if (chatSeenIdsRef.current.has(id)) return false;
+    chatSeenIdsRef.current.add(id);
+    chatSeenQueueRef.current.push(id);
+    // Trim to a bounded size to prevent unbounded memory growth
+    if (chatSeenQueueRef.current.length > 2048) {
+      const old = chatSeenQueueRef.current.shift();
+      if (old) chatSeenIdsRef.current.delete(old);
+    }
+    return true;
+  }, []);
   // keep ref in sync with prop
   useEffect(() => { encryptionKeyRef.current = encryptionKey ?? null; }, [encryptionKey]);
 
@@ -471,8 +486,10 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         const from = (payload as any).from as string | undefined;
         const text = (payload as any).text as string | undefined;
         const ts = Number((payload as any).ts) || Date.now();
-        if (text && from) {
-          const msg = { id: crypto.randomUUID(), from, text, ts };
+        // Prefer stable id if present; otherwise derive a deterministic key from content to dedup
+        const incomingId = String((payload as any).id ?? `${from ?? ""}:${ts}:${text ?? ""}`);
+        if (text && from && rememberChatId(incomingId)) {
+          const msg = { id: incomingId, from, text, ts };
           setState((s) => ({ ...s, chatMessages: [...s.chatMessages, msg] }));
         }
         if (!('relay' in (payload as any)) && isHostRef.current && isStarActive()) {
@@ -480,7 +497,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         }
       }
     },
-    [decodeIncoming, isStarActive, relayFromHost]
+    [decodeIncoming, isStarActive, relayFromHost, rememberChatId]
   );
 
   const handleBroadcastText = useCallback(
@@ -559,8 +576,9 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           const from = (decoded as any).from as string | undefined;
           const text = (decoded as any).text as string | undefined;
           const ts = Number((decoded as any).ts) || Date.now();
-          if (text && from) {
-            const msg = { id: crypto.randomUUID(), from, text, ts };
+          const incomingId = String((decoded as any).id ?? `${from ?? ""}:${ts}:${text ?? ""}`);
+          if (text && from && rememberChatId(incomingId)) {
+            const msg = { id: incomingId, from, text, ts };
             setState((s) => ({ ...s, chatMessages: [...s.chatMessages, msg] }));
           }
           return;
@@ -569,7 +587,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         log("handleBroadcastText error", e);
       }
     },
-    [log, myPeerId]
+    [log, myPeerId, rememberChatId]
   );
 
   const createPeer = useCallback(
@@ -1133,7 +1151,14 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         roomLockedRef.current = locked;
         setState((s) => ({ ...s, roomLocked: locked }));
         await sendWithRetry("room", { locked });
-        await supabase.from("live_share_rooms" as any).update({ locked }).eq("id", shareId);
+        // Only attempt to persist if authenticated; otherwise skip to avoid 401 noise
+        try {
+          const { data } = await supabase.auth.getSession();
+          const userId = data?.session?.user?.id ?? null;
+          if (userId) {
+            await supabase.from("live_share_rooms" as any).update({ locked }).eq("id", shareId);
+          }
+        } catch {}
       } catch {}
     },
     setEncryptionKey: async (key: CryptoKey | null) => {
@@ -1180,7 +1205,9 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
       } catch {}
     },
     sendChatMessage: async (text: string) => {
-      const payload = { type: "chat", text, ts: Date.now(), from: myPeerId } as const;
+      const id = crypto.randomUUID();
+      const ts = Date.now();
+      const payload = { type: "chat", id, text, ts, from: myPeerId } as const;
       // P2P first
       for (const rec of peersRef.current.values()) {
         if (rec.dc && rec.dc.readyState === "open") {
@@ -1204,18 +1231,19 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           .sort((a, b) => (a.ja === b.ja ? (a.key < b.key ? -1 : 1) : a.ja - b.ja));
         const allow = ordered.slice(0, effectiveMaxRef.current || 2).map((x) => x.key);
         const wrapped = { ...payload, allow } as const;
-        if (encryptionKey) {
+        if (encryptionKeyRef.current) {
           const iv = generateIV();
           const plaintext = JSON.stringify(wrapped);
-          const { encryptedData, authTag } = await encryptData(plaintext, encryptionKey, iv);
+          const { encryptedData, authTag } = await encryptData(plaintext, encryptionKeyRef.current, iv);
           const msg = { e: 1, d: arrayBufferToBase64(encryptedData), i: uint8ArrayToBase64(iv), a: uint8ArrayToBase64(authTag) } as const;
           await sendWithRetry("text", msg);
         } else {
           await sendWithRetry("text", wrapped);
         }
       }
-      // local append
-      setState((s) => ({ ...s, chatMessages: [...s.chatMessages, { id: crypto.randomUUID(), from: myPeerId, text, ts: Date.now() }] }));
+      // local append (also mark as seen so our own broadcast echo won't duplicate)
+      rememberChatId(id);
+      setState((s) => ({ ...s, chatMessages: [...s.chatMessages, { id, from: myPeerId, text, ts }] }));
       try { await supabase.from("live_share_events" as any).insert({ room_id: shareId, event: "chat", peer_id: myPeerId }); } catch {}
     },
     kickPeer: async (peerId: string) => {
