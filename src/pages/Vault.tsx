@@ -142,7 +142,7 @@ function QuickAddCredentials({
         </div>
 
         {/* Responsive Layout */}
-  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-2">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:items-center sm:gap-2">
           {/* Type Selection */}
           <div className="flex space-x-1 sm:flex-shrink-0">
             <Button
@@ -172,7 +172,7 @@ function QuickAddCredentials({
           </div>
 
           {/* Input Fields Row */}
-          <div className="flex space-x-2 flex-1 flex-wrap">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:gap-2 sm:flex-1 sm:flex-wrap">
             {quickForm.type === "api" && (
               <Input
                 placeholder="Server URL"
@@ -180,7 +180,7 @@ function QuickAddCredentials({
                 onChange={(e) =>
                   setQuickForm((prev) => ({ ...prev, serverUrl: e.target.value }))
                 }
-                className="h-8 text-sm flex-1 min-w-[12rem]"
+                className="h-8 text-sm w-full sm:flex-1 sm:min-w-[12rem] min-w-0"
               />
             )}
             {/* Name Field */}
@@ -193,11 +193,11 @@ function QuickAddCredentials({
                 setQuickForm((prev) => ({ ...prev, name: e.target.value }))
               }
               onKeyPress={handleKeyPress}
-              className="h-8 text-sm flex-1 min-w-0"
+              className="h-8 text-sm w-full sm:flex-1 min-w-0"
             />
 
             {/* Secret Field with Generate Button */}
-            <div className="flex space-x-1 flex-1">
+            <div className="flex flex-col sm:flex-row gap-1 sm:gap-1 flex-1 min-w-0">
               <Input
                 type="password"
                 placeholder={quickForm.type === "api" ? "API key" : "Password"}
@@ -206,14 +206,14 @@ function QuickAddCredentials({
                   setQuickForm((prev) => ({ ...prev, secret: e.target.value }))
                 }
                 onKeyPress={handleKeyPress}
-                className="h-8 text-sm flex-1 min-w-0"
+                className="h-8 text-sm w-full sm:flex-1 min-w-0"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 onClick={generateSecret}
-                className="h-8 px-2 flex-shrink-0"
+                className="h-8 px-2 sm:flex-shrink-0"
                 title={`Generate ${getSecretLabel()}`}
               >
                 <RefreshCw className="w-3 h-3" />
@@ -229,7 +229,7 @@ function QuickAddCredentials({
                 (quickForm.type === 'api' && !quickForm.serverUrl.trim()) ||
                 isAdding
               }
-            className="h-8 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.9)] px-3 flex-shrink-0"
+            className="h-8 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.9)] px-3 w-full sm:w-auto sm:flex-shrink-0"
               size="sm"
             >
               {isAdding ? (
@@ -435,7 +435,7 @@ export default function Vault() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
+    <div className="min-h-screen bg-gradient-subtle">
       <PageHeader
         title="Secure Vault"
         description="End-to-end encrypted credential storage"
@@ -482,7 +482,7 @@ export default function Vault() {
         </Button>
       </PageHeader>
 
-      <div className="max-w-7xl mx-auto px-6 py-6 sm:py-8">
+      <div className="container py-6 pb-mobile-tabbar">
         {/* Search and Security Notice */}
         <div className="mb-8 space-y-4">
           {/* Search Bar */}

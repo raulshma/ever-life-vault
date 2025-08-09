@@ -399,6 +399,22 @@ All colors MUST be HSL.
   }
 }
 
+/* Mobile-only utilities */
+@layer utilities {
+  /* Ensures page content clears the fixed mobile bottom tab bar and respects safe areas */
+  .pb-mobile-tabbar {
+    /* Allow enough space for the fixed mobile tab bar and the floating quick-add button */
+    padding-bottom: calc(7.5rem + env(safe-area-inset-bottom));
+    padding-bottom: calc(7.5rem + constant(safe-area-inset-bottom));
+  }
+
+  @media (min-width: 768px) {
+    .pb-mobile-tabbar {
+      padding-bottom: 0; /* Let desktop/tablet use normal spacing */
+    }
+  }
+}
+
 @keyframes sheen {
   0% {
     transform: translateX(-100%);

@@ -51,7 +51,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </div>
 
           {children && (
-            <div className="flex items-center gap-2 shrink-0">{children}</div>
+            <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap w-full sm:w-auto mt-2 sm:mt-0">
+              {children}
+            </div>
           )}
         </div>
       </div>
