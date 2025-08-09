@@ -4,7 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Bookmark, Search, Plus, Link as LinkIcon, Type, Settings, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Bookmark,
+  Search,
+  Plus,
+  Link as LinkIcon,
+  Type,
+  Settings,
+  RefreshCw,
+  Filter,
+  X,
+  LayoutGrid,
+  List as ListIcon,
+  Tag
+} from 'lucide-react';
 import { useServiceApiConfig } from '@/hooks/useServiceApiConfig';
 import { useVaultSession } from '@/hooks/useVaultSession';
 import { useKarakeep, type KarakeepItem, type KarakeepItemType } from '@/hooks/useKarakeep';
@@ -35,6 +50,12 @@ export default function Karakeep() {
   const [addUrl, setAddUrl] = useState('');
   const [addText, setAddText] = useState('');
   const [addTags, setAddTags] = useState('');
+
+  // UI/UX: local filters, sorting, and view mode
+  const [activeType, setActiveType] = useState<'all' | KarakeepItemType>('all');
+  const [tagFilter, setTagFilter] = useState('');
+  const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'title'>('newest');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const isConfigured = useMemo(
     () => isUnlocked && !!(serviceConfig.config.serverUrl && serviceConfig.config.apiKey),
@@ -99,6 +120,11 @@ export default function Karakeep() {
     }
   };
 
+  const clearSearch = () => {
+    setSearchQuery('');
+    loadInitial();
+  };
+
   const handleAdd = async () => {
     try {
       const payload: any = { type: addType as KarakeepItemType, title: addTitle || undefined };
@@ -122,6 +148,36 @@ export default function Karakeep() {
       toast({ title: 'Add failed', description: e instanceof Error ? e.message : 'Failed to add item', variant: 'destructive' });
     }
   };
+
+  const displayedItems = useMemo(() => {
+    const byType = activeType === 'all' ? items : items.filter((i) => {
+      const t: any = (i as any).type || (i as any).content?.type;
+      return t === activeType;
+    });
+    const byTag = tagFilter.trim()
+      ? byType.filter((i) => {
+          const tags: any[] = Array.isArray((i as any).tags) ? (i as any).tags : [];
+          const labelIncludes = (v: any) =>
+            (typeof v === 'string' ? v : v?.name || '')
+              .toLowerCase()
+              .includes(tagFilter.trim().toLowerCase());
+          return tags.some(labelIncludes);
+        })
+      : byType;
+    const sorted = [...byTag].sort((a, b) => {
+      const at = (a as any).createdAt || (a as any).created_at || 0;
+      const bt = (b as any).createdAt || (b as any).created_at || 0;
+      if (sortBy === 'title') {
+        const atitle = ((a as any).title || (a as any).content?.title || '').toString().toLowerCase();
+        const btitle = ((b as any).title || (b as any).content?.title || '').toString().toLowerCase();
+        return atitle.localeCompare(btitle);
+      }
+      if (sortBy === 'oldest') return Number(at) - Number(bt);
+      // newest
+      return Number(bt) - Number(at);
+    });
+    return sorted;
+  }, [items, activeType, tagFilter, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-4">
@@ -203,87 +259,188 @@ export default function Karakeep() {
         </Card>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2 bg-gradient-card">
-          <CardHeader>
-            <CardTitle>Items</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 mb-3">
-              <Input
-                placeholder="Search query (e.g. is:fav #tag url:example.com)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && runSearch()}
-              />
+      {/* Quick Add composer */}
+      <Card className="mb-4 bg-gradient-card">
+        <CardHeader>
+          <CardTitle>Add to Karakeep</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={addType} onValueChange={(v) => setAddType(v as KarakeepItemType)}>
+            <div className="flex flex-col gap-3">
+              <TabsList className="w-full justify-start">
+                <TabsTrigger value="link" className="flex items-center gap-2">
+                  <LinkIcon className="w-4 h-4" /> Link
+                </TabsTrigger>
+                <TabsTrigger value="text" className="flex items-center gap-2">
+                  <Type className="w-4 h-4" /> Note
+                </TabsTrigger>
+              </TabsList>
+
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-muted-foreground">Title</label>
+                  <Input value={addTitle} onChange={(e) => setAddTitle(e.target.value)} placeholder="Optional" />
+                </div>
+                <div>
+                  <label className="text-xs text-muted-foreground">Tags (comma separated)</label>
+                  <Input value={addTags} onChange={(e) => setAddTags(e.target.value)} placeholder="reading, research" />
+                </div>
+              </div>
+
+              <TabsContent value="link" className="mt-0">
+                <label className="text-xs text-muted-foreground">URL</label>
+                <Input
+                  autoFocus
+                  value={addUrl}
+                  onChange={(e) => setAddUrl(e.target.value)}
+                  placeholder="https://example.com/article"
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleAdd();
+                  }}
+                />
+              </TabsContent>
+              <TabsContent value="text" className="mt-0">
+                <label className="text-xs text-muted-foreground">Text</label>
+                <Textarea
+                  value={addText}
+                  onChange={(e) => setAddText(e.target.value)}
+                  placeholder="Write a quick note…"
+                  onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') handleAdd();
+                  }}
+                />
+              </TabsContent>
+
+              <div className="flex items-center gap-2">
+                <Button onClick={handleAdd} disabled={karakeep.loading || !isUnlocked || !isConfigured}>
+                  <Plus className="w-4 h-4 mr-2" /> Add
+                </Button>
+                <p className="text-xs text-muted-foreground">Tip: Press Ctrl/⌘+Enter to add quickly</p>
+              </div>
+            </div>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      {/* Browse & filter */}
+      <Card className="bg-gradient-card">
+        <CardHeader>
+          <CardTitle>Browse</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {/* Search bar */}
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  placeholder="Search (e.g. is:fav #tag url:example.com)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                />
+                {searchQuery && (
+                  <button
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    onClick={clearSearch}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
               <Button onClick={runSearch} disabled={isSearching || !searchQuery.trim() || !isUnlocked || !isConfigured}>
                 {isSearching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               </Button>
             </div>
-            <div className="max-h-[60vh] overflow-auto">
+
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <Tabs value={activeType} onValueChange={(v) => setActiveType(v as 'all' | KarakeepItemType)}>
+                  <TabsList>
+                    <TabsTrigger value="all">All</TabsTrigger>
+                    <TabsTrigger value="link">Links</TabsTrigger>
+                    <TabsTrigger value="text">Notes</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Tag className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="h-9 w-[220px]"
+                  placeholder="Filter tags (e.g. research)"
+                  value={tagFilter}
+                  onChange={(e) => setTagFilter(e.target.value)}
+                />
+              </div>
+
+              <div className="ml-auto flex items-center gap-2">
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                  <SelectTrigger className="h-9 w-[160px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">Newest</SelectItem>
+                    <SelectItem value="oldest">Oldest</SelectItem>
+                    <SelectItem value="title">Title</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="hidden sm:flex rounded-md border">
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="rounded-none"
+                    onClick={() => setViewMode('grid')}
+                    aria-label="Grid view"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="rounded-none"
+                    onClick={() => setViewMode('list')}
+                    aria-label="List view"
+                  >
+                    <ListIcon className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Results */}
+            <div className="mt-2 max-h-[65vh] overflow-auto">
               {isLoading ? (
-                <div className="text-sm text-muted-foreground">Loading…</div>
-              ) : items.length === 0 ? (
-                <div className="text-sm text-muted-foreground">No items</div>
-              ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {items.map((item) => (
+                  {Array.from({ length: 9 }).map((_, idx) => (
+                    <div key={idx} className="h-[180px] animate-pulse rounded-lg bg-muted" />
+                  ))}
+                </div>
+              ) : displayedItems.length === 0 ? (
+                <div className="rounded-md border bg-background p-6 text-center text-sm text-muted-foreground">
+                  No items match your filters. Try clearing search or adjusting filters.
+                </div>
+              ) : viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {displayedItems.map((item) => (
                     <KarakeepItemCard key={item.id} item={item} />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {displayedItems.map((item) => (
+                    <div key={item.id} className="rounded-lg border p-3 hover:bg-muted/40">
+                      <KarakeepItemCard item={item} />
+                    </div>
                   ))}
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-gradient-card">
-          <CardHeader>
-            <CardTitle>Add Item</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-xs text-muted-foreground">Type</label>
-                <Select value={addType} onValueChange={(v) => setAddType(v as KarakeepItemType)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="link">Link</SelectItem>
-                    <SelectItem value="text">Text</SelectItem>
-                    <SelectItem value="asset" disabled>
-                      Asset (via CLI)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground">Title</label>
-                <Input value={addTitle} onChange={(e) => setAddTitle(e.target.value)} placeholder="Optional" />
-              </div>
-            </div>
-            {addType === 'link' && (
-              <div>
-                <label className="text-xs text-muted-foreground">URL</label>
-                <Input value={addUrl} onChange={(e) => setAddUrl(e.target.value)} placeholder="https://…" />
-              </div>
-            )}
-            {addType === 'text' && (
-              <div>
-                <label className="text-xs text-muted-foreground">Text</label>
-                <Input value={addText} onChange={(e) => setAddText(e.target.value)} placeholder="Note text" />
-              </div>
-            )}
-            <div>
-              <label className="text-xs text-muted-foreground">Tags (comma separated)</label>
-              <Input value={addTags} onChange={(e) => setAddTags(e.target.value)} placeholder="reading, research" />
-            </div>
-              <Button onClick={handleAdd} disabled={karakeep.loading || !isUnlocked || !isConfigured}>
-              <Plus className="w-4 h-4 mr-2" /> Add
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
