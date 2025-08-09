@@ -98,6 +98,65 @@ export type Database = {
         }
         Relationships: []
       }
+      focus_sessions: {
+        Row: {
+          accent_every: number
+          bpm: number
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          is_break: boolean
+          mode: string
+          notes: string | null
+          profile: string | null
+          started_at: string
+          subdivisions: number
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          accent_every?: number
+          bpm?: number
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          is_break?: boolean
+          mode: string
+          notes?: string | null
+          profile?: string | null
+          started_at?: string
+          subdivisions?: number
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          accent_every?: number
+          bpm?: number
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          is_break?: boolean
+          mode?: string
+          notes?: string | null
+          profile?: string | null
+          started_at?: string
+          subdivisions?: number
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "focus_sessions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_items: {
         Row: {
           category: string

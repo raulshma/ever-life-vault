@@ -18,6 +18,7 @@ import {
 import { useTasks } from '@/hooks/useTasks';
 import { useNotes } from '@/hooks/useNotes';
 import { useDocuments } from '@/hooks/useDocuments';
+import { Sparkles } from 'lucide-react';
 import { useInventory } from '@/hooks/useInventory';
 
 export default function ModuleGrid() {
@@ -38,6 +39,14 @@ export default function ModuleGrid() {
       icon: Calendar,
       color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { active: activeTasks, completed: completedTasks }
+    },
+    {
+      name: 'Focus',
+      description: 'Timer + metronome for deep work and pacing',
+      path: '/focus',
+      icon: Sparkles,
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
+      stats: { bpm: 'calm' }
     },
     {
       name: 'Knowledge Base',

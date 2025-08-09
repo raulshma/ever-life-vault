@@ -39,6 +39,7 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
+import { FloatingMiniTimer } from "@/components/focus/FloatingMiniTimer";
 import {
   SidebarProvider,
   Sidebar,
@@ -60,6 +61,7 @@ const moduleCategories = {
   daily: [
     { name: "Dashboard", path: "/", icon: Home },
     { name: "Day Tracker", path: "/day-tracker", icon: Calendar },
+    { name: "Focus", path: "/focus", icon: Sparkles },
     { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
     { name: "Vault", path: "/vault", icon: Shield },
     { name: "Documents", path: "/documents", icon: FileText },
@@ -366,6 +368,7 @@ export const Layout: React.FC = React.memo(() => {
           {/* Main Content */}
           <div className="px-2 sm:px-4 pt-3 pb-24 md:pb-6 safe-left safe-right">
             <Outlet />
+            <FloatingMiniTimer />
           </div>
 
           {/* Mobile Bottom Tab Bar */}

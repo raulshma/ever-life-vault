@@ -8,6 +8,7 @@ import { VaultSessionProvider } from "./hooks/useVaultSession";
 import { SettingsProvider } from "./hooks/useSettings";
 import { Layout } from "@/components/Layout";
 import Dashboard from "./pages/Dashboard";
+import { FocusTimerProvider } from "@/hooks/useFocusTimerController";
 import Auth from "./pages/Auth";
 import DayTracker from "./pages/DayTracker";
 import KnowledgeBase from "./pages/KnowledgeBase";
@@ -22,6 +23,7 @@ import HomelabMediaRequests from "./pages/homelab/MediaRequests";
 import HomelabJellyfin from "./pages/homelab/Jellyfin";
 import HomelabKarakeep from "./pages/homelab/Karakeep";
 import NotFound from "./pages/NotFound";
+import Focus from "./pages/Focus";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +74,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="day-tracker" element={<DayTracker />} />
         <Route path="knowledge" element={<KnowledgeBase />} />
+        <Route path="focus" element={<Focus />} />
         <Route path="vault" element={<Vault />} />
         <Route path="documents" element={<Documents />} />
         <Route path="inventory" element={<Inventory />} />
@@ -105,7 +108,9 @@ const App = () => (
         <SettingsProvider>
           <AuthProvider>
             <VaultSessionProvider>
-              <AppRoutes />
+              <FocusTimerProvider>
+                <AppRoutes />
+              </FocusTimerProvider>
             </VaultSessionProvider>
           </AuthProvider>
         </SettingsProvider>
