@@ -76,6 +76,66 @@ const moduleCategories = {
   ],
 };
 
+// Theme menu button (moved from footer to header)
+const ThemeMenuButton: React.FC = () => {
+  const { themeMode, setThemeMode } = useSettings();
+  const [openThemeMenu, setOpenThemeMenu] = React.useState(false);
+
+  return (
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setOpenThemeMenu((v) => !v)}
+        className="text-muted-foreground hover:text-foreground"
+        title="Theme"
+        aria-haspopup="menu"
+        aria-expanded={openThemeMenu}
+      >
+        {themeMode === 'dark' ? (
+          <Moon className="w-4 h-4" />
+        ) : themeMode === 'light' ? (
+          <Sun className="w-4 h-4" />
+        ) : (
+          <Laptop2 className="w-4 h-4" />
+        )}
+        <span className="sr-only">Toggle theme</span>
+      </Button>
+      {openThemeMenu && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-2 z-50 min-w-[10rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+        >
+          {(
+            [
+              { key: 'light', label: 'Light', icon: Sun },
+              { key: 'dark', label: 'Dark', icon: Moon },
+              { key: 'system', label: 'System', icon: Laptop2 },
+            ] as const
+          ).map((opt) => (
+            <button
+              key={opt.key}
+              role="menuitemradio"
+              aria-checked={themeMode === opt.key}
+              onClick={() => {
+                setThemeMode(opt.key);
+                setOpenThemeMenu(false);
+              }}
+              className={cn(
+                "w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                themeMode === opt.key ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <opt.icon className="h-4 w-4" />
+              <span>{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // Sidebar navigation for desktop + mobile drawer
 const SidebarNavigation: React.FC<{
   location: ReturnType<typeof useLocation>;
@@ -90,12 +150,15 @@ const SidebarNavigation: React.FC<{
   return (
     <>
       <SidebarHeader className="px-3 py-3">
-        <ViewTransitionLink to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 text-primary-foreground grid place-items-center shadow-sm">
-            <span className="font-bold text-xs">LOS</span>
-          </div>
-          <span className="font-semibold text-base">Life OS</span>
-        </ViewTransitionLink>
+        <div className="flex items-center justify-between gap-2">
+          <ViewTransitionLink to="/" className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 text-primary-foreground grid place-items-center shadow-sm">
+              <span className="font-bold text-xs">LOS</span>
+            </div>
+            <span className="font-semibold text-base">Life OS</span>
+          </ViewTransitionLink>
+          <ThemeMenuButton />
+        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -165,66 +228,13 @@ const SidebarNavigation: React.FC<{
   );
 };
 
-// Footer actions reused in sidebar footer and topbar
+// Footer actions (theme toggle moved to header)
 const FooterActions: React.FC = () => {
   const { signOut } = useAuth();
-  const { viewTransitionsEnabled, setViewTransitionsEnabled, themeMode, setThemeMode } = useSettings();
-  const [openThemeMenu, setOpenThemeMenu] = React.useState(false);
+  const { viewTransitionsEnabled, setViewTransitionsEnabled } = useSettings();
 
   return (
     <>
-      {/* Theme toggle */}
-      <div className="relative">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setOpenThemeMenu((v) => !v)}
-          className="text-muted-foreground hover:text-foreground"
-          title="Theme"
-          aria-haspopup="menu"
-          aria-expanded={openThemeMenu}
-        >
-          {themeMode === 'dark' ? (
-            <Moon className="w-4 h-4" />
-          ) : themeMode === 'light' ? (
-            <Sun className="w-4 h-4" />
-          ) : (
-            <Laptop2 className="w-4 h-4" />
-          )}
-          <span className="sr-only">Toggle theme</span>
-        </Button>
-        {openThemeMenu && (
-          <div
-            role="menu"
-            className="absolute right-0 mt-2 z-50 min-w-[10rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-          >
-            {(
-              [
-                { key: 'light', label: 'Light', icon: Sun },
-                { key: 'dark', label: 'Dark', icon: Moon },
-                { key: 'system', label: 'System', icon: Laptop2 },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.key}
-                role="menuitemradio"
-                aria-checked={themeMode === opt.key}
-                onClick={() => {
-                  setThemeMode(opt.key);
-                  setOpenThemeMenu(false);
-                }}
-                className={cn(
-                  "w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
-                  themeMode === opt.key ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <opt.icon className="h-4 w-4" />
-                <span>{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
       <Button
         variant="ghost"
         size="sm"
