@@ -44,6 +44,11 @@ export type P2PShareState = {
   roomLocked: boolean;
   kicked: boolean;
   chatMessages: { id: string; from: string; text: string; ts: number }[];
+  /**
+   * True when the room is locked and this client is not the host. In this state we do not
+   * track presence or attempt to join, and the UI should present a blocked message.
+   */
+  blockedByLock?: boolean;
 };
 
 type PeerRecord = {
@@ -111,6 +116,8 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const denylistRef = useRef<Set<string>>(new Set());
   const hostIdRef = useRef<string | null>(null);
   const isHostRef = useRef<boolean>(false);
+  const createdByUserIdRef = useRef<string | null>(null);
+  const myUserIdRef = useRef<string | null>(null);
   const participantsRef = useRef<number>(0);
   const encryptionKeyRef = useRef<CryptoKey | null>(encryptionKey ?? null);
   // Dedup cache for chat messages to avoid double rendering when both P2P and Realtime deliver the same payload
@@ -833,6 +840,10 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
       try {
         const p = payload as any;
         if (!p || typeof p !== "object") return;
+        // Only honor room-control messages from the creator; if creator unknown, ignore
+        const fromUserId = (p as any).fromUserId as string | undefined;
+        if (!createdByUserIdRef.current) return;
+        if (!fromUserId || fromUserId !== createdByUserIdRef.current) return;
         if (Object.prototype.hasOwnProperty.call(p, "locked")) {
           roomLockedRef.current = Boolean(p.locked);
           setState((s) => ({ ...s, roomLocked: roomLockedRef.current }));
@@ -852,20 +863,20 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
       const stateObj = channel.presenceState() as Record<string, any[]> | undefined;
       const peerIds = Object.keys(stateObj || {});
 
-      // Determine host (earliest joinedAt, then lexicographically smallest id)
+      // Determine host: the peer whose presence meta.userId equals the room creator
       let hostId: string | null = null;
       let hostJoinedAt = Number.POSITIVE_INFINITY;
       let hostMax: number | null = null;
-      if (stateObj) {
+      const creatorId = createdByUserIdRef.current;
+      if (stateObj && creatorId) {
         for (const [key, metas] of Object.entries(stateObj)) {
           const arr = Array.isArray(metas) ? metas : [];
           for (const m of arr) {
-            const ja = Number(m?.joinedAt ?? m?.joined_at ?? Number.POSITIVE_INFINITY);
-            const mMax = Number(m?.maxPeersLocal ?? m?.max_peers_local ?? NaN);
-            if (
-              ja < hostJoinedAt ||
-              (ja === hostJoinedAt && (hostId === null || key < hostId))
-            ) {
+            const userId = (m as any)?.userId as string | undefined;
+            if (userId !== creatorId) continue;
+            const ja = Number(m?.joinedAt ?? (m as any)?.joined_at ?? Number.POSITIVE_INFINITY);
+            const mMax = Number((m as any)?.maxPeersLocal ?? (m as any)?.max_peers_local ?? NaN);
+            if (ja < hostJoinedAt || (ja === hostJoinedAt && (hostId === null || key < hostId))) {
               hostId = key;
               hostJoinedAt = ja;
               hostMax = Number.isFinite(mMax) ? mMax : hostMax;
@@ -873,6 +884,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           }
         }
       }
+      // If creator is not present, do not elect any fallback host
       const derivedEffectiveMax = Math.min(8, Math.max(2, Number(hostMax ?? maxPeers)));
       effectiveMaxRef.current = derivedEffectiveMax;
 
@@ -900,14 +912,15 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
 
       withinCapacityRef.current = isWithinCapacity;
       participantsRef.current = peerIds.length;
-      isHostRef.current = hostId === myPeerId;
+      // Host is strictly the creator
+      isHostRef.current = Boolean(myUserIdRef.current && creatorId && myUserIdRef.current === creatorId);
       hostIdRef.current = hostId;
       setState((s) => ({
         ...s,
         participants: peerIds.length,
         effectiveMaxPeers: derivedEffectiveMax,
         isWithinCapacity,
-        isHost: hostId === myPeerId,
+        isHost: isHostRef.current,
         presencePeerIds: peerIds,
       }));
       // In star mode, non-host should keep only connection to host
@@ -924,10 +937,21 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         setState((s) => ({ ...s, isRoomFull: true }));
         return;
       }
+      // Do not join presence if room is locked and we are not the host (detected only when we know identities)
+      if (
+        roomLockedRef.current &&
+        createdByUserIdRef.current &&
+        myUserIdRef.current &&
+        myUserIdRef.current !== createdByUserIdRef.current &&
+        !didTrackRef.current
+      ) {
+        setState((s) => ({ ...s, blockedByLock: true }));
+        return;
+      }
       // Track presence if not yet tracked, include our local max, and announce
       if (!didTrackRef.current) {
         try {
-          await channel.track({ joinedAt: Date.now(), maxPeersLocal: maxPeers });
+          await channel.track({ joinedAt: Date.now(), maxPeersLocal: maxPeers, userId: myUserIdRef.current });
           didTrackRef.current = true;
           const hello: SignalMessage = { t: "hello", from: myPeerId };
           void sendWithRetry("signal", hello);
@@ -948,9 +972,14 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         } catch {}
         // Fetch authoritative room config; fall back to URL max if not found
         try {
+          // Capture my user id for host resolution
+          try {
+            const { data: sess } = await supabase.auth.getSession();
+            myUserIdRef.current = sess?.session?.user?.id ?? null;
+          } catch {}
           const { data } = await supabase
             .from("live_share_rooms" as any)
-            .select("max_peers, locked, expires_at")
+            .select("max_peers, locked, expires_at, created_by")
             .eq("id", shareId)
             .maybeSingle();
           if (data) {
@@ -968,6 +997,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
                 setState((s) => ({ ...s, roomLocked: true }));
               }
             }
+            createdByUserIdRef.current = (data as any)?.created_by ?? null;
           }
         } catch {}
         // tracking will be decided on first presence sync
@@ -1147,10 +1177,11 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
     broadcastTyping: broadcastTypingInternal,
     updateRoomLocked: async (locked: boolean) => {
       try {
+        if (!isHostRef.current) return;
         // broadcast immediately for UX, then persist
         roomLockedRef.current = locked;
         setState((s) => ({ ...s, roomLocked: locked }));
-        await sendWithRetry("room", { locked });
+        await sendWithRetry("room", { locked, fromUserId: myUserIdRef.current });
         // Only attempt to persist if authenticated; otherwise skip to avoid 401 noise
         try {
           const { data } = await supabase.auth.getSession();
@@ -1249,7 +1280,8 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
     kickPeer: async (peerId: string) => {
       // host only action; broadcast kick
       try {
-        await sendWithRetry("room", { kick: [peerId] });
+        if (!isHostRef.current) return;
+        await sendWithRetry("room", { kick: [peerId], fromUserId: myUserIdRef.current });
         denylistRef.current.add(peerId);
       } catch {}
     },

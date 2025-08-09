@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ async function sha256Base64(data: string): Promise<string> {
 
 export default function LiveShareNew() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [maxPeers, setMaxPeers] = useState<number>(2);
   const [passwordEnabled, setPasswordEnabled] = useState<boolean>(false);
   const [password, setPassword] = useState<string>("");
@@ -76,6 +78,8 @@ export default function LiveShareNew() {
       setLink(url.toString());
       await navigator.clipboard.writeText(url.toString());
       toast({ title: "Link created", description: "Copied to clipboard." });
+      // Navigate host directly into the room; they don't need to join via the link
+      navigate(`${url.pathname}${url.search}`);
     } catch (e: any) {
       toast({ title: "Failed to create link", description: e?.message ?? String(e), variant: "destructive" });
     }

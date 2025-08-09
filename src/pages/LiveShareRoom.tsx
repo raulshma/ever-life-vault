@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams, useParams } from "react-router-dom";
+import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 export default function LiveShareRoom() {
   const { toast } = useToast();
   const { id } = useParams();
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const [password, setPassword] = useState<string>("");
   const [key, setKey] = useState<CryptoKey | null>(null);
@@ -130,6 +131,15 @@ export default function LiveShareRoom() {
     return `${compact.slice(0,4)}-${compact.slice(4,8)}`;
   }, [proof, serverProof, keyB64]);
 
+  useEffect(() => {
+    if (state.kicked) {
+      toast({ title: "Removed by host", description: "You were kicked from the room.", variant: "destructive" });
+      navigate("/", { replace: true });
+    }
+  }, [state.kicked, navigate, toast]);
+
+  const showRoomUI = !(roomFull || (state.blockedByLock && !state.isHost) || state.kicked);
+
   return (
     <div className="max-w-5xl mx-auto mt-4 space-y-4">
       <Card>
@@ -162,6 +172,11 @@ export default function LiveShareRoom() {
               Room is full. Try again later or ask the host to increase the limit.
             </div>
           )}
+          {state.blockedByLock && !state.isHost && (
+            <div className="p-3 rounded-md bg-slate-50 text-slate-900 border border-slate-200">
+              The room is locked by the host. You cannot join right now.
+            </div>
+          )}
           {!verified && needsPassword && (
             <div className="p-3 rounded-md bg-blue-50 text-blue-900 border border-blue-200">
               This room is protected. Enter the password to join.
@@ -181,13 +196,16 @@ export default function LiveShareRoom() {
               The room is locked. New peers cannot join until unlocked by the host.
             </div>
           )}
-          <Textarea
-            value={state.text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder={needsPassword && !key ? "Enter the password to start editing..." : "Start typing..."}
-            className="min-h-[50vh]"
-            disabled={needsPassword && !key}
-          />
+          {!roomFull && !(state.blockedByLock && !state.isHost) ? (
+            <Textarea
+              value={state.text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={needsPassword && !key ? "Enter the password to start editing..." : "Start typing..."}
+              className="min-h-[50vh]"
+              disabled={needsPassword && !key}
+            />
+          ) : null}
+          {showRoomUI && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               <div className="text-sm font-medium mb-1">Chat</div>
@@ -280,6 +298,7 @@ export default function LiveShareRoom() {
               </div>
             </div>
           </div>
+          )}
           <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-2">
             <span>Connected peers:</span>
             {state.connectedPeerIds.length ? (
