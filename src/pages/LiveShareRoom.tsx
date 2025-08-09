@@ -144,6 +144,18 @@ export default function LiveShareRoom() {
     }
   }, [state.kicked, navigate, toast]);
 
+  useEffect(() => {
+    if (state.ended) {
+      if (state.isHost) {
+        toast({ title: "Live share ended", description: "You ended this room.", variant: "default" });
+        navigate("/share/new", { replace: true });
+      } else {
+        toast({ title: "Live share ended", description: "The host ended this room.", variant: "default" });
+        navigate("/", { replace: true });
+      }
+    }
+  }, [state.ended, state.isHost, navigate, toast]);
+
   const showRoomUI = !(roomFull || (state.blockedByLock && !state.isHost) || state.kicked);
 
   return (
@@ -168,7 +180,7 @@ export default function LiveShareRoom() {
                 {state.roomLocked ? "Unlock room" : "Lock room"}
               </Button>
               <Button size="sm" variant="outline" className="ml-2" onClick={() => rotateKey()}>Rotate key</Button>
-              <Button size="sm" variant="ghost" className="ml-2" onClick={() => leave()}>Leave</Button>
+              <Button size="sm" variant="ghost" className="ml-2" onClick={async () => { await leave(); navigate("/share/new", { replace: true }); }}>End & leave</Button>
             </div>
           )}
         </CardHeader>

@@ -49,6 +49,8 @@ export type P2PShareState = {
    * track presence or attempt to join, and the UI should present a blocked message.
    */
   blockedByLock?: boolean;
+  /** True if the host ended the room. Hook will auto-leave when set. */
+  ended?: boolean;
 };
 
 type PeerRecord = {
@@ -93,6 +95,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
     roomLocked: false,
     kicked: false,
     chatMessages: [],
+    ended: false,
   });
 
   const myPeerId = useMemo(() => crypto.randomUUID(), []);
@@ -799,13 +802,26 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const leave = useCallback(async () => {
     isClosingRef.current = true;
     try {
+      // If I am the host, broadcast end and cleanup server-side
+      if (isHostRef.current) {
+        try {
+          await sendWithRetry("room", { end: true, fromUserId: myUserIdRef.current });
+        } catch {}
+        try {
+          const { data: sess } = await supabase.auth.getSession();
+          const uid = sess?.session?.user?.id ?? null;
+          if (uid && myUserIdRef.current === uid) {
+            try { await (supabase as any).rpc("end_live_share", { _id: shareId }); } catch {}
+          }
+        } catch {}
+      }
       for (const id of Array.from(peersRef.current.keys())) teardownPeer(id);
       await channelRef.current?.untrack();
       await channelRef.current?.unsubscribe();
     } catch {}
     channelRef.current = null;
     setState((s) => ({ ...s, connectedPeerIds: [], participants: 0, isRoomFull: false }));
-  }, [teardownPeer]);
+  }, [sendWithRetry, shareId, teardownPeer]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -848,6 +864,11 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
         if (Object.prototype.hasOwnProperty.call(p, "locked")) {
           roomLockedRef.current = Boolean(p.locked);
           setState((s) => ({ ...s, roomLocked: roomLockedRef.current }));
+        }
+        if (Object.prototype.hasOwnProperty.call(p, "end") && p.end) {
+          setState((s) => ({ ...s, ended: true }));
+          void leave();
+          return;
         }
         if (Array.isArray((p as any).kick)) {
           const ids = (p as any).kick as string[];
