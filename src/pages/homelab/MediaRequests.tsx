@@ -278,7 +278,7 @@ export default function MediaRequests() {
                 <label className="text-sm font-medium">Use Existing Credential</label>
                 <Select
                   value={serviceConfig.linkedVaultItemId || ''}
-                  onValueChange={(val) => serviceConfig.linkVaultItem(val === '' ? null : val)}
+                  onValueChange={(val) => serviceConfig.linkVaultItem(val === '' || val === 'Manual' ? null : val)}
                   disabled={!isUnlocked || serviceConfig.saving}
                 >
                   <SelectTrigger>

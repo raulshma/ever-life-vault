@@ -153,14 +153,14 @@ export default function Karakeep() {
                 <label className="text-sm font-medium">Use Existing Credential</label>
                 <Select
                   value={serviceConfig.linkedVaultItemId || ''}
-                  onValueChange={(val) => serviceConfig.linkVaultItem(val === '' ? null : val)}
+                  onValueChange={(val) => serviceConfig.linkVaultItem(val === '' || val === 'Manual' ? null : val)}
                   disabled={!isUnlocked || serviceConfig.saving}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select saved API credential" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Manual configuration</SelectItem>
+                    <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                     ))}

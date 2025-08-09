@@ -280,11 +280,11 @@ export default function Jellyfin() {
               <label className="block text-sm font-medium mb-2">
                 Use Vault Credential
               </label>
-              <Select
-                value={serviceConfig.linkedVaultItemId || ""}
-                onValueChange={(val) =>
-                  serviceConfig.linkVaultItem(val === "" ? null : val)
-                }
+                <Select
+                 value={serviceConfig.linkedVaultItemId || ""}
+                 onValueChange={(val) =>
+                   serviceConfig.linkVaultItem(val === "" || val === 'Manual' ? null : val)
+                 }
                 disabled={
                   !isUnlocked ||
                   serviceConfig.saving ||
@@ -302,7 +302,7 @@ export default function Jellyfin() {
                     }
                   />
                 </SelectTrigger>
-                {isUnlocked && serviceConfig.availableVaultItems.length > 0 && (
+                    {isUnlocked && serviceConfig.availableVaultItems.length > 0 && (
                   <SelectContent>
                     <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map((item) => (
@@ -418,7 +418,7 @@ export default function Jellyfin() {
               <Select
                 value={serviceConfig.linkedVaultItemId || ""}
                 onValueChange={(val) =>
-                  serviceConfig.linkVaultItem(val === "" ? null : val)
+                  serviceConfig.linkVaultItem(val === "" || val === 'Manual' ? null : val)
                 }
                 disabled={
                   !isUnlocked ||
@@ -437,7 +437,7 @@ export default function Jellyfin() {
                     }
                   />
                 </SelectTrigger>
-                {isUnlocked && serviceConfig.availableVaultItems.length > 0 && (
+                  {isUnlocked && serviceConfig.availableVaultItems.length > 0 && (
                   <SelectContent>
                     <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map((item) => (
