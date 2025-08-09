@@ -133,9 +133,36 @@ export function useKarakeep(config: KarakeepConfig) {
   }, [makeRequest]);
 
   const listItems = useCallback(
-    async (params?: { q?: string; limit?: number; offset?: number }): Promise<KarakeepSearchResponse> => {
+    async (params?: {
+      q?: string;
+      type?: KarakeepItemType;
+      tags?: string[];
+      sort?: 'newest' | 'oldest' | 'title';
+      limit?: number;
+      offset?: number;
+    }): Promise<KarakeepSearchResponse> => {
       const search = new URLSearchParams();
       if (params?.q) search.set('q', params.q);
+      if (params?.type) search.set('type', params.type);
+      if (params?.tags && params.tags.length > 0) {
+        // Common server styles: tags CSV or repeated 'tag'
+        search.set('tags', params.tags.join(','));
+        // Also add first tag for APIs that expect a singular parameter
+        if (!search.has('tag')) search.set('tag', params.tags[0]);
+      }
+      if (params?.sort) {
+        // Try common patterns for wider compatibility
+        const field = params.sort === 'title' ? 'title' : 'created_at';
+        const direction = params.sort === 'oldest' ? 'asc' : params.sort === 'title' ? 'asc' : 'desc';
+        // Minimal set
+        search.set('sort', field);
+        search.set('order', direction);
+        // Some APIs prefer `sort_by` and `direction`
+        search.set('sort_by', field);
+        search.set('direction', direction);
+        // Others accept single combined sort
+        search.set('sortCombined', `${field}:${direction}`);
+      }
       if (params?.limit) search.set('limit', String(params.limit));
       if (params?.offset) search.set('offset', String(params.offset));
       const query = search.toString();
@@ -156,8 +183,8 @@ export function useKarakeep(config: KarakeepConfig) {
   );
 
   const searchItems = useCallback(
-    async (query: string): Promise<KarakeepItem[]> => {
-      const { items } = await listItems({ q: query, limit: 50, offset: 0 });
+    async (query: string, options?: { type?: KarakeepItemType; tags?: string[]; sort?: 'newest' | 'oldest' | 'title' }): Promise<KarakeepItem[]> => {
+      const { items } = await listItems({ q: query, type: options?.type, tags: options?.tags, sort: options?.sort, limit: 50, offset: 0 });
       return items;
     },
     [listItems]

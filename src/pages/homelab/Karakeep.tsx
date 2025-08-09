@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+// Badge is used inside cards, not in this page
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -62,6 +62,13 @@ export default function Karakeep() {
     [isUnlocked, serviceConfig.config.serverUrl, serviceConfig.config.apiKey]
   );
 
+  const canAdd = useMemo(() => {
+    if (!isConfigured || !isUnlocked) return false;
+    if (addType === 'link') return Boolean(addUrl.trim());
+    if (addType === 'text') return Boolean(addText.trim());
+    return true;
+  }, [addType, addUrl, addText, isConfigured, isUnlocked]);
+
   useEffect(() => {
     setLocalServerUrl(serviceConfig.config.serverUrl || '');
     setLocalApiKey(serviceConfig.config.apiKey || '');
@@ -70,7 +77,18 @@ export default function Karakeep() {
   const loadInitial = async () => {
     setIsLoading(true);
     try {
-      const { items: fetched } = await karakeep.listItems({ limit: 25 });
+      const tagList = tagFilter
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const { items: fetched } = await karakeep.listItems({
+        q: searchQuery.trim() || undefined,
+        type: activeType === 'all' ? undefined : activeType,
+        tags: tagList.length ? tagList : undefined,
+        sort: sortBy,
+        limit: 60,
+        offset: 0,
+      });
       setItems(fetched);
     } catch (e) {
       // surfaced in toast or error state in hook
@@ -108,10 +126,17 @@ export default function Karakeep() {
   };
 
   const runSearch = async () => {
-    if (!searchQuery.trim()) return;
     setIsSearching(true);
     try {
-      const results = await karakeep.searchItems(searchQuery.trim());
+      const tagList = tagFilter
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean);
+      const results = await karakeep.searchItems(searchQuery.trim(), {
+        type: activeType === 'all' ? undefined : activeType,
+        tags: tagList.length ? tagList : undefined,
+        sort: sortBy,
+      });
       setItems(results);
     } catch (e) {
       toast({ title: 'Search failed', description: e instanceof Error ? e.message : 'Failed to search', variant: 'destructive' });
@@ -312,7 +337,7 @@ export default function Karakeep() {
               </TabsContent>
 
               <div className="flex items-center gap-2">
-                <Button onClick={handleAdd} disabled={karakeep.loading || !isUnlocked || !isConfigured}>
+                <Button onClick={handleAdd} disabled={karakeep.loading || !canAdd}>
                   <Plus className="w-4 h-4 mr-2" /> Add
                 </Button>
                 <p className="text-xs text-muted-foreground">Tip: Press Ctrl/⌘+Enter to add quickly</p>
@@ -336,7 +361,10 @@ export default function Karakeep() {
                   placeholder="Search (e.g. is:fav #tag url:example.com)"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') runSearch();
+                    if (e.key === 'Escape') clearSearch();
+                  }}
                 />
                 {searchQuery && (
                   <button
@@ -357,7 +385,7 @@ export default function Karakeep() {
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                <Tabs value={activeType} onValueChange={(v) => setActiveType(v as 'all' | KarakeepItemType)}>
+                <Tabs value={activeType} onValueChange={(v) => { setActiveType(v as 'all' | KarakeepItemType); setTimeout(loadInitial, 0); }}>
                   <TabsList>
                     <TabsTrigger value="all">All</TabsTrigger>
                     <TabsTrigger value="link">Links</TabsTrigger>
@@ -373,11 +401,12 @@ export default function Karakeep() {
                   placeholder="Filter tags (e.g. research)"
                   value={tagFilter}
                   onChange={(e) => setTagFilter(e.target.value)}
+                  onBlur={loadInitial}
                 />
               </div>
 
               <div className="ml-auto flex items-center gap-2">
-                <Select value={sortBy} onValueChange={(v) => setSortBy(v as any)}>
+                <Select value={sortBy} onValueChange={(v) => { setSortBy(v as any); setTimeout(loadInitial, 0); }}>
                   <SelectTrigger className="h-9 w-[160px]">
                     <SelectValue placeholder="Sort by" />
                   </SelectTrigger>
