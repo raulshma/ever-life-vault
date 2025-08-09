@@ -79,7 +79,11 @@ export const useJellyseerr = (initialConfig?: JellyseerrConfig) => {
       throw new Error('Jellyseerr server URL and API key are required');
     }
 
-    const url = `${config.serverUrl}/api/v1${endpoint}`;
+    const base = config.serverUrl.endsWith('/') ? config.serverUrl.slice(0, -1) : config.serverUrl;
+    const apiPath = `/api/v1${endpoint}`;
+    // If base is absolute, route via dynamic proxy
+    const isAbsolute = /^https?:\/\//i.test(base);
+    const url = isAbsolute ? `/proxy/dyn?url=${encodeURIComponent(`${base}${apiPath}`)}` : `${base}${apiPath}`;
     const response = await fetch(url, {
       ...options,
       headers: {

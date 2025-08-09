@@ -112,7 +112,9 @@ export const useJellyfin = (config: JellyfinConfig) => {
         const base = config.serverUrl.endsWith("/")
           ? config.serverUrl.slice(0, -1)
           : config.serverUrl;
-        const url = `${base}${endpoint}`;
+        const isAbsolute = /^https?:\/\//i.test(base);
+        const target = `${base}${endpoint}`;
+        const url = isAbsolute ? `/proxy/dyn?url=${encodeURIComponent(target)}` : target;
         const response = await fetch(url, {
           ...options,
           headers: {

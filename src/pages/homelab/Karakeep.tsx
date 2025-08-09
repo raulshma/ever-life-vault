@@ -9,6 +9,7 @@ import { useServiceApiConfig } from '@/hooks/useServiceApiConfig';
 import { useVaultSession } from '@/hooks/useVaultSession';
 import { useKarakeep, type KarakeepItem, type KarakeepItemType } from '@/hooks/useKarakeep';
 import { useToast } from '@/hooks/use-toast';
+import KarakeepItemCard from '@/components/KarakeepItemCard';
 
 export default function Karakeep() {
   const { isUnlocked } = useVaultSession();
@@ -219,29 +220,17 @@ export default function Karakeep() {
                 {isSearching ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
               </Button>
             </div>
-            <div className="space-y-2 max-h-[60vh] overflow-auto">
+            <div className="max-h-[60vh] overflow-auto">
               {isLoading ? (
                 <div className="text-sm text-muted-foreground">Loading…</div>
               ) : items.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No items</div>
               ) : (
-                items.map((item) => (
-                  <div key={item.id} className="p-3 rounded-md border flex items-start justify-between">
-                    <div className="pr-3">
-                      <div className="font-medium">{item.title || item.url || 'Untitled'}</div>
-                      <div className="text-xs text-muted-foreground break-all flex items-center gap-1">
-                        {item.type === 'link' ? <LinkIcon className="w-3 h-3" /> : <Type className="w-3 h-3" />}
-                        {item.url || item.text?.slice(0, 120)}
-                      </div>
-                      <div className="mt-1 flex gap-1 flex-wrap">
-                        {(item.tags || []).map((t: string) => (
-                          <Badge key={t} variant="secondary" className="text-[10px]">#{t}</Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="shrink-0 text-[10px] uppercase">{item.type}</Badge>
-                  </div>
-                ))
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {items.map((item) => (
+                    <KarakeepItemCard key={item.id} item={item} />
+                  ))}
+                </div>
               )}
             </div>
           </CardContent>
@@ -289,7 +278,7 @@ export default function Karakeep() {
               <label className="text-xs text-muted-foreground">Tags (comma separated)</label>
               <Input value={addTags} onChange={(e) => setAddTags(e.target.value)} placeholder="reading, research" />
             </div>
-            <Button onClick={handleAdd} disabled={karakeep.loading || !isUnlocked || !isConfigured}>
+              <Button onClick={handleAdd} disabled={karakeep.loading || !isUnlocked || !isConfigured}>
               <Plus className="w-4 h-4 mr-2" /> Add
             </Button>
           </CardContent>

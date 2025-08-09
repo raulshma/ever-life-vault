@@ -9,6 +9,14 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     historyApiFallback: true,
+    proxy: {
+      // Forward /proxy/* to our Fastify server (running on 8787 by default)
+      "/proxy": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/proxy/, ""),
+      },
+    },
     headers: {
       // Enforce frame-ancestors via server header (meta tag can't enforce it)
       "Content-Security-Policy": "frame-ancestors 'none'",

@@ -3,13 +3,21 @@ import { useVaultSession } from '@/hooks/useVaultSession';
 
 export type KarakeepItemType = 'link' | 'text' | 'asset';
 
+export interface KarakeepTag {
+  id: string | number;
+  name: string;
+  attachedBy?: string;
+}
+
 export interface KarakeepItem {
   id: string | number;
-  type: KarakeepItemType;
+  // In Karakeep API, the top-level doesn't expose `type`; it's under `content.type`.
+  // Keep optional for back-compat with other sources.
+  type?: KarakeepItemType;
   title?: string;
   url?: string;
   text?: string;
-  tags?: string[];
+  tags?: Array<string | KarakeepTag>;
   created_at?: string;
   updated_at?: string;
   // Allow unknown fields
@@ -74,7 +82,14 @@ export function useKarakeep(config: KarakeepConfig) {
       setLoading(true);
       setError(null);
       try {
-        const url = joinUrl(config.serverUrl, path);
+        const inputBase = config.serverUrl.endsWith('/') ? config.serverUrl.slice(0, -1) : config.serverUrl;
+        const isAbsolute = /^https?:\/\//i.test(inputBase);
+        // If user provided an absolute base without explicit api version, default to /api/v1
+        const effectiveBase = isAbsolute && !/\/api\/v\d+$/i.test(inputBase)
+          ? `${inputBase}/api/v1`
+          : inputBase;
+        const target = joinUrl(effectiveBase, path);
+        const url = isAbsolute ? `/proxy/dyn?url=${encodeURIComponent(target)}` : target;
         const response = await fetch(url, {
           ...init,
           headers: { ...headers, ...(init.headers || {}) },
