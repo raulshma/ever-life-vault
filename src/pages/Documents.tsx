@@ -89,7 +89,7 @@ export default function Documents() {
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
-      <div className="bg-gradient-primary text-white">
+      <div className="bg-gradient-primary text-primary-foreground">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -97,11 +97,11 @@ export default function Documents() {
                 <FileText className="w-6 h-6 mr-2" />
                 Document Hub
               </h1>
-              <p className="text-white/90">Securely manage your important personal documents</p>
+              <p className="text-primary-foreground/90">Securely manage your important personal documents</p>
             </div>
             <Button 
               variant="hero" 
-              className="bg-white/20 hover:bg-white/30"
+              className="bg-card/30 hover:bg-card/40"
               onClick={handleOpenAddDialog}
             >
               <Upload className="w-4 h-4 mr-2" />
@@ -172,10 +172,10 @@ export default function Documents() {
               <CardContent>
                 <div className="space-y-3">
                   {recentDocs.length > 0 ? recentDocs.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow">
+                    <div key={doc.id} className="flex items-center justify-between p-3 bg-card rounded-lg border hover:shadow-sm transition-shadow">
                       <div className="flex items-center space-x-3 flex-1">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <FileText className="w-5 h-5 text-cyan-600" />
+                        <div className="w-10 h-10 bg-[hsl(var(--info)/0.15)] rounded-lg flex items-center justify-center">
+                          <FileText className="w-5 h-5 text-[hsl(var(--info))]" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm truncate">{doc.name}</div>
@@ -201,7 +201,7 @@ export default function Documents() {
                       </div>
                       <div className="flex items-center space-x-2">
                         {doc.expiry_date && (
-                          <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                          <Badge variant="secondary" className="bg-[hsl(var(--warning)/0.15)] text-[hsl(var(--warning-foreground))]">
                             <Calendar className="w-3 h-3 mr-1" />
                             Expires {new Date(doc.expiry_date).toLocaleDateString()}
                           </Badge>
@@ -239,9 +239,9 @@ export default function Documents() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Expiring Soon */}
-            <Card className="bg-gradient-card shadow-card border-amber-200">
+            <Card className="bg-gradient-card shadow-card border-[hsl(var(--warning)/0.35)]">
               <CardHeader>
-                <CardTitle className="flex items-center text-amber-800">
+                <CardTitle className="flex items-center text-[hsl(var(--warning-foreground))]">
                   <AlertCircle className="w-5 h-5 mr-2" />
                   Expiring Soon
                 </CardTitle>
@@ -253,9 +253,9 @@ export default function Documents() {
                     const daysUntilExpiry = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
                     
                     return (
-                      <div key={doc.id} className="p-3 bg-amber-50 rounded-lg">
-                        <div className="font-medium text-sm text-amber-800">{doc.name}</div>
-                        <div className="text-xs text-amber-600">
+                      <div key={doc.id} className="p-3 bg-[hsl(var(--warning)/0.12)] rounded-lg">
+                        <div className="font-medium text-sm text-[hsl(var(--warning-foreground))]">{doc.name}</div>
+                        <div className="text-xs text-[hsl(var(--warning))]">
                           Expires in {daysUntilExpiry} {daysUntilExpiry === 1 ? 'day' : 'days'}
                         </div>
                       </div>

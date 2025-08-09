@@ -313,7 +313,7 @@ export default function Jellyfin() {
                   </SelectContent>
                 )}
               </Select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {isUnlocked ? (
                   serviceConfig.availableVaultItems.length > 0 ? (
                     <>
@@ -344,10 +344,10 @@ export default function Jellyfin() {
                   !!serviceConfig.linkedVaultItemId
                 }
               />
-              <div className="text-xs text-gray-500 mt-1 flex gap-2">
+              <div className="text-xs text-muted-foreground mt-1 flex gap-2">
                 <span>The base URL of your Jellyfin server.</span>
                 {serviceConfig.source === "linked" && (
-                  <span className="text-emerald-600 font-medium">
+                  <span className="text-[hsl(var(--success))] font-medium">
                     (Using linked credential)
                   </span>
                 )}
@@ -369,7 +369,7 @@ export default function Jellyfin() {
                 }
               />
               {serviceConfig.source === "linked" && (
-                <p className="text-xs text-emerald-600 mt-1">
+            <p className="text-xs text-[hsl(var(--success))] mt-1">
                   API Key provided by linked vault credential.
                 </p>
               )}
@@ -448,7 +448,7 @@ export default function Jellyfin() {
                   </SelectContent>
                 )}
               </Select>
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 {isUnlocked ? (
                   serviceConfig.availableVaultItems.length > 0 ? (
                     <>
@@ -479,10 +479,10 @@ export default function Jellyfin() {
                   !!serviceConfig.linkedVaultItemId
                 }
               />
-              <div className="text-xs text-gray-500 mt-1 flex gap-2">
+              <div className="text-xs text-muted-foreground mt-1 flex gap-2">
                 <span>The base URL of your Jellyfin server.</span>
                 {serviceConfig.source === "linked" && (
-                  <span className="text-emerald-600 font-medium">
+                  <span className="text-[hsl(var(--success))] font-medium">
                     (Using linked credential)
                   </span>
                 )}
@@ -504,7 +504,7 @@ export default function Jellyfin() {
                 }
               />
               {serviceConfig.source === "linked" && (
-                <p className="text-xs text-emerald-600 mt-1">
+                <p className="text-xs text-[hsl(var(--success))] mt-1">
                   API Key provided by linked vault credential.
                 </p>
               )}
@@ -541,9 +541,9 @@ export default function Jellyfin() {
       )}
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-[hsl(var(--destructive)/0.35)] bg-[hsl(var(--destructive)/0.12)]">
           <CardContent className="pt-6">
-            <p className="text-red-600">Error: {error}</p>
+            <p className="text-[hsl(var(--destructive))]">Error: {error}</p>
           </CardContent>
         </Card>
       )}
@@ -560,26 +560,26 @@ export default function Jellyfin() {
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-sm text-gray-600">Server Name</p>
+                <p className="text-sm text-muted-foreground">Server Name</p>
                 <p className="font-medium">{systemInfo.ServerName}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Version</p>
+                <p className="text-sm text-muted-foreground">Version</p>
                 <p className="font-medium">{systemInfo.Version}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Operating System</p>
+                <p className="text-sm text-muted-foreground">Operating System</p>
                 <p className="font-medium">
                   {systemInfo.OperatingSystemDisplayName}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Status</p>
+                <p className="text-sm text-muted-foreground">Status</p>
                 <Badge
                   className={
                     systemInfo.HasUpdateAvailable
-                      ? "bg-yellow-500"
-                      : "bg-green-500"
+                      ? "bg-[hsl(var(--warning))]"
+                      : "bg-[hsl(var(--success))]"
                   }
                 >
                   {systemInfo.HasUpdateAvailable
@@ -598,10 +598,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Users className="w-8 h-8 text-blue-600" />
+                <Users className="w-8 h-8 text-[hsl(var(--info))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.UserCount}</p>
-                  <p className="text-xs text-gray-600">Users</p>
+                  <p className="text-xs text-muted-foreground">Users</p>
                 </div>
               </div>
             </CardContent>
@@ -610,10 +610,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Film className="w-8 h-8 text-red-600" />
+                <Film className="w-8 h-8 text-[hsl(var(--destructive))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.MovieCount}</p>
-                  <p className="text-xs text-gray-600">Movies</p>
+                  <p className="text-xs text-muted-foreground">Movies</p>
                 </div>
               </div>
             </CardContent>
@@ -622,10 +622,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Tv className="w-8 h-8 text-green-600" />
+                <Tv className="w-8 h-8 text-[hsl(var(--success))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.SeriesCount}</p>
-                  <p className="text-xs text-gray-600">Series</p>
+                  <p className="text-xs text-muted-foreground">Series</p>
                 </div>
               </div>
             </CardContent>
@@ -634,10 +634,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Tv className="w-8 h-8 text-purple-600" />
+                <Tv className="w-8 h-8 text-[hsl(var(--primary))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.EpisodeCount}</p>
-                  <p className="text-xs text-gray-600">Episodes</p>
+                  <p className="text-xs text-muted-foreground">Episodes</p>
                 </div>
               </div>
             </CardContent>
@@ -646,10 +646,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Music className="w-8 h-8 text-orange-600" />
+                <Music className="w-8 h-8 text-[hsl(var(--warning))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.ArtistCount}</p>
-                  <p className="text-xs text-gray-600">Artists</p>
+                  <p className="text-xs text-muted-foreground">Artists</p>
                 </div>
               </div>
             </CardContent>
@@ -658,10 +658,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Music className="w-8 h-8 text-pink-600" />
+                <Music className="w-8 h-8 text-[hsl(var(--accent))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.AlbumCount}</p>
-                  <p className="text-xs text-gray-600">Albums</p>
+                  <p className="text-xs text-muted-foreground">Albums</p>
                 </div>
               </div>
             </CardContent>
@@ -670,10 +670,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Music className="w-8 h-8 text-indigo-600" />
+                <Music className="w-8 h-8 text-[hsl(var(--primary))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.SongCount}</p>
-                  <p className="text-xs text-gray-600">Songs</p>
+                  <p className="text-xs text-muted-foreground">Songs</p>
                 </div>
               </div>
             </CardContent>
@@ -682,10 +682,10 @@ export default function Jellyfin() {
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center">
-                <Activity className="w-8 h-8 text-teal-600" />
+                <Activity className="w-8 h-8 text-[hsl(var(--accent))]" />
                 <div className="ml-4">
                   <p className="text-2xl font-bold">{stats.ItemCount}</p>
-                  <p className="text-xs text-gray-600">Total Items</p>
+                  <p className="text-xs text-muted-foreground">Total Items</p>
                 </div>
               </div>
             </CardContent>
@@ -703,7 +703,7 @@ export default function Jellyfin() {
         </CardHeader>
         <CardContent>
           {sessions.filter((s) => s.NowPlayingItem).length === 0 ? (
-            <p className="text-gray-600">No active playback sessions</p>
+            <p className="text-muted-foreground">No active playback sessions</p>
           ) : (
             <div className="space-y-4">
               {sessions
@@ -716,7 +716,7 @@ export default function Jellyfin() {
                           {session.NowPlayingItem?.Name}
                         </h3>
                         {session.NowPlayingItem?.SeriesName && (
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             {session.NowPlayingItem.SeriesName}
                             {session.NowPlayingItem.SeasonName &&
                               ` - ${session.NowPlayingItem.SeasonName}`}
@@ -724,7 +724,7 @@ export default function Jellyfin() {
                               ` Episode ${session.NowPlayingItem.IndexNumber}`}
                           </p>
                         )}
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-muted-foreground">
                           {session.UserName} on {session.DeviceName} (
                           {session.Client})
                         </p>
@@ -732,8 +732,8 @@ export default function Jellyfin() {
                       <Badge
                         className={
                           session.PlayState?.IsPaused
-                            ? "bg-yellow-500"
-                            : "bg-green-500"
+                            ? "bg-[hsl(var(--warning))]"
+                            : "bg-[hsl(var(--success))]"
                         }
                       >
                         {session.PlayState?.IsPaused ? "Paused" : "Playing"}
@@ -742,7 +742,7 @@ export default function Jellyfin() {
 
                     {/* Interactive Seek Bar */}
                     <div className="mb-3">
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <div className="flex justify-between text-sm text-muted-foreground mb-1">
                         <span>
                           {session.PlayState
                             ? formatTime(session.PlayState.PositionTicks)
@@ -776,9 +776,9 @@ export default function Jellyfin() {
                             className="w-full cursor-pointer"
                             disabled={loading || isSeeking === session.Id}
                           />
-                          <div className="text-xs text-gray-500 mt-1 text-center">
+                          <div className="text-xs text-muted-foreground mt-1 text-center">
                             {isSeeking === session.Id ? (
-                              <span className="text-blue-600">Seeking...</span>
+                              <span className="text-[hsl(var(--info))]">Seeking...</span>
                             ) : session.SupportsRemoteControl ? (
                               "Click or drag to seek"
                             ) : (
@@ -787,9 +787,9 @@ export default function Jellyfin() {
                           </div>
                         </div>
                       ) : (
-                        <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="w-full bg-muted rounded-full h-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full"
+                            className="bg-[hsl(var(--info))] h-2 rounded-full"
                             style={{
                               width: `${getProgressPercentage(session)}%`,
                             }}
@@ -908,14 +908,12 @@ export default function Jellyfin() {
                     {user.IsAdministrator && (
                       <Badge variant="secondary">Admin</Badge>
                     )}
-                    <Badge
-                      className={user.IsActive ? "bg-green-500" : "bg-gray-500"}
-                    >
+                    <Badge className={user.IsActive ? "bg-[hsl(var(--success))]" : "bg-muted-foreground"}>
                       {user.IsActive ? "Active" : "Inactive"}
                     </Badge>
                   </div>
                 </div>
-                <div className="text-sm text-gray-600 space-y-1">
+                    <div className="text-sm text-muted-foreground space-y-1">
                   {user.LastActivityDate && (
                     <div className="flex items-center">
                       <Clock className="w-3 h-3 mr-1" />
@@ -954,21 +952,17 @@ export default function Jellyfin() {
               >
                 <div>
                   <p className="font-medium">{session.UserName}</p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-muted-foreground">
                     {session.DeviceName} ({session.Client}{" "}
                     {session.ApplicationVersion})
                   </p>
                 </div>
                 <div className="text-right">
-                  <Badge
-                    className={
-                      session.IsActive ? "bg-green-500" : "bg-gray-500"
-                    }
-                  >
+                  <Badge className={session.IsActive ? "bg-[hsl(var(--success))]" : "bg-muted-foreground"}>
                     {session.IsActive ? "Active" : "Inactive"}
                   </Badge>
                   {session.NowPlayingItem && (
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Playing: {session.NowPlayingItem.Name}
                     </p>
                   )}

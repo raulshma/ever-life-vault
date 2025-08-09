@@ -1,55 +1,150 @@
 /* Monthly Status Sheets Custom Styles */
 
 .weekend-cell {
-  background-color: #f3f4f6 !important;
+  /* Softer, theme-aware weekend tint */
+  background-color: hsl(var(--muted) / 0.35) !important;
   font-weight: 600;
-  color: #6b7280;
+  color: hsl(var(--muted-foreground));
 }
 
 .weekend-status-cell {
-  background-color: #fef3c7 !important;
+  background-color: hsl(var(--warning) / 0.25) !important;
+}
+
+.weekend-row-cell {
+  /* Subtle row-level hint for weekends */
+  background-color: hsl(var(--warning) / 0.06) !important;
+}
+
+.holiday-row-cell {
+  /* Subtle row-level hint for holidays */
+  background-color: hsl(var(--destructive) / 0.06) !important;
 }
 
 .holiday-cell {
-  background-color: #fecaca !important;
-  color: #991b1b !important;
+  background-color: hsl(var(--destructive) / 0.25) !important;
+  color: hsl(var(--destructive)) !important;
   font-weight: 600;
 }
 
 .working-cell {
-  background-color: #d1fae5 !important;
-  color: #065f46 !important;
+  background-color: hsl(var(--success) / 0.20) !important;
+  color: hsl(var(--success)) !important;
   font-weight: 600;
 }
 
 .sick-cell {
-  background-color: #fed7d7 !important;
-  color: #c53030 !important;
+  background-color: hsl(var(--destructive) / 0.20) !important;
+  color: hsl(var(--destructive)) !important;
   font-weight: 600;
 }
 
 .vacation-cell {
-  background-color: #ddd6fe !important;
-  color: #5b21b6 !important;
+  background-color: hsl(var(--primary) / 0.20) !important;
+  color: hsl(var(--primary)) !important;
   font-weight: 600;
 }
 
 .wfh-cell {
-  background-color: #bfdbfe !important;
-  color: #1e40af !important;
+  background-color: hsl(var(--info) / 0.20) !important;
+  color: hsl(var(--info)) !important;
   font-weight: 600;
 }
 
 .half-day-cell {
-  background-color: #fde68a !important;
-  color: #92400e !important;
+  background-color: hsl(var(--warning) / 0.20) !important;
+  color: hsl(var(--warning-foreground)) !important;
   font-weight: 600;
 }
 
 .training-cell {
-  background-color: #e0e7ff !important;
-  color: #3730a3 !important;
+  background-color: hsl(var(--accent) / 0.20) !important;
+  color: hsl(var(--accent)) !important;
   font-weight: 600;
+}
+
+/* Increase specificity so theme base cell background doesn't override highlights */
+.handsontable-theme .handsontable td.weekend-cell {
+  background-color: hsl(var(--muted) / 0.35) !important;
+  color: hsl(var(--muted-foreground));
+}
+.handsontable-theme .handsontable td.weekend-status-cell {
+  background-color: hsl(var(--warning) / 0.25) !important;
+}
+.handsontable-theme .handsontable td.holiday-cell {
+  background-color: hsl(var(--destructive) / 0.25) !important;
+  color: hsl(var(--destructive)) !important;
+}
+.handsontable-theme .handsontable td.working-cell {
+  background-color: hsl(var(--success) / 0.20) !important;
+  color: hsl(var(--success)) !important;
+}
+.handsontable-theme .handsontable td.sick-cell {
+  background-color: hsl(var(--destructive) / 0.20) !important;
+  color: hsl(var(--destructive)) !important;
+}
+.handsontable-theme .handsontable td.vacation-cell {
+  background-color: hsl(var(--primary) / 0.20) !important;
+  color: hsl(var(--primary)) !important;
+}
+.handsontable-theme .handsontable td.wfh-cell {
+  background-color: hsl(var(--info) / 0.20) !important;
+  color: hsl(var(--info)) !important;
+}
+.handsontable-theme .handsontable td.half-day-cell {
+  background-color: hsl(var(--warning) / 0.20) !important;
+  color: hsl(var(--warning-foreground)) !important;
+}
+.handsontable-theme .handsontable td.training-cell {
+  background-color: hsl(var(--accent) / 0.20) !important;
+  color: hsl(var(--accent)) !important;
+}
+.handsontable-theme .handsontable td.weekend-row-cell {
+  background-color: hsl(var(--warning) / 0.06) !important;
+}
+.handsontable-theme .handsontable td.holiday-row-cell {
+  background-color: hsl(var(--destructive) / 0.06) !important;
+}
+
+/* Dark mode tuning – reduce glare, deepen tints */
+.dark .handsontable-theme .handsontable td.weekend-cell {
+  background-color: hsl(var(--muted) / 0.22) !important;
+}
+.dark .handsontable-theme .handsontable td.weekend-status-cell {
+  background-color: hsl(var(--warning) / 0.14) !important;
+}
+.dark .handsontable-theme .handsontable td.holiday-cell {
+  background-color: hsl(var(--destructive) / 0.26) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+}
+.dark .handsontable-theme .handsontable td.working-cell {
+  background-color: hsl(var(--success) / 0.22) !important;
+  color: hsl(var(--success-foreground)) !important;
+}
+.dark .handsontable-theme .handsontable td.sick-cell {
+  background-color: hsl(var(--destructive) / 0.22) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+}
+.dark .handsontable-theme .handsontable td.vacation-cell {
+  background-color: hsl(var(--primary) / 0.22) !important;
+}
+.dark .handsontable-theme .handsontable td.wfh-cell {
+  background-color: hsl(var(--info) / 0.22) !important;
+}
+.dark .handsontable-theme .handsontable td.half-day-cell {
+  background-color: hsl(var(--warning) / 0.22) !important;
+  color: hsl(var(--warning-foreground)) !important;
+}
+.dark .handsontable-theme .handsontable td.training-cell {
+  background-color: hsl(var(--accent) / 0.22) !important;
+}
+.dark .handsontable-theme .handsontable td.weekend-row-cell {
+  background-color: hsl(var(--warning) / 0.30) !important;
+  color: hsl(var(--warning-foreground)) !important;
+}
+.dark .handsontable-theme .handsontable td.holiday-row-cell {
+  background-color: hsl(var(--destructive) / 0.30) !important;
+  color: hsl(var(--destructive-foreground)) !important;
 }
 
 /* Prevent layout-induced horizontal scroll on mobile for MSS header actions */
@@ -64,14 +159,73 @@
 }
 
 .handsontable-theme .handsontable td {
-  border-color: #e5e7eb;
+  border-color: hsl(var(--border)) !important;
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .handsontable-theme .handsontable td {
+  background-color: hsl(var(--background)) !important;
 }
 
 .handsontable-theme .handsontable th {
-  background-color: #f9fafb;
-  border-color: #e5e7eb;
+  background-color: hsl(var(--card)) !important;
+  border-color: hsl(var(--border)) !important;
   font-weight: 600;
-  color: #374151;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .handsontable-theme .handsontable th {
+  background-color: hsl(var(--background)) !important;
+}
+
+/* Theme-aware selection, current cell and header highlights */
+.handsontable-theme .handsontable td.current,
+.handsontable-theme .handsontable th.current {
+  background-color: hsl(var(--primary) / 0.18) !important;
+}
+.handsontable-theme .handsontable td.area,
+.handsontable-theme .handsontable th.area {
+  background-color: hsl(var(--primary) / 0.22) !important;
+}
+.handsontable-theme .handsontable th.ht__highlight,
+.handsontable-theme .handsontable th.ht__active_highlight {
+  background-color: hsl(var(--muted) / 0.6) !important;
+  color: hsl(var(--foreground)) !important;
+}
+.dark .handsontable-theme .handsontable th.ht__highlight,
+.dark .handsontable-theme .handsontable th.ht__active_highlight {
+  background-color: hsl(var(--muted) / 0.35) !important;
+}
+
+/* Selection borders and fill handle */
+.handsontable-theme .handsontable .wtBorder {
+  background-color: hsl(var(--ring)) !important;
+}
+.handsontable-theme .handsontable .wtBorder.corner {
+  background-color: hsl(var(--ring)) !important;
+}
+
+/* Inputs/editors inside table */
+.handsontable-theme .handsontable input,
+.handsontable-theme .handsontable textarea {
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  border: 1px solid hsl(var(--border));
+}
+
+/* General table background */
+.handsontable-theme .wtHolder,
+.handsontable-theme .wtHider,
+.handsontable-theme .wtSpreader,
+.handsontable-theme .ht_master,
+.handsontable-theme .wtTable {
+  background-color: hsl(var(--card)) !important;
+}
+.dark .handsontable-theme .wtHolder,
+.dark .handsontable-theme .wtHider,
+.dark .handsontable-theme .wtSpreader,
+.dark .handsontable-theme .ht_master,
+.dark .handsontable-theme .wtTable {
+  background-color: hsl(var(--background)) !important;
 }
 
 .handsontable-theme .handsontable .htCenter {

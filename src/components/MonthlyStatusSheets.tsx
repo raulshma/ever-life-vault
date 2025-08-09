@@ -399,7 +399,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   );
 
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-[100] bg-white flex flex-col" : ""}>
+    <div className={isFullscreen ? "fixed inset-0 z-[100] bg-background flex flex-col" : ""}>
       <Card className={isFullscreen ? "w-full h-full flex flex-col rounded-none border-0" : "w-full"}>
         <CardHeader className={isFullscreen ? "border-b" : ""}>
           <div className="flex items-center justify-between gap-2">
@@ -546,7 +546,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                     if (col === 1) {
                       const dayName = tableData[row]?.[1] as string;
                       if (dayName === "Saturday" || dayName === "Sunday") {
-                        cellProperties.className = "weekend-cell htCenter htMiddle";
+                        cellProperties.className = [cellProperties.className, "weekend-cell htCenter htMiddle"].filter(Boolean).join(" ");
                       }
                     }
 
@@ -556,7 +556,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       const dayName = tableData[row]?.[1] as string;
 
                       if (dayName === "Saturday" || dayName === "Sunday") {
-                        cellProperties.className = "weekend-status-cell htCenter htMiddle";
+                        cellProperties.className = [cellProperties.className, "weekend-status-cell htCenter htMiddle"].filter(Boolean).join(" ");
                       }
 
                       switch (status) {
@@ -584,6 +584,23 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                       }
                     }
 
+                    // Row-level background tint (theme-aware) for all cells except Status column
+                    try {
+                      const status = tableData[row]?.[2] as string;
+                      const dayName = tableData[row]?.[1] as string;
+                      const append = (klass: string) => {
+                        cellProperties.className = [cellProperties.className, klass].filter(Boolean).join(" ");
+                      };
+                      if (col !== 2) {
+                        if (dayName === "Saturday" || dayName === "Sunday") {
+                          append("weekend-row-cell");
+                        }
+                        if (status === "Holiday") {
+                          append("holiday-row-cell");
+                        }
+                      }
+                    } catch {}
+
                     return cellProperties as Handsontable.CellProperties;
                   }}
                   stretchH="all"
@@ -597,35 +614,35 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
                 <>
                   {/* Monthly Statistics */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div className="bg-green-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-green-700">
+                  <div className="bg-[hsl(var(--success)/0.15)] p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-[hsl(var(--success))]">
                         {monthlyStats.working}
                       </div>
-                      <div className="text-sm text-emerald-600">Working Days</div>
+                    <div className="text-sm text-[hsl(var(--success))]">Working Days</div>
                     </div>
-                    <div className="bg-red-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-red-700">
+                  <div className="bg-[hsl(var(--destructive)/0.15)] p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-[hsl(var(--destructive))]">
                         {monthlyStats.holiday}
                       </div>
-                      <div className="text-sm text-red-600">Holidays</div>
+                    <div className="text-sm text-[hsl(var(--destructive))]">Holidays</div>
                     </div>
-                    <div className="bg-blue-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-teal-700">
+                  <div className="bg-[hsl(var(--info)/0.15)] p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-[hsl(var(--info))]">
                         {monthlyStats.workFromHome}
                       </div>
-                      <div className="text-sm text-sky-600">WFH Days</div>
+                    <div className="text-sm text-[hsl(var(--info))]">WFH Days</div>
                     </div>
-                    <div className="bg-purple-50 p-3 rounded-lg text-center">
-                      <div className="text-2xl font-bold text-purple-700">
+                  <div className="bg-[hsl(var(--primary)/0.15)] p-3 rounded-lg text-center">
+                    <div className="text-2xl font-bold text-[hsl(var(--primary))]">
                         {monthlyStats.vacation}
                       </div>
-                      <div className="text-sm text-purple-600">Vacation Days</div>
+                    <div className="text-sm text-[hsl(var(--primary))]">Vacation Days</div>
                     </div>
                   </div>
 
                   {/* Status Legend */}
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-sm mb-3 text-gray-700">Status Legend:</h4>
+                  <div className="bg-muted/40 p-4 rounded-lg">
+                    <h4 className="font-medium text-sm mb-3 text-muted-foreground">Status Legend:</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                       <div className="flex items-center gap-2">
                         <div className="w-4 h-4 rounded holiday-cell"></div>
@@ -671,7 +688,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
       {/* Customize Columns Dialog */}
       <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
         <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
-          <div className="sticky top-0 z-10 border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="sticky top-0 z-10 border-b bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <DialogHeader className="p-0">
               <DialogTitle>Customize Columns</DialogTitle>
             </DialogHeader>
@@ -836,7 +853,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             </div>
           </div>
 
-          <div className="sticky bottom-0 z-10 border-t bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="sticky bottom-0 z-10 border-t bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <DialogFooter className="gap-2 sm:gap-2">
               <Button variant="outline" onClick={() => setCustomizeOpen(false)}>
                 Close
@@ -849,7 +866,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
       {/* Export Configuration Dialog */}
       <Dialog open={exportOpen} onOpenChange={setExportOpen}>
         <DialogContent className="sm:max-w-[720px] max-h-[85vh] overflow-y-auto p-0 z-[1000]">
-          <div className="sticky top-0 z-10 border-b bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="sticky top-0 z-10 border-b bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <DialogHeader className="p-0">
               <DialogTitle>Configure Export</DialogTitle>
             </DialogHeader>
@@ -938,7 +955,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
             ))}
           </div>
 
-          <div className="sticky bottom-0 z-10 border-t bg-white/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+          <div className="sticky bottom-0 z-10 border-t bg-card/90 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-card/60">
             <DialogFooter className="gap-2 sm:gap-2">
               <Button variant="outline" onClick={() => setExportOpen(false)}>
                 Cancel

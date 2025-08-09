@@ -92,11 +92,11 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-6">
-      <div className="absolute inset-0 bg-black/20"></div>
-      <Card className="relative w-full max-w-md bg-white/95 backdrop-blur-sm shadow-elegant">
+      <div className="absolute inset-0 bg-foreground/20"></div>
+      <Card className="relative w-full max-w-md bg-card/95 backdrop-blur-sm shadow-elegant">
         <CardHeader className="text-center space-y-4">
           <div className="flex items-center justify-center w-16 h-16 bg-gradient-primary rounded-2xl mx-auto">
-            <Shield className="w-8 h-8 text-white" />
+            <Shield className="w-8 h-8 text-primary-foreground" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold">

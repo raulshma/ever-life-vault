@@ -109,17 +109,17 @@ export default function Network() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    return status === 'online' ? 'bg-green-500' : 'bg-red-500';
+  const getStatusVariant = (status: string) => {
+    return status === 'online' ? 'success' as const : 'destructive' as const;
   };
 
-  const getTypeColor = (type: string) => {
+  const getTypeVariant = (type: string) => {
     switch (type) {
-      case 'router': return 'bg-blue-500';
-      case 'switch': return 'bg-purple-500';
-      case 'access-point': return 'bg-orange-500';
-      case 'device': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+      case 'router': return 'info' as const;
+      case 'switch': return 'secondary' as const;
+      case 'access-point': return 'warning' as const;
+      case 'device': return 'secondary' as const;
+      default: return 'secondary' as const;
     }
   };
 
@@ -178,9 +178,9 @@ export default function Network() {
             <div className="text-xs text-muted-foreground">
               {stats.usedBandwidth} / {stats.totalBandwidth} Mbps
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full" 
+                className="bg-[hsl(var(--info))] h-2 rounded-full" 
                 style={{ width: `${(stats.usedBandwidth / stats.totalBandwidth) * 100}%` }}
               ></div>
             </div>
@@ -190,7 +190,7 @@ export default function Network() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Network Uptime</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-[hsl(var(--success))]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">99.9%</div>
@@ -203,10 +203,10 @@ export default function Network() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Security Status</CardTitle>
-            <Shield className="h-4 w-4 text-green-500" />
+            <Shield className="h-4 w-4 text-[hsl(var(--success))]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">Secure</div>
+            <div className="text-2xl font-bold text-[hsl(var(--success))]">Secure</div>
             <div className="text-xs text-muted-foreground">
               Firewall active
             </div>
@@ -260,7 +260,7 @@ export default function Network() {
                     {getDeviceIcon(device.type)}
                     <div>
                       <h3 className="font-medium">{device.name}</h3>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                       <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                         <span>{device.ip}</span>
                         <span>•</span>
                         <span className="font-mono text-xs">{device.mac}</span>
@@ -274,19 +274,19 @@ export default function Network() {
                     <div className="text-sm font-medium">
                       {device.bandwidth > 0 ? `${device.bandwidth} Mbps` : 'Inactive'}
                     </div>
-                    <div className="text-xs text-gray-500">
+                     <div className="text-xs text-muted-foreground">
                       Last seen: {device.lastSeen}
                     </div>
                   </div>
                   
-                  <div className="flex items-center space-x-2">
-                    <Badge className={`${getTypeColor(device.type)} text-white`}>
-                      {device.type}
-                    </Badge>
-                    <Badge className={`${getStatusColor(device.status)} text-white`}>
-                      {device.status}
-                    </Badge>
-                  </div>
+                    <div className="flex items-center space-x-2">
+                      <Badge variant={getTypeVariant(device.type)}>
+                        {device.type}
+                      </Badge>
+                      <Badge variant={getStatusVariant(device.status)}>
+                        {device.status}
+                      </Badge>
+                    </div>
                   
                   <Button size="sm" variant="outline">
                     <Settings className="w-4 h-4" />
@@ -304,36 +304,36 @@ export default function Network() {
           <CardTitle>Network Topology</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-center p-8 bg-gray-50 rounded-lg">
+           <div className="flex items-center justify-center p-8 bg-muted rounded-lg">
             <div className="text-center space-y-4">
               <div className="flex items-center justify-center space-x-8">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white mb-2">
+                  <div className="w-16 h-16 bg-[hsl(var(--info))] rounded-full flex items-center justify-center text-primary-foreground mb-2">
                     <Router className="w-8 h-8" />
                   </div>
                   <span className="text-sm">Router</span>
                 </div>
                 
-                <div className="w-16 h-0.5 bg-gray-300"></div>
+                 <div className="w-16 h-0.5 bg-border"></div>
                 
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-white mb-2">
+                  <div className="w-16 h-16 bg-secondary rounded-full flex items-center justify-center text-secondary-foreground mb-2">
                     <NetworkIcon className="w-8 h-8" />
                   </div>
                   <span className="text-sm">Switch</span>
                 </div>
                 
-                <div className="w-16 h-0.5 bg-gray-300"></div>
+                 <div className="w-16 h-0.5 bg-border"></div>
                 
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-orange-500 rounded-full flex items-center justify-center text-white mb-2">
+                  <div className="w-16 h-16 bg-[hsl(var(--warning))] rounded-full flex items-center justify-center text-[hsl(var(--warning-foreground))] mb-2">
                     <Wifi className="w-8 h-8" />
                   </div>
                   <span className="text-sm">Access Point</span>
                 </div>
               </div>
               
-              <div className="text-sm text-gray-600">
+               <div className="text-sm text-muted-foreground">
                 Simplified network topology view
               </div>
             </div>

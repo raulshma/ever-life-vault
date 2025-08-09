@@ -17,14 +17,7 @@ import {
 } from 'lucide-react';
 import { useNotes } from '@/hooks/useNotes';
 
-const tagColors = [
-  'bg-blue-100 text-blue-800',
-  'bg-green-100 text-green-800',
-  'bg-purple-100 text-purple-800',
-  'bg-orange-100 text-orange-800',
-  'bg-pink-100 text-pink-800',
-  'bg-indigo-100 text-indigo-800'
-];
+const tagClass = 'bg-[hsl(var(--accent)/0.12)] text-[hsl(var(--accent))]';
 
 export default function KnowledgeBase() {
   const { notes, loading, addNote, toggleFavorite } = useNotes();
@@ -78,21 +71,21 @@ export default function KnowledgeBase() {
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
-      <div className="bg-gradient-primary text-white">
+      <div className="bg-gradient-primary text-primary-foreground">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold mb-1">Knowledge Base</h1>
-              <p className="text-white/90">Store and organize your research and notes</p>
+              <p className="text-primary-foreground/90">Store and organize your research and notes</p>
             </div>
             <div className="flex items-center space-x-3">
-              <div className="bg-white/10 rounded-lg px-3 py-2">
-                <span className="text-sm text-white/90">{notes.length} notes</span>
+              <div className="bg-card/20 rounded-lg px-3 py-2">
+                <span className="text-sm text-primary-foreground/90">{notes.length} notes</span>
               </div>
               <Button 
                 variant="hero" 
                 onClick={() => setIsCreating(true)}
-                className="bg-white/20 hover:bg-white/30"
+               className="bg-card/30 hover:bg-card/40"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Note
@@ -131,11 +124,11 @@ export default function KnowledgeBase() {
               </CardHeader>
               <CardContent className="pt-0">
                 <div className="flex flex-wrap gap-2">
-                  {getAllTags().map((tag, index) => (
+                  {getAllTags().map((tag) => (
                     <Badge 
                       key={tag} 
                       variant="secondary" 
-                      className={`cursor-pointer ${tagColors[index % tagColors.length]}`}
+                      className={`cursor-pointer ${tagClass}`}
                       onClick={() => setSearchTerm(tag)}
                     >
                       {tag}
@@ -161,7 +154,7 @@ export default function KnowledgeBase() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className={`h-6 w-6 ${note.is_favorite ? 'text-yellow-500' : 'text-muted-foreground'}`}
+                        className={`h-6 w-6 ${note.is_favorite ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground'}`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleToggleFavorite(note.id);
@@ -251,7 +244,7 @@ export default function KnowledgeBase() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={selectedNote.is_favorite ? 'text-yellow-500' : 'text-muted-foreground'}
+                        className={selectedNote.is_favorite ? 'text-[hsl(var(--warning))]' : 'text-muted-foreground'}
                       onClick={() => handleToggleFavorite(selectedNote.id)}
                     >
                       <Star className={`w-5 h-5 ${selectedNote.is_favorite ? 'fill-current' : ''}`} />
@@ -269,11 +262,11 @@ export default function KnowledgeBase() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2 pt-4 border-t">
-                    {selectedNote.tags.map((tag, index) => (
+                    {selectedNote.tags.map((tag) => (
                       <Badge 
                         key={tag} 
                         variant="secondary"
-                        className={tagColors[index % tagColors.length]}
+                        className={tagClass}
                       >
                         {tag}
                       </Badge>

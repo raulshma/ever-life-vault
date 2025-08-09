@@ -41,21 +41,21 @@ export default function MediaRequests() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <Clock className="w-4 h-4 text-yellow-500" />;
-      case 'approved': return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'declined': return <X className="w-4 h-4 text-red-500" />;
-      case 'available': return <CheckCircle className="w-4 h-4 text-blue-500" />;
-      default: return <Clock className="w-4 h-4 text-gray-500" />;
+      case 'pending': return <Clock className="w-4 h-4 text-[hsl(var(--warning))]" />;
+      case 'approved': return <CheckCircle className="w-4 h-4 text-[hsl(var(--success))]" />;
+      case 'declined': return <X className="w-4 h-4 text-[hsl(var(--destructive))]" />;
+      case 'available': return <CheckCircle className="w-4 h-4 text-[hsl(var(--info))]" />;
+      default: return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-500';
-      case 'approved': return 'bg-green-500';
-      case 'declined': return 'bg-red-500';
-      case 'available': return 'bg-blue-500';
-      default: return 'bg-gray-500';
+      case 'pending': return 'warning' as const;
+      case 'approved': return 'success' as const;
+      case 'declined': return 'destructive' as const;
+      case 'available': return 'info' as const;
+      default: return 'secondary' as const;
     }
   };
 
@@ -204,9 +204,9 @@ export default function MediaRequests() {
 
   // Helper: disabled if vault locked
   const vaultLockedBanner = !isUnlocked && (
-    <Card className="border-amber-200 bg-amber-50">
+    <Card className="border-[hsl(var(--warning)/0.35)] bg-[hsl(var(--warning)/0.12)]">
       <CardContent className="pt-6">
-        <p className="text-amber-700 text-sm font-medium">Unlock your secure vault to access Jellyseerr integration.</p>
+        <p className="text-[hsl(var(--warning))] text-sm font-medium">Unlock your secure vault to access Jellyseerr integration.</p>
       </CardContent>
     </Card>
   );
@@ -246,20 +246,20 @@ export default function MediaRequests() {
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${jellyseerr.isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${jellyseerr.isConnected ? 'bg-[hsl(var(--success))]' : 'bg-destructive'}`}></div>
               <span className="font-medium">
                 Jellyseerr Connection: {jellyseerr.isConnected ? 'Connected' : 'Disconnected'}
               </span>
               {jellyseerr.loading && (
-                <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                <RefreshCw className="w-4 h-4 animate-spin text-[hsl(var(--info))]" />
               )}
             </div>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
       {jellyseerr.config.serverUrl || 'Not configured'}
             </div>
           </div>
           {jellyseerr.error && (
-            <div className="mt-2 text-sm text-red-600">
+            <div className="mt-2 text-sm text-[hsl(var(--destructive))]">
               Error: {jellyseerr.error}
             </div>
           )}
@@ -285,13 +285,13 @@ export default function MediaRequests() {
                     <SelectValue placeholder="Select saved API credential" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Manual">Manual configuration</SelectItem>
+                   <SelectItem value="Manual">Manual configuration</SelectItem>
                     {serviceConfig.availableVaultItems.map(item => (
                       <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">Pick a saved API credential from your secure vault.</p>
+                 <p className="text-xs text-muted-foreground mt-1">Pick a saved API credential from your secure vault.</p>
               </div>
             )}
             <div>
@@ -302,7 +302,7 @@ export default function MediaRequests() {
                 onChange={(e) => serviceConfig.updateConfig({ serverUrl: e.target.value })}
                 disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 The URL where your Jellyseerr instance is running
               </p>
             </div>
@@ -315,11 +315,11 @@ export default function MediaRequests() {
                 onChange={(e) => serviceConfig.updateConfig({ apiKey: e.target.value })}
                 disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Found in Jellyseerr Settings → General → API Key
               </p>
               {serviceConfig.source === 'linked' && (
-                <p className="text-xs text-emerald-600 mt-1">Using linked vault credential.</p>
+                <p className="text-xs text-[hsl(var(--success))] mt-1">Using linked vault credential.</p>
               )}
             </div>
             <div className="flex gap-2">
@@ -342,7 +342,7 @@ export default function MediaRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
+            <Clock className="h-4 w-4 text-[hsl(var(--warning))]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statusCounts.pending}</div>
@@ -352,7 +352,7 @@ export default function MediaRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Approved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
+            <CheckCircle className="h-4 w-4 text-[hsl(var(--success))]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statusCounts.approved}</div>
@@ -362,7 +362,7 @@ export default function MediaRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Available</CardTitle>
-            <CheckCircle className="h-4 w-4 text-blue-500" />
+            <CheckCircle className="h-4 w-4 text-[hsl(var(--info))]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statusCounts.available}</div>
@@ -372,7 +372,7 @@ export default function MediaRequests() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Declined</CardTitle>
-            <X className="h-4 w-4 text-red-500" />
+            <X className="h-4 w-4 text-[hsl(var(--destructive))]" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{statusCounts.declined}</div>
@@ -395,7 +395,7 @@ export default function MediaRequests() {
                 onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
               />
               <Button onClick={handleSearch} disabled={isSearching || !searchQuery.trim()}>
-                {isSearching ? (
+                 {isSearching ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : (
                   <Search className="w-4 h-4" />
@@ -406,7 +406,7 @@ export default function MediaRequests() {
             {searchResults.length > 0 && (
               <div className="space-y-3 max-h-96 overflow-y-auto">
                 {searchResults.map((result) => (
-                  <div key={result.id} className="flex items-center justify-between p-3 border rounded-lg">
+                   <div key={result.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex items-start space-x-3">
                       {result.posterPath && (
                         <img
@@ -417,18 +417,18 @@ export default function MediaRequests() {
                       )}
                       <div>
                         <h4 className="font-medium">{result.title || result.name}</h4>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                           {getTypeIcon(result.mediaType)}
                           <span>{result.mediaType === 'movie' ? 'Movie' : 'TV Show'}</span>
                           {result.voteAverage > 0 && (
                             <div className="flex items-center space-x-1">
-                              <Star className="w-3 h-3 text-yellow-500" />
+                              <Star className="w-3 h-3 text-[hsl(var(--warning))]" />
                               <span>{result.voteAverage.toFixed(1)}</span>
                             </div>
                           )}
                           <span>{result.releaseDate || result.firstAirDate}</span>
                         </div>
-                        <p className="text-sm text-gray-700 mt-1 max-w-md">
+                        <p className="text-sm text-muted-foreground mt-1 max-w-md">
                           {result.overview.length > 150 
                             ? `${result.overview.substring(0, 150)}...` 
                             : result.overview}
@@ -438,10 +438,10 @@ export default function MediaRequests() {
                     
                     <div className="flex items-center space-x-2">
                       {result.mediaInfo?.status === 'available' && (
-                        <Badge className="bg-blue-500 text-white">Available</Badge>
+                        <Badge variant="info">Available</Badge>
                       )}
                       {result.mediaInfo?.status === 'pending' && (
-                        <Badge className="bg-yellow-500 text-white">Requested</Badge>
+                        <Badge variant="warning">Requested</Badge>
                       )}
                       {(!result.mediaInfo || result.mediaInfo.status === 'unknown') && (
                         <Button 
@@ -473,9 +473,9 @@ export default function MediaRequests() {
   {isLoadingRequests ? (
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 text-gray-400 mx-auto mb-4 animate-spin" />
-              <p className="text-gray-600">Loading requests...</p>
+             <div className="text-center py-8">
+              <RefreshCw className="w-8 h-8 text-muted-foreground mx-auto mb-4 animate-spin" />
+              <p className="text-muted-foreground">Loading requests...</p>
             </div>
           </CardContent>
         </Card>
@@ -497,7 +497,7 @@ export default function MediaRequests() {
                       {getTypeIcon(request.type)}
                       <div>
                         <h3 className="font-semibold text-lg">{request.media.title}</h3>
-                        <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground mt-1">
                           <div className="flex items-center space-x-1">
                             <User className="w-3 h-3" />
                             <span>{request.requestedBy.displayName}</span>
@@ -511,7 +511,7 @@ export default function MediaRequests() {
                           )}
                           {request.media.voteAverage && (
                             <div className="flex items-center space-x-1">
-                              <Star className="w-3 h-3 text-yellow-500" />
+                             <Star className="w-3 h-3 text-[hsl(var(--warning))]" />
                               <span>{request.media.voteAverage.toFixed(1)}</span>
                             </div>
                           )}
@@ -519,7 +519,7 @@ export default function MediaRequests() {
                             <span>{request.seasons.length} seasons</span>
                           )}
                         </div>
-                        <p className="text-sm text-gray-700 mt-2 max-w-2xl">
+                         <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
                           {request.media.overview}
                         </p>
                       </div>
@@ -529,7 +529,7 @@ export default function MediaRequests() {
                   <div className="flex items-center space-x-3">
                     <div className="flex items-center space-x-2">
                       {getStatusIcon(request.status)}
-                      <Badge className={`${getStatusColor(request.status)} text-white`}>
+                      <Badge variant={getStatusBadgeVariant(request.status)}>
                         {request.status}
                       </Badge>
                     </div>
@@ -584,10 +584,10 @@ export default function MediaRequests() {
       {!isLoadingRequests && requests.length === 0 && (
         <Card>
           <CardContent className="pt-6">
-            <div className="text-center py-8">
-              <Film className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No requests found</h3>
-              <p className="text-gray-600">
+             <div className="text-center py-8">
+              <Film className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No requests found</h3>
+              <p className="text-muted-foreground">
                 {!isUnlocked ? 'Unlock the vault to access Jellyseerr.' : (!jellyseerr.isConnected 
                   ? 'Connect to Jellyseerr to view requests.' 
                   : 'No media requests have been made yet.')}

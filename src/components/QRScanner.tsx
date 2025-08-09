@@ -548,7 +548,7 @@ export function QRScanner({
 
         <div className="space-y-4">
           {/* Video viewport with responsive aspect and safe area */}
-          <div className="w-full aspect-[3/4] sm:aspect-square bg-black rounded-lg overflow-hidden relative safe-bottom">
+          <div className="w-full aspect-[3/4] sm:aspect-square bg-foreground rounded-lg overflow-hidden relative safe-bottom">
             <video
               ref={videoRef}
               playsInline
@@ -558,7 +558,7 @@ export function QRScanner({
             />
             {/* Overlay guide */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute inset-4 sm:inset-6 border-2 border-white/40 rounded-lg"/>
+              <div className="absolute inset-4 sm:inset-6 border-2 border-foreground/40 rounded-lg"/>
             </div>
           </div>
 

@@ -26,15 +26,15 @@ import { AddTaskDialog } from '@/components/AddTaskDialog';
 import { MonthlyStatusSheets } from '@/components/MonthlyStatusSheets';
 
 const columns = [
-  { id: 'todo', title: 'To Do', color: 'bg-gray-50' },
-  { id: 'in-progress', title: 'In Progress', color: 'bg-blue-50' },
-  { id: 'done', title: 'Done', color: 'bg-green-50' }
+  { id: 'todo', title: 'To Do' },
+  { id: 'in-progress', title: 'In Progress' },
+  { id: 'done', title: 'Done' }
 ] as const;
 
-const priorityColors = {
-  low: 'bg-green-100 text-green-800',
-  medium: 'bg-yellow-100 text-yellow-800',
-  high: 'bg-red-100 text-red-800'
+const priorityVariantMap: Record<'low' | 'medium' | 'high', 'success' | 'warning' | 'destructive'> = {
+  low: 'success',
+  medium: 'warning',
+  high: 'destructive',
 };
 
 interface Task {
@@ -168,19 +168,19 @@ export default function DayTracker() {
   return (
     <div className="min-h-screen bg-gradient-subtle pb-0">
       {/* Header */}
-      <div className="relative bg-gradient-primary text-white gradient-sheen">
-        <div className="absolute inset-0 bg-white/5" />
+      <div className="relative bg-gradient-primary text-primary-foreground gradient-sheen">
+        <div className="absolute inset-0 bg-foreground/10" />
         <div className="container relative py-5 sm:py-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Day Tracker</h1>
-              <p className="text-white/80 text-xs sm:text-sm mt-1">
+              <p className="text-primary-foreground/80 text-xs sm:text-sm mt-1">
                 Manage your tasks and track daily productivity
               </p>
             </div>
             <div className="glass rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs sm:text-sm shadow-elegant">
               <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-white/90">
+              <span className="text-primary-foreground/90">
                 {new Date().toLocaleDateString('en-US', {
                   weekday: 'long',
                   year: 'numeric',
@@ -211,7 +211,7 @@ export default function DayTracker() {
           <TabsContent value="kanban" className="space-y-6 sm:space-y-8">
             {/* Summary & Controls */}
             <div className="grid gap-4 sm:gap-6 md:grid-cols-3">
-              <Card className="bg-white/60 dark:bg-white/5 backdrop-blur-md border border-white/50 dark:border-white/10 shadow-sm md:col-span-2 rounded-2xl">
+              <Card className="bg-card/60 dark:bg-card/20 backdrop-blur-md border border-border shadow-sm md:col-span-2 rounded-2xl">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm font-medium tracking-wide flex items-center gap-2">
                     <Search className="w-4 h-4" /> Task Controls
@@ -333,11 +333,11 @@ export default function DayTracker() {
 
                   <div className="space-y-3 min-h-[320px] sm:min-h-[400px]">
                     {getTasksByStatus(column.id).map((task) => (
-                      <Card
+                <Card
                         key={task.id}
                         draggable
                         onDragStart={(e) => handleDragStart(e, task.id)}
-                        className="group gradient-border-l hover:shadow-card transition-all duration-300 cursor-grab active:cursor-grabbing bg-white/80 dark:bg-white/5 border border-white/50 dark:border-white/10 backdrop-blur-md rounded-2xl"
+                        className="group gradient-border-l hover:shadow-card transition-all duration-300 cursor-grab active:cursor-grabbing bg-card/80 dark:bg-card/20 border border-border backdrop-blur-md rounded-2xl"
                       >
                         <CardContent className="p-4 sm:p-5 space-y-3">
                           <div className="flex items-start justify-between gap-3">
@@ -390,8 +390,8 @@ export default function DayTracker() {
                           </div>
                           <div className="flex items-center justify-between text-[11px] sm:text-xs">
                             <Badge
-                              variant="secondary"
-                              className={`${priorityColors[task.priority]} rounded-full px-2.5 py-1`}
+                              variant={priorityVariantMap[task.priority]}
+                              className="rounded-full px-2.5 py-1"
                             >
                               <Flag className="w-3 h-3 mr-1" />
                               {task.priority}

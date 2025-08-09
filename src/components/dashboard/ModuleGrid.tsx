@@ -36,7 +36,7 @@ export default function ModuleGrid() {
       description: 'Manage tasks and track daily productivity',
       path: '/day-tracker',
       icon: Calendar,
-      color: 'from-teal-400 to-teal-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { active: activeTasks, completed: completedTasks }
     },
     {
@@ -44,7 +44,7 @@ export default function ModuleGrid() {
       description: 'Store and organize your research and notes',
       path: '/knowledge',
       icon: BookOpen,
-      color: 'from-emerald-400 to-emerald-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { notes: notes.length, favorites: notes.filter(n => n.is_favorite).length }
     },
     {
@@ -52,7 +52,7 @@ export default function ModuleGrid() {
       description: 'Securely store credentials and sensitive data',
       path: '/vault',
       icon: Shield,
-      color: 'from-cyan-500 to-cyan-600',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { encrypted: 'Yes', secure: true }
     },
     {
@@ -60,7 +60,7 @@ export default function ModuleGrid() {
       description: 'Organize important personal documents',
       path: '/documents',
       icon: FileText,
-      color: 'from-sky-400 to-sky-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { documents: documents.length, expiring: expiringDocs }
     },
     {
@@ -68,7 +68,7 @@ export default function ModuleGrid() {
       description: 'Track physical items and their locations',
       path: '/inventory',
       icon: Package2,
-      color: 'from-lime-400 to-lime-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { items: items.length, locations: locations.length }
     },
     // Homelab modules
@@ -77,7 +77,7 @@ export default function ModuleGrid() {
       description: 'Manage and monitor your home servers',
       path: '/homelab/servers',
       icon: Server,
-      color: 'from-indigo-400 to-indigo-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     },
     {
@@ -85,7 +85,7 @@ export default function ModuleGrid() {
       description: 'System health, metrics, and alerts',
       path: '/homelab/monitoring',
       icon: Monitor,
-      color: 'from-purple-400 to-purple-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     },
     {
@@ -93,7 +93,7 @@ export default function ModuleGrid() {
       description: 'Devices, bandwidth and security status',
       path: '/homelab/network',
       icon: Network,
-      color: 'from-orange-400 to-orange-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     },
     {
@@ -101,7 +101,7 @@ export default function ModuleGrid() {
       description: 'Disks, arrays, backups and capacity',
       path: '/homelab/storage',
       icon: Database,
-      color: 'from-rose-400 to-rose-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     },
     {
@@ -109,7 +109,7 @@ export default function ModuleGrid() {
       description: 'Media server sessions, users and stats',
       path: '/homelab/jellyfin',
       icon: Play,
-      color: 'from-violet-400 to-violet-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     },
     {
@@ -117,7 +117,7 @@ export default function ModuleGrid() {
       description: 'Request and manage movies and TV shows',
       path: '/homelab/media-requests',
       icon: Film,
-      color: 'from-fuchsia-400 to-fuchsia-500',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     },
     {
@@ -125,7 +125,7 @@ export default function ModuleGrid() {
       description: 'Bookmarks, notes and assets via Karakeep',
       path: '/homelab/karakeep',
       icon: Bookmark,
-      color: 'from-cyan-400 to-cyan-600',
+      color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
     }
   ];
@@ -144,8 +144,8 @@ export default function ModuleGrid() {
               <Card className="tilt shine-card bg-gradient-card border-0 hover-lift group">
                 <CardHeader className="pb-4">
                   <div className="flex items-center justify-between gap-3">
-                    <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r ${module.color} rounded-xl flex items-center justify-center shadow-card`}>
-                      <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                      <div className={`w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r ${module.color} rounded-xl flex items-center justify-center shadow-card`}>
+                      <Icon className="w-6 h-6 sm:w-7 sm:h-7 text-primary-foreground" />
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-xs sm:text-sm text-muted-foreground">

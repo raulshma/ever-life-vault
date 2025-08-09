@@ -166,7 +166,7 @@ export default function Karakeep() {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">Pick a saved API credential from your secure vault.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Pick a saved API credential from your secure vault.</p>
               </div>
             )}
             <div className="grid sm:grid-cols-2 gap-3">
@@ -188,7 +188,7 @@ export default function Karakeep() {
                   disabled={!isUnlocked || serviceConfig.saving || !!serviceConfig.linkedVaultItemId}
                 />
                 {serviceConfig.source === 'linked' && (
-                  <p className="text-xs text-emerald-600 mt-1">Using linked vault credential.</p>
+                  <p className="text-xs text-[hsl(var(--success))] mt-1">Using linked vault credential.</p>
                 )}
               </div>
             </div>

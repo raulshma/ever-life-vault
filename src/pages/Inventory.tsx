@@ -124,7 +124,7 @@ export default function Inventory() {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
-      <div className="bg-gradient-primary text-white">
+      <div className="bg-gradient-primary text-primary-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
@@ -132,12 +132,12 @@ export default function Inventory() {
                 <Package2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
                 <span className="truncate">Inventory Tracker</span>
               </h1>
-              <p className="text-white/90 text-xs sm:text-sm">Track physical items and their locations</p>
+              <p className="text-primary-foreground/90 text-xs sm:text-sm">Track physical items and their locations</p>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3">
               <Button 
                 variant="ghost" 
-                className="bg-white/10 hover:bg-white/20 hidden sm:flex"
+                className="bg-card/20 hover:bg-card/30 hidden sm:flex"
                 onClick={() => setQrScannerOpen(true)}
               >
                 <QrCode className="w-4 h-4 mr-2" />
@@ -146,7 +146,7 @@ export default function Inventory() {
               <Button 
                 variant="ghost" 
                 size="icon"
-                className="bg-white/10 hover:bg-white/20 sm:hidden"
+                className="bg-card/20 hover:bg-card/30 sm:hidden"
                 onClick={() => setQrScannerOpen(true)}
                 aria-label="Scan QR"
               >
@@ -154,7 +154,7 @@ export default function Inventory() {
               </Button>
               <Button 
                 variant="hero" 
-                className="bg-white/20 hover:bg-white/30 hidden sm:flex"
+                className="bg-card/30 hover:bg-card/40 hidden sm:flex"
                 onClick={handleOpenAddItemDialog}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -163,7 +163,7 @@ export default function Inventory() {
               <Button 
                 variant="hero" 
                 size="icon"
-                className="bg-white/20 hover:bg-white/30 sm:hidden"
+                className="bg-card/30 hover:bg-card/40 sm:hidden"
                 onClick={handleOpenAddItemDialog}
                 aria-label="Add Item"
               >
@@ -203,21 +203,21 @@ export default function Inventory() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-4 sm:p-6 text-center">
-              <Package className="w-7 h-7 sm:w-8 sm:h-8 text-teal-600 mx-auto mb-1 sm:mb-2" />
+              <Package className="w-7 h-7 sm:w-8 sm:h-8 text-[hsl(var(--accent))] mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{totalItems}</div>
               <div className="text-sm text-muted-foreground">Total Items</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-4 sm:p-6 text-center">
-              <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-500 mx-auto mb-1 sm:mb-2" />
+              <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-[hsl(var(--success))] mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{totalLocations}</div>
               <div className="text-sm text-muted-foreground">Locations</div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-card shadow-card">
             <CardContent className="p-4 sm:p-6 text-center">
-              <QrCode className="w-7 h-7 sm:w-8 sm:h-8 text-purple-600 mx-auto mb-1 sm:mb-2" />
+              <QrCode className="w-7 h-7 sm:w-8 sm:h-8 text-[hsl(var(--primary))] mx-auto mb-1 sm:mb-2" />
               <div className="text-2xl font-bold">{qrItems}</div>
               <div className="text-sm text-muted-foreground">QR Labeled</div>
             </CardContent>
@@ -259,7 +259,7 @@ export default function Inventory() {
                     return (
                       <div 
                         key={location.id} 
-                        className={`flex items-center justify-between p-3 bg-white rounded-lg border hover:shadow-sm transition-shadow cursor-pointer ${
+                        className={`flex items-center justify-between p-3 bg-card rounded-lg border hover:shadow-sm transition-shadow cursor-pointer ${
                           isSelected ? 'ring-2 ring-primary' : ''
                         }`}
                         onClick={() => handleLocationFilter(location.id)}
@@ -333,7 +333,7 @@ export default function Inventory() {
                   {recentItems.length > 0 ? recentItems.map((item) => {
                     const location = locations.find(loc => loc.id === item.location_id);
                     return (
-                      <div key={item.id} className="p-3 sm:p-4 bg-white rounded-lg border hover:shadow-card transition-shadow">
+                      <div key={item.id} className="p-3 sm:p-4 bg-card rounded-lg border hover:shadow-card transition-shadow">
                         <div className="flex items-start gap-3 sm:gap-4">
                           {item.image_url ? (
                             <img
@@ -342,7 +342,7 @@ export default function Inventory() {
                               className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-lg shrink-0"
                             />
                           ) : (
-                            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-lg flex items-center justify-center text-xl shrink-0">
+                             <div className="w-12 h-12 sm:w-14 sm:h-14 bg-muted rounded-lg flex items-center justify-center text-xl shrink-0">
                               📦
                             </div>
                           )}
@@ -357,7 +357,7 @@ export default function Inventory() {
                                 )}
                               </div>
                               <div className="text-right shrink-0">
-                                <div className="font-semibold text-emerald-600 text-sm sm:text-base">
+                                <div className="font-semibold text-[hsl(var(--success))] text-sm sm:text-base">
                                   {item.value ? `$${item.value.toLocaleString()}` : 'N/A'}
                                 </div>
                                 <div className="flex flex-wrap gap-1 mt-1 justify-end">
@@ -368,7 +368,7 @@ export default function Inventory() {
                                     </Badge>
                                   )}
                                   {item.is_lent && (
-                                    <Badge variant="outline" className="text-[10px] text-orange-600">
+                                    <Badge variant="outline" className="text-[10px] text-[hsl(var(--warning))]">
                                       Lent
                                     </Badge>
                                   )}

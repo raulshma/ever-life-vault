@@ -46,9 +46,9 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
 
   const passwordStrength = getPasswordStrength();
   const getStrengthColor = () => {
-  if (passwordStrength < 40) return 'bg-red-500';
-    if (passwordStrength < 70) return 'bg-yellow-500';
-  return 'bg-emerald-500';
+    if (passwordStrength < 40) return 'bg-[hsl(var(--destructive))]';
+    if (passwordStrength < 70) return 'bg-[hsl(var(--warning))]';
+    return 'bg-[hsl(var(--success))]';
   };
 
   const getStrengthText = () => {
@@ -68,8 +68,8 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-teal-600" />
+          <div className="w-16 h-16 bg-[hsl(var(--info)/0.15)] rounded-full flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-8 h-8 text-[hsl(var(--accent))]" />
           </div>
           <CardTitle className="text-2xl">Create Master Password</CardTitle>
           <p className="text-muted-foreground">
@@ -108,8 +108,8 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
                   <div className="flex items-center justify-between text-sm">
                     <span>Password Strength</span>
                     <span className={`font-medium ${
-                      passwordStrength < 40 ? 'text-red-600' :
-                      passwordStrength < 70 ? 'text-yellow-600' : 'text-emerald-600'
+                      passwordStrength < 40 ? 'text-[hsl(var(--destructive))]' :
+                      passwordStrength < 70 ? 'text-[hsl(var(--warning))]' : 'text-[hsl(var(--success))]'
                     }`}>
                       {getStrengthText()}
                     </span>
@@ -150,13 +150,13 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
                 <div className="flex items-center space-x-2 text-sm">
                   {passwordsMatch ? (
                     <>
-                      <CheckCircle className="w-4 h-4 text-emerald-600" />
-                      <span className="text-emerald-600">Passwords match</span>
+                      <CheckCircle className="w-4 h-4 text-[hsl(var(--success))]" />
+                      <span className="text-[hsl(var(--success))]">Passwords match</span>
                     </>
                   ) : (
                     <>
-                      <XCircle className="w-4 h-4 text-red-600" />
-                      <span className="text-red-600">Passwords don't match</span>
+                      <XCircle className="w-4 h-4 text-[hsl(var(--destructive))]" />
+                      <span className="text-[hsl(var(--destructive))]">Passwords don't match</span>
                     </>
                   )}
                 </div>
@@ -173,7 +173,7 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
                     <ul className="text-sm space-y-1">
                       {validation.errors.map((error, index) => (
                         <li key={index} className="flex items-center space-x-2">
-                          <XCircle className="w-3 h-3 text-red-500" />
+                          <XCircle className="w-3 h-3 text-[hsl(var(--destructive))]" />
                           <span>{error}</span>
                         </li>
                       ))}
@@ -207,7 +207,7 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin mr-2" />
                   Creating Vault...
                 </>
               ) : (
@@ -220,9 +220,9 @@ export function MasterPasswordSetup({ onSetup, loading = false }: MasterPassword
           </form>
 
           {/* Warning */}
-          <Alert className="mt-4 border-amber-200 bg-amber-50">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <AlertDescription className="text-amber-800">
+            <Alert className="mt-4 border-[hsl(var(--warning)/0.35)] bg-[hsl(var(--warning)/0.12)]">
+              <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" />
+              <AlertDescription className="text-[hsl(var(--warning-foreground))]">
               <strong>Important:</strong> Your master password cannot be recovered. 
               Make sure to remember it or store it in a safe place.
             </AlertDescription>

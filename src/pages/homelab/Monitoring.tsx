@@ -118,19 +118,19 @@ export default function Monitoring() {
 
   const getAlertIcon = (type: string) => {
     switch (type) {
-      case 'error': return <AlertTriangle className="w-4 h-4 text-red-500" />;
-      case 'warning': return <AlertTriangle className="w-4 h-4 text-yellow-500" />;
-      case 'info': return <CheckCircle className="w-4 h-4 text-blue-500" />;
-      default: return <CheckCircle className="w-4 h-4 text-gray-500" />;
+      case 'error': return <AlertTriangle className="w-4 h-4 text-[hsl(var(--destructive))]" />;
+      case 'warning': return <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" />;
+      case 'info': return <CheckCircle className="w-4 h-4 text-[hsl(var(--info))]" />;
+      default: return <CheckCircle className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
   const getAlertBadgeColor = (type: string) => {
     switch (type) {
-      case 'error': return 'bg-red-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'info': return 'bg-blue-500';
-      default: return 'bg-gray-500';
+      case 'error': return 'bg-[hsl(var(--destructive))]';
+      case 'warning': return 'bg-[hsl(var(--warning))]';
+      case 'info': return 'bg-[hsl(var(--info))]';
+      default: return 'bg-muted-foreground';
     }
   };
 
@@ -156,9 +156,9 @@ export default function Monitoring() {
             <div className="text-xs text-muted-foreground">
               {metrics.cpu.cores} cores
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full" 
+                className="bg-[hsl(var(--info))] h-2 rounded-full" 
                 style={{ width: `${metrics.cpu.usage}%` }}
               ></div>
             </div>
@@ -175,9 +175,9 @@ export default function Monitoring() {
             <div className="text-xs text-muted-foreground">
               {metrics.memory.used}GB / {metrics.memory.total}GB
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
               <div 
-                className="bg-green-600 h-2 rounded-full" 
+                className="bg-[hsl(var(--success))] h-2 rounded-full" 
                 style={{ width: `${metrics.memory.percentage}%` }}
               ></div>
             </div>
@@ -194,9 +194,9 @@ export default function Monitoring() {
             <div className="text-xs text-muted-foreground">
               {metrics.storage.used}GB / {metrics.storage.total}GB
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
               <div 
-                className="bg-purple-600 h-2 rounded-full" 
+                className="bg-[hsl(var(--primary))] h-2 rounded-full" 
                 style={{ width: `${metrics.storage.percentage}%` }}
               ></div>
             </div>
@@ -213,11 +213,11 @@ export default function Monitoring() {
             <div className="text-xs text-muted-foreground">
               CPU Temperature
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
               <div 
                 className={`h-2 rounded-full ${
-                  metrics.cpu.temperature > 70 ? 'bg-red-600' : 
-                  metrics.cpu.temperature > 60 ? 'bg-yellow-600' : 'bg-green-600'
+                  metrics.cpu.temperature > 70 ? 'bg-[hsl(var(--destructive))]' : 
+                  metrics.cpu.temperature > 60 ? 'bg-[hsl(var(--warning))]' : 'bg-[hsl(var(--success))]'
                 }`}
                 style={{ width: `${(metrics.cpu.temperature / 100) * 100}%` }}
               ></div>
@@ -263,14 +263,14 @@ export default function Monitoring() {
           <CardContent>
             <div className="space-y-3">
               {metrics.alerts.map((alert) => (
-                <div key={alert.id} className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <div key={alert.id} className="flex items-start space-x-3 p-3 rounded-lg bg-muted/50">
                   {getAlertIcon(alert.type)}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
-                      <Badge className={`${getAlertBadgeColor(alert.type)} text-white text-xs`}>
+                      <Badge className={`${getAlertBadgeColor(alert.type)} text-background text-xs`}>
                         {alert.type}
                       </Badge>
-                      <span className="text-xs text-gray-500">{alert.timestamp}</span>
+                      <span className="text-xs text-muted-foreground">{alert.timestamp}</span>
                     </div>
                     <p className="text-sm mt-1">{alert.message}</p>
                   </div>

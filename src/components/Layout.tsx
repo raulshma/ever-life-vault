@@ -26,6 +26,9 @@ import {
   Menu,
   Sparkles,
   Pause,
+  Sun,
+  Moon,
+  Laptop2,
 } from "lucide-react";
 import {
   CommandDialog,
@@ -88,7 +91,7 @@ const SidebarNavigation: React.FC<{
     <>
       <SidebarHeader className="px-3 py-3">
         <ViewTransitionLink to="/" className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 text-white grid place-items-center shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-primary/60 text-primary-foreground grid place-items-center shadow-sm">
             <span className="font-bold text-xs">LOS</span>
           </div>
           <span className="font-semibold text-base">Life OS</span>
@@ -165,10 +168,63 @@ const SidebarNavigation: React.FC<{
 // Footer actions reused in sidebar footer and topbar
 const FooterActions: React.FC = () => {
   const { signOut } = useAuth();
-  const { viewTransitionsEnabled, setViewTransitionsEnabled } = useSettings();
+  const { viewTransitionsEnabled, setViewTransitionsEnabled, themeMode, setThemeMode } = useSettings();
+  const [openThemeMenu, setOpenThemeMenu] = React.useState(false);
 
   return (
     <>
+      {/* Theme toggle */}
+      <div className="relative">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setOpenThemeMenu((v) => !v)}
+          className="text-muted-foreground hover:text-foreground"
+          title="Theme"
+          aria-haspopup="menu"
+          aria-expanded={openThemeMenu}
+        >
+          {themeMode === 'dark' ? (
+            <Moon className="w-4 h-4" />
+          ) : themeMode === 'light' ? (
+            <Sun className="w-4 h-4" />
+          ) : (
+            <Laptop2 className="w-4 h-4" />
+          )}
+          <span className="sr-only">Toggle theme</span>
+        </Button>
+        {openThemeMenu && (
+          <div
+            role="menu"
+            className="absolute right-0 mt-2 z-50 min-w-[10rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+          >
+            {(
+              [
+                { key: 'light', label: 'Light', icon: Sun },
+                { key: 'dark', label: 'Dark', icon: Moon },
+                { key: 'system', label: 'System', icon: Laptop2 },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.key}
+                role="menuitemradio"
+                aria-checked={themeMode === opt.key}
+                onClick={() => {
+                  setThemeMode(opt.key);
+                  setOpenThemeMenu(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                  themeMode === opt.key ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                <opt.icon className="h-4 w-4" />
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
       <Button
         variant="ghost"
         size="sm"
@@ -211,7 +267,7 @@ const MobileTabBar: React.FC<{ location: ReturnType<typeof useLocation>; onQuick
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-xl border-t border-border safe-bottom safe-left safe-right">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 dark:bg-card/70 backdrop-blur-xl border-t border-border safe-bottom safe-left safe-right">
       <div className="flex items-stretch justify-between px-2 py-1">
         {tabs.map((t) => {
           const Icon = t.icon;

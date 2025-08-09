@@ -138,23 +138,23 @@ export default function Storage() {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'healthy': return 'bg-green-500';
-      case 'warning': return 'bg-yellow-500';
-      case 'critical': return 'bg-red-500';
-      case 'offline': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+      case 'healthy': return 'success' as const;
+      case 'warning': return 'warning' as const;
+      case 'critical': return 'destructive' as const;
+      case 'offline': return 'secondary' as const;
+      default: return 'secondary' as const;
     }
   };
 
-  const getBackupStatusColor = (status: string) => {
+  const getBackupStatusVariant = (status: string) => {
     switch (status) {
-      case 'completed': return 'bg-green-500';
-      case 'running': return 'bg-blue-500';
-      case 'failed': return 'bg-red-500';
-      case 'scheduled': return 'bg-gray-500';
-      default: return 'bg-gray-500';
+      case 'completed': return 'success' as const;
+      case 'running': return 'info' as const;
+      case 'failed': return 'destructive' as const;
+      case 'scheduled': return 'secondary' as const;
+      default: return 'secondary' as const;
     }
   };
 
@@ -227,9 +227,9 @@ export default function Storage() {
             <div className="text-xs text-muted-foreground">
               {Math.round((totalUsed / totalCapacity) * 100)}% utilized
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="w-full bg-muted rounded-full h-2 mt-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full" 
+                className="bg-[hsl(var(--info))] h-2 rounded-full" 
                 style={{ width: `${(totalUsed / totalCapacity) * 100}%` }}
               ></div>
             </div>
@@ -293,7 +293,7 @@ export default function Storage() {
                 <span className="ml-2">{device.name}</span>
               </CardTitle>
               <div className="flex items-center space-x-2">
-                <Badge className={`${getStatusColor(device.status)} text-white`}>
+                <Badge variant={getStatusVariant(device.status)}>
                   {device.status}
                 </Badge>
                 <Badge variant="outline">
@@ -304,19 +304,19 @@ export default function Storage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-600">Capacity:</span>
+                  <span className="text-muted-foreground">Capacity:</span>
                   <div className="font-mono">{device.capacity} GB</div>
                 </div>
                 <div>
-                  <span className="text-gray-600">Temperature:</span>
+                  <span className="text-muted-foreground">Temperature:</span>
                   <div className="font-mono">{device.temperature}°C</div>
                 </div>
                 <div>
-                  <span className="text-gray-600">Mount Point:</span>
+                  <span className="text-muted-foreground">Mount Point:</span>
                   <div className="font-mono">{device.mountPoint}</div>
                 </div>
                 <div>
-                  <span className="text-gray-600">Filesystem:</span>
+                  <span className="text-muted-foreground">Filesystem:</span>
                   <div className="font-mono">{device.filesystem}</div>
                 </div>
               </div>
@@ -326,16 +326,16 @@ export default function Storage() {
                   <span>Used: {device.used} GB</span>
                   <span>Available: {device.available} GB</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-muted rounded-full h-3">
                   <div 
                     className={`h-3 rounded-full ${
-                      (device.used / device.capacity) > 0.9 ? 'bg-red-600' :
-                      (device.used / device.capacity) > 0.8 ? 'bg-yellow-600' : 'bg-green-600'
+                      (device.used / device.capacity) > 0.9 ? 'bg-[hsl(var(--destructive))]' :
+                      (device.used / device.capacity) > 0.8 ? 'bg-[hsl(var(--warning))]' : 'bg-[hsl(var(--success))]'
                     }`}
                     style={{ width: `${(device.used / device.capacity) * 100}%` }}
                   ></div>
                 </div>
-                <div className="text-center text-sm text-gray-600">
+                   <div className="text-center text-sm text-muted-foreground">
                   {Math.round((device.used / device.capacity) * 100)}% used
                 </div>
               </div>
@@ -369,7 +369,7 @@ export default function Storage() {
                     {getBackupStatusIcon(job.status)}
                     <div>
                       <h3 className="font-medium">{job.name}</h3>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-muted-foreground">
                         {job.source} → {job.destination}
                       </div>
                     </div>
@@ -379,11 +379,11 @@ export default function Storage() {
                 <div className="flex items-center space-x-4">
                   <div className="text-right text-sm">
                     <div>Size: {job.size} GB</div>
-                    <div className="text-gray-500">Last: {job.lastRun}</div>
-                    <div className="text-gray-500">Next: {job.nextRun}</div>
+                    <div className="text-muted-foreground">Last: {job.lastRun}</div>
+                    <div className="text-muted-foreground">Next: {job.nextRun}</div>
                   </div>
                   
-                  <Badge className={`${getBackupStatusColor(job.status)} text-white`}>
+                   <Badge variant={getBackupStatusVariant(job.status)}>
                     {job.status}
                   </Badge>
                   

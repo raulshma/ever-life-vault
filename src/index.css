@@ -42,6 +42,14 @@ All colors MUST be HSL.
     --input: 240 20% 91%;
     --ring: 262 60% 52%;
 
+    /* Status tokens */
+    --success: 142 70% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 90% 55%;
+    --warning-foreground: 240 25% 12%;
+    --info: 200 90% 50%;
+    --info-foreground: 0 0% 100%;
+
     /* Gradients */
     --gradient-primary: linear-gradient(
       135deg,
@@ -95,6 +103,7 @@ All colors MUST be HSL.
 
     --primary: 265 85% 70%;
     --primary-foreground: 240 22% 12%;
+    --primary-glow: 265 85% 76%;
 
     --secondary: 240 15% 20%;
     --secondary-foreground: 220 15% 92%;
@@ -111,6 +120,28 @@ All colors MUST be HSL.
     --border: 240 12% 22%;
     --input: 240 12% 22%;
     --ring: 265 85% 70%;
+
+    /* Gradients (dark) */
+    --gradient-hero: linear-gradient(
+      135deg,
+      hsl(265 75% 66%),
+      hsl(238 60% 58%),
+      hsl(190 70% 58%)
+    );
+    --gradient-card: linear-gradient(145deg, hsl(240 22% 12%), hsl(240 18% 14%));
+    --gradient-subtle: linear-gradient(
+      180deg,
+      hsl(240 20% 9%),
+      hsl(240 18% 11%)
+    );
+
+    /* Status tokens (dark) */
+    --success: 142 70% 45%;
+    --success-foreground: 240 22% 12%;
+    --warning: 38 90% 60%;
+    --warning-foreground: 240 22% 12%;
+    --info: 200 90% 60%;
+    --info-foreground: 240 22% 12%;
     --sidebar-background: 240 22% 12%;
     --sidebar-foreground: 220 15% 92%;
     --sidebar-primary: 265 85% 70%;
@@ -212,7 +243,7 @@ All colors MUST be HSL.
     background: radial-gradient(closest-side, hsl(var(--accent) / 0.55), transparent 70%);
   }
   .aurora-blob--violet {
-    background: radial-gradient(closest-side, hsl(238 62% 60% / 0.55), transparent 70%);
+    background: radial-gradient(closest-side, hsl(var(--primary) / 0.55), transparent 70%);
   }
 
   /* Subtle animated float */
@@ -247,7 +278,7 @@ All colors MUST be HSL.
     position: absolute;
     inset: -150% -150% auto -150%;
     height: 300%;
-    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.15), transparent);
     transform: translateX(-100%);
     transition: transform 0.6s ease;
     pointer-events: none;
@@ -281,12 +312,12 @@ All colors MUST be HSL.
 
   .glass {
     @apply backdrop-blur-xl;
-    background: hsl(0 0% 100% / 0.6);
-    border: 1px solid hsl(0 0% 100% / 0.35);
+    background: hsl(var(--card) / 0.6);
+    border: 1px solid hsl(var(--border) / 0.35);
   }
   .glass-dark {
     @apply backdrop-blur-xl;
-    background: hsl(222.2 84% 4.9% / 0.35);
+    background: hsl(var(--background) / 0.35);
     border: 1px solid hsl(0 0% 100% / 0.08);
   }
 
@@ -299,12 +330,7 @@ All colors MUST be HSL.
     position: absolute;
     inset: -150% -150% auto -150%;
     height: 300%;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      hsl(0 0% 100% / 0.15),
-      transparent
-    );
+    background: linear-gradient(90deg, transparent, hsl(var(--foreground) / 0.15), transparent);
     transform: translateX(-100%);
     animation: sheen 6s linear infinite;
   }
@@ -334,10 +360,10 @@ All colors MUST be HSL.
   }
 
   .tablist-elevated {
-    @apply rounded-lg p-1 bg-white/60 dark:bg-white/5 backdrop-blur-md border border-white/40 dark:border-white/10 shadow-card;
+    @apply rounded-lg p-1 bg-card/60 dark:bg-card/10 backdrop-blur-md border border-border shadow-card;
   }
   .tabtrigger {
-    @apply rounded-md data-[state=active]:bg-white data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border border-transparent transition-all;
+    @apply rounded-md data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm data-[state=active]:border border-border transition-all;
   }
 
   .action-ghost {

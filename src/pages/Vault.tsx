@@ -133,11 +133,11 @@ function QuickAddCredentials({
   };
 
   return (
-    <Card className="border-blue-200 bg-blue-50 shadow-sm hover:shadow-md transition-shadow duration-200">
+    <Card className="border-[hsl(var(--info)/0.35)] bg-[hsl(var(--info)/0.12)] shadow-sm hover:shadow-md transition-shadow duration-200">
       <CardContent className="p-3">
         <div className="flex items-center space-x-2 mb-2">
-          <Zap className="w-4 h-4 text-teal-500" />
-          <h3 className="font-semibold text-blue-800 text-sm">Quick Add</h3>
+          <Zap className="w-4 h-4 text-[hsl(var(--accent))]" />
+          <h3 className="font-semibold text-[hsl(var(--info))] text-sm">Quick Add</h3>
         </div>
 
         {/* Responsive Layout */}
@@ -228,7 +228,7 @@ function QuickAddCredentials({
                 (quickForm.type === 'api' && !quickForm.serverUrl.trim()) ||
                 isAdding
               }
-              className="h-8 bg-teal-600 hover:bg-teal-700 px-3 flex-shrink-0"
+            className="h-8 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.9)] px-3 flex-shrink-0"
               size="sm"
             >
               {isAdding ? (
@@ -436,8 +436,8 @@ export default function Vault() {
   return (
     <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
       {/* Header */}
-      <div className="bg-gradient-hero text-white relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/20"></div>
+      <div className="bg-gradient-hero text-primary-foreground relative overflow-hidden">
+        <div className="absolute inset-0 bg-foreground/20"></div>
         <div className="relative max-w-7xl mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
@@ -445,14 +445,13 @@ export default function Vault() {
                 <Shield className="w-6 h-6 mr-2" />
                 Secure Vault
               </h1>
-              <p className="text-white/90">
+              <p className="text-primary-foreground/90">
                 End-to-end encrypted credential storage
               </p>
             </div>
             <div className="flex items-center space-x-3">
               <Badge
-                variant="secondary"
-                className="bg-green-100 text-green-800"
+                variant="success"
               >
                 <Lock className="w-3 h-3 mr-1" />
                 Encrypted
@@ -460,7 +459,7 @@ export default function Vault() {
               <div className="flex items-center space-x-2">
                 <Button
                   variant="hero"
-                  className="bg-white/20 hover:bg-white/30"
+                  className="bg-card/30 hover:bg-card/40"
                   onClick={handleExport}
                   disabled={isExporting || totalItems === 0}
                   title={`Export all ${totalItems} vault items to encrypted backup file`}
@@ -474,7 +473,7 @@ export default function Vault() {
                 </Button>
                 <Button
                   variant="hero"
-                  className="bg-white/20 hover:bg-white/30"
+                  className="bg-card/30 hover:bg-card/40"
                   onClick={handleImport}
                   disabled={isImporting}
                   title="Import vault data from encrypted backup file"
@@ -489,7 +488,7 @@ export default function Vault() {
               </div>
               <Button
                 variant="hero"
-                className="bg-white/20 hover:bg-white/30"
+                className="bg-card/30 hover:bg-card/40"
                 onClick={lockVault}
               >
                 <Lock className="w-4 h-4 mr-2" />
@@ -497,7 +496,7 @@ export default function Vault() {
               </Button>
               <Button
                 variant="hero"
-                className="bg-white/20 hover:bg-white/30"
+                className="bg-card/30 hover:bg-card/40"
                 onClick={() => handleAddItem("login")}
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -527,15 +526,15 @@ export default function Vault() {
           </Card>
 
           {/* Security Notice */}
-          <Card className="border-green-200 bg-green-50">
+          <Card className="border-[hsl(var(--success)/0.35)] bg-[hsl(var(--success)/0.12)]">
             <CardContent className="p-6">
               <div className="flex items-start space-x-3">
-                <Shield className="w-5 h-5 text-emerald-500 mt-0.5" />
+                <Shield className="w-5 h-5 text-[hsl(var(--success))] mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-green-800 mb-1">
+                  <h3 className="font-semibold text-[hsl(var(--success))] mb-1">
                     End-to-End Encryption Active
                   </h3>
-                  <p className="text-green-700 text-sm">
+                  <p className="text-[hsl(var(--success))] text-sm">
                     Your vault is secured with AES-256-GCM encryption. All data
                     is encrypted on your device before being stored.
                     Zero-knowledge architecture ensures complete privacy.
@@ -547,18 +546,18 @@ export default function Vault() {
 
           {/* Export/Import Info */}
           {totalItems > 0 && (
-            <Card className="border-blue-200 bg-blue-50">
+          <Card className="border-[hsl(var(--info)/0.35)] bg-[hsl(var(--info)/0.12)]">
               <CardContent className="p-4">
                 <div className="flex items-start space-x-3">
                   <div className="flex space-x-2">
-                    <Download className="w-4 h-4 text-teal-500 mt-0.5" />
-                    <Upload className="w-4 h-4 text-teal-500 mt-0.5" />
+                  <Download className="w-4 h-4 text-[hsl(var(--accent))] mt-0.5" />
+                  <Upload className="w-4 h-4 text-[hsl(var(--accent))] mt-0.5" />
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-blue-800 mb-1">
+                  <h3 className="font-semibold text-[hsl(var(--info))] mb-1">
                       Backup & Restore
                     </h3>
-                    <p className="text-teal-700 text-sm">
+                  <p className="text-[hsl(var(--accent))] text-sm">
                       Export your vault to create encrypted backups. Import from
                       backup files to restore data. All exports are encrypted
                       with your master password for maximum security.
@@ -585,7 +584,7 @@ export default function Vault() {
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Key className="w-5 h-5 mr-2 text-cyan-500" />
+                  <Key className="w-5 h-5 mr-2 text-[hsl(var(--info))]" />
                   Login Credentials ({itemsByType.login.length})
                 </CardTitle>
               </CardHeader>
@@ -595,7 +594,7 @@ export default function Vault() {
                     itemsByType.login.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow"
+                        className="p-3 bg-card rounded-lg border group hover:shadow-sm transition-shadow"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
@@ -646,7 +645,7 @@ export default function Vault() {
                                 }
                               >
                                 {copiedItems.has(`${item.id}-username`) ? (
-                                  <Check className="w-3 h-3 text-emerald-500" />
+                                  <Check className="w-3 h-3 text-[hsl(var(--success))]" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -680,7 +679,7 @@ export default function Vault() {
                                 }
                               >
                                 {copiedItems.has(`${item.id}-password`) ? (
-                                  <Check className="w-3 h-3 text-emerald-500" />
+                                  <Check className="w-3 h-3 text-[hsl(var(--success))]" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -699,7 +698,7 @@ export default function Vault() {
 
                 <Button
                   variant="ghost"
-                  className="w-full mt-4 text-teal-600"
+                  className="w-full mt-4 text-[hsl(var(--accent))]"
                   onClick={() => handleAddItem("login")}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -712,7 +711,7 @@ export default function Vault() {
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Lock className="w-5 h-5 mr-2 text-emerald-500" />
+                  <Lock className="w-5 h-5 mr-2 text-[hsl(var(--success))]" />
                   Secure Notes ({itemsByType.note.length})
                 </CardTitle>
               </CardHeader>
@@ -722,7 +721,7 @@ export default function Vault() {
                     itemsByType.note.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow"
+                         className="p-3 bg-card rounded-lg border group hover:shadow-sm transition-shadow"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
@@ -775,7 +774,7 @@ export default function Vault() {
 
                 <Button
                   variant="ghost"
-                  className="w-full mt-4 text-emerald-600"
+                  className="w-full mt-4 text-[hsl(var(--success))]"
                   onClick={() => handleAddItem("note")}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -788,7 +787,7 @@ export default function Vault() {
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Key className="w-5 h-5 mr-2 text-purple-600" />
+                  <Key className="w-5 h-5 mr-2 text-[hsl(var(--primary))]" />
                   API Keys ({itemsByType.api.length})
                 </CardTitle>
               </CardHeader>
@@ -798,7 +797,7 @@ export default function Vault() {
                     itemsByType.api.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow"
+                         className="p-3 bg-card rounded-lg border group hover:shadow-sm transition-shadow"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
@@ -837,7 +836,7 @@ export default function Vault() {
                                 }
                               >
                                 {copiedItems.has(`${item.id}-key`) ? (
-                                  <Check className="w-3 h-3 text-emerald-500" />
+                                  <Check className="w-3 h-3 text-[hsl(var(--success))]" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -870,7 +869,7 @@ export default function Vault() {
 
                 <Button
                   variant="ghost"
-                  className="w-full mt-4 text-purple-600"
+                  className="w-full mt-4 text-[hsl(var(--primary))]"
                   onClick={() => handleAddItem("api")}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -883,7 +882,7 @@ export default function Vault() {
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
-                  <Shield className="w-5 h-5 mr-2 text-orange-600" />
+                  <Shield className="w-5 h-5 mr-2 text-[hsl(var(--warning))]" />
                   Documents ({itemsByType.document.length})
                 </CardTitle>
               </CardHeader>
@@ -893,7 +892,7 @@ export default function Vault() {
                     itemsByType.document.map((item) => (
                       <div
                         key={item.id}
-                        className="p-3 bg-white rounded-lg border group hover:shadow-sm transition-shadow"
+                         className="p-3 bg-card rounded-lg border group hover:shadow-sm transition-shadow"
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
@@ -956,7 +955,7 @@ export default function Vault() {
 
                 <Button
                   variant="ghost"
-                  className="w-full mt-4 text-orange-600"
+                  className="w-full mt-4 text-[hsl(var(--warning))]"
                   onClick={() => handleAddItem("document")}
                 >
                   <Plus className="w-4 h-4 mr-2" />
@@ -978,8 +977,8 @@ export default function Vault() {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Lock className="w-6 h-6 text-emerald-500" />
+                <div className="w-12 h-12 bg-[hsl(var(--success)/0.15)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Lock className="w-6 h-6 text-[hsl(var(--success))]" />
                 </div>
                 <h3 className="font-semibold mb-2">AES-256-GCM</h3>
                 <p className="text-sm text-muted-foreground">
@@ -988,8 +987,8 @@ export default function Vault() {
               </div>
 
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Key className="w-6 h-6 text-cyan-500" />
+                <div className="w-12 h-12 bg-[hsl(var(--info)/0.15)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Key className="w-6 h-6 text-[hsl(var(--info))]" />
                 </div>
                 <h3 className="font-semibold mb-2">PBKDF2</h3>
                 <p className="text-sm text-muted-foreground">
@@ -998,8 +997,8 @@ export default function Vault() {
               </div>
 
               <div className="text-center">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <Shield className="w-6 h-6 text-purple-600" />
+                <div className="w-12 h-12 bg-[hsl(var(--primary)/0.15)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <Shield className="w-6 h-6 text-[hsl(var(--primary))]" />
                 </div>
                 <h3 className="font-semibold mb-2">Zero Knowledge</h3>
                 <p className="text-sm text-muted-foreground">
@@ -1008,8 +1007,8 @@ export default function Vault() {
               </div>
 
               <div className="text-center">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                  <AlertTriangle className="w-6 h-6 text-orange-600" />
+                <div className="w-12 h-12 bg-[hsl(var(--warning)/0.15)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                  <AlertTriangle className="w-6 h-6 text-[hsl(var(--warning))]" />
                 </div>
                 <h3 className="font-semibold mb-2">Auto-Lock</h3>
                 <p className="text-sm text-muted-foreground">

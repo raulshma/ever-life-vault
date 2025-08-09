@@ -98,7 +98,7 @@ export default function HeroSection() {
             ].map((f, idx) => (
               <div key={idx} className="glass rounded-xl p-3 sm:p-4 text-left shine-card">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent text-white grid place-items-center shadow-card">
+                  <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-accent text-primary-foreground grid place-items-center shadow-card">
                     <f.icon className="w-4 h-4" />
                   </div>
                   <div>

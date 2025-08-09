@@ -40,16 +40,16 @@ export default function Servers() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newServer, setNewServer] = useState({ name: "", ip: "" });
 
-  const getStatusColor = (status: string) => {
+  const getStatusVariant = (status: string) => {
     switch (status) {
       case "online":
-        return "bg-green-500";
+        return "success" as const;
       case "offline":
-        return "bg-red-500";
+        return "destructive" as const;
       case "maintenance":
-        return "bg-yellow-500";
+        return "warning" as const;
       default:
-        return "bg-gray-500";
+        return "secondary" as const;
     }
   };
 
@@ -131,21 +131,21 @@ export default function Servers() {
                 <Server className="w-5 h-5 mr-2" />
                 {server.name}
               </CardTitle>
-              <Badge className={`${getStatusColor(server.status)} text-white`}>
+              <Badge variant={getStatusVariant(server.status)}>
                 {server.status}
               </Badge>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="text-sm text-gray-600">IP: {server.ip}</div>
+              <div className="text-sm text-muted-foreground">IP: {server.ip}</div>
 
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>CPU</span>
                   <span>{server.cpu}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full"
+                    className="bg-[hsl(var(--info))] h-2 rounded-full"
                     style={{ width: `${server.cpu}%` }}
                   ></div>
                 </div>
@@ -156,9 +156,9 @@ export default function Servers() {
                   <span>Memory</span>
                   <span>{server.memory}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className="bg-green-600 h-2 rounded-full"
+                    className="bg-[hsl(var(--success))] h-2 rounded-full"
                     style={{ width: `${server.memory}%` }}
                   ></div>
                 </div>
@@ -169,9 +169,9 @@ export default function Servers() {
                   <span>Storage</span>
                   <span>{server.storage}%</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-muted rounded-full h-2">
                   <div
-                    className="bg-purple-600 h-2 rounded-full"
+                    className="bg-[hsl(var(--primary))] h-2 rounded-full"
                     style={{ width: `${server.storage}%` }}
                   ></div>
                 </div>

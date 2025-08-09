@@ -54,8 +54,8 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
     <div className="min-h-screen bg-gradient-subtle flex items-center justify-center p-6">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-teal-600" />
+          <div className="w-16 h-16 bg-[hsl(var(--info)/0.15)] rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-[hsl(var(--accent))]" />
           </div>
           <CardTitle className="text-2xl">Unlock Vault</CardTitle>
           <p className="text-muted-foreground">
@@ -123,9 +123,9 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
 
             {/* Failed Attempts Warning */}
             {attempts > 2 && (
-              <Alert className="border-amber-200 bg-amber-50">
-                <AlertTriangle className="w-4 h-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
+              <Alert className="border-[hsl(var(--warning)/0.35)] bg-[hsl(var(--warning)/0.12)]">
+                <AlertTriangle className="w-4 h-4 text-[hsl(var(--warning))]" />
+                <AlertDescription className="text-[hsl(var(--warning-foreground))]">
                   Multiple failed attempts detected. Make sure you're entering the correct master password.
                 </AlertDescription>
               </Alert>
@@ -139,7 +139,7 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
             >
               {loading ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin mr-2" />
                   Unlocking...
                 </>
               ) : (
@@ -154,7 +154,7 @@ export function VaultUnlock({ onUnlock, loading = false, error }: VaultUnlockPro
           {/* Security Information */}
           <div className="mt-6 p-4 bg-muted rounded-lg">
             <div className="flex items-start space-x-3">
-              <Shield className="w-5 h-5 text-emerald-500 mt-0.5" />
+              <Shield className="w-5 h-5 text-[hsl(var(--success))] mt-0.5" />
               <div className="text-sm">
                 <p className="font-medium mb-1">Your vault is secured with:</p>
                 <ul className="text-muted-foreground space-y-1">

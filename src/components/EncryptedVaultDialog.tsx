@@ -193,7 +193,7 @@ export function EncryptedVaultDialog({
                       onClick={() => copyToClipboard(data.username, 'username')}
                     >
                       {copied === 'username' ? 
-                        <Check className="w-4 h-4 text-emerald-600" /> : 
+                        <Check className="w-4 h-4 text-[hsl(var(--success))]" /> : 
                         <Copy className="w-4 h-4" />
                       }
                     </Button>
@@ -233,7 +233,7 @@ export function EncryptedVaultDialog({
                             onClick={() => copyToClipboard(data.password, 'password')}
                           >
                             {copied === 'password' ? 
-                              <Check className="w-3 h-3 text-emerald-600" /> : 
+                              <Check className="w-3 h-3 text-[hsl(var(--success))]" /> : 
                               <Copy className="w-3 h-3" />
                             }
                           </Button>
@@ -339,7 +339,7 @@ export function EncryptedVaultDialog({
                       onClick={() => copyToClipboard(data.serverUrl, 'serverUrl')}
                     >
                       {copied === 'serverUrl' ? (
-                        <Check className="w-4 h-4 text-emerald-600" />
+                        <Check className="w-4 h-4 text-[hsl(var(--success))]" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
@@ -380,8 +380,8 @@ export function EncryptedVaultDialog({
                           className="h-6 w-6"
                           onClick={() => copyToClipboard(data.apiKey, 'apiKey')}
                         >
-                          {copied === 'apiKey' ? (
-                            <Check className="w-3 h-3 text-emerald-600" />
+                            {copied === 'apiKey' ? (
+                              <Check className="w-3 h-3 text-[hsl(var(--success))]" />
                           ) : (
                             <Copy className="w-3 h-3" />
                           )}
