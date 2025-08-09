@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import { useVaultSession } from '@/hooks/useVaultSession'
 import { useToast } from '@/hooks/use-toast'
@@ -15,7 +15,7 @@ export type AggregatedItem = {
   extra?: Record<string, any>
 }
 
-export type RssSource = { id: string; title?: string; url: string }
+export type RssSource = { id: string; title?: string; url: string; limit?: number }
 
 type ProviderConfig = {
   // token payloads are stored in vault under api/login items
@@ -37,12 +37,38 @@ function nowSeconds() {
   return Math.floor(Date.now() / 1000)
 }
 
+const DEFAULT_LIMITS: Record<AggregatedItem['provider'], number> = {
+  reddit: 50, // effective cap; controlled via reddit-specific options below
+  twitter: 20,
+  facebook: 20,
+  instagram: 20,
+  rss: 20, // per-source default
+  gmail: 25,
+  outlook: 25,
+}
+
+const DEFAULT_REDDIT: { subLimit: number; postsPerSub: number } = {
+  subLimit: 10,
+  postsPerSub: 5,
+}
+
+const CACHE_TTLS_MS: Record<AggregatedItem['provider'], number> = {
+  reddit: 2 * 60_000,
+  twitter: 2 * 60_000,
+  facebook: 2 * 60_000,
+  instagram: 2 * 60_000,
+  rss: 5 * 60_000,
+  gmail: 60_000,
+  outlook: 60_000,
+}
+
 export function useAggregator() {
   const { isUnlocked } = useVaultSession()
   const { itemsByType, addItem, updateItem } = useEncryptedVault()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AggregatedItem[]>([])
+  const cacheRef = useRef<Record<string, { items: AggregatedItem[]; fetchedAt: number }>>({})
 
   const vaultItems = useMemo(() => [...itemsByType.api, ...itemsByType.login], [itemsByType.api, itemsByType.login])
 
@@ -108,59 +134,111 @@ export function useAggregator() {
     return tokens.access_token || null
   }, [getVaultItemByName, updateItem])
 
+  // Provider settings: enabled and limits (declared early for use in fetchers)
+  const isProviderEnabled = useCallback((name: AggregatedItem['provider']): boolean => {
+    const it = getVaultItemByName(name)
+    if (!it) return true
+    const enabled = it.data?.enabled
+    return typeof enabled === 'boolean' ? enabled : true
+  }, [getVaultItemByName])
+
+  const setProviderEnabled = useCallback(async (name: AggregatedItem['provider'], enabled: boolean) => {
+    await ensureProviderEntry(name)
+    const it = getVaultItemByName(name)
+    if (!it) return false
+    await updateItem(it.id, { data: { ...it.data, enabled } })
+    delete cacheRef.current[name]
+    return true
+  }, [ensureProviderEntry, getVaultItemByName, updateItem])
+
+  const getProviderLimit = useCallback((name: AggregatedItem['provider']): number => {
+    const it = getVaultItemByName(name)
+    const lim = it?.data?.limit
+    const n = Number(lim)
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_LIMITS[name]
+  }, [getVaultItemByName])
+
+  const setProviderLimit = useCallback(async (name: AggregatedItem['provider'], limit: number) => {
+    await ensureProviderEntry(name)
+    const it = getVaultItemByName(name)
+    if (!it) return false
+    const safe = Math.max(1, Math.floor(Number(limit) || 1))
+    await updateItem(it.id, { data: { ...it.data, limit: safe } })
+    delete cacheRef.current[name]
+    return true
+  }, [ensureProviderEntry, getVaultItemByName, updateItem])
+
+  // Reddit-specific settings
+  const getRedditSettings = useCallback((): { subLimit: number; postsPerSub: number } => {
+    const it = getVaultItemByName('reddit')
+    const subLimit = Number(it?.data?.sub_limit)
+    const postsPerSub = Number(it?.data?.posts_per_sub)
+    return {
+      subLimit: Number.isFinite(subLimit) && subLimit > 0 ? subLimit : DEFAULT_REDDIT.subLimit,
+      postsPerSub: Number.isFinite(postsPerSub) && postsPerSub > 0 ? postsPerSub : DEFAULT_REDDIT.postsPerSub,
+    }
+  }, [getVaultItemByName])
+
+  const setRedditSettings = useCallback(async (opts: { subLimit?: number; postsPerSub?: number }) => {
+    await ensureProviderEntry('reddit')
+    const it = getVaultItemByName('reddit')
+    if (!it) return false
+    const next: Record<string, any> = { ...it.data }
+    if (typeof opts.subLimit === 'number') next.sub_limit = Math.max(1, Math.floor(opts.subLimit))
+    if (typeof opts.postsPerSub === 'number') next.posts_per_sub = Math.max(1, Math.floor(opts.postsPerSub))
+    await updateItem(it.id, { data: next })
+    delete cacheRef.current.reddit
+    return true
+  }, [ensureProviderEntry, getVaultItemByName, updateItem])
+
   // Provider fetchers
   const fetchRedditTop = useCallback(async (): Promise<AggregatedItem[]> => {
     const token = await refreshTokenIfNeeded('reddit')
     if (!token) return []
-    const headers: Record<string, string> = { 'X-Target-Authorization': `Bearer ${token}`, 'User-Agent': 'ever-life-vault/1.0' }
-    const subsRes = await agpFetch('https://oauth.reddit.com/subreddits/mine/subscriber', { headers })
-    if (!subsRes.ok) return []
-    const subsJson = await subsRes.json()
-    const subNames: string[] = (subsJson?.data?.children || []).map((c: any) => c?.data?.display_name).filter(Boolean)
-    const topItems: AggregatedItem[] = []
-    for (const sub of subNames.slice(0, 10)) {
-      const res = await agpFetch(`https://oauth.reddit.com/r/${encodeURIComponent(sub)}/top?t=day&limit=5`, { headers })
-      if (!res.ok) continue
-      const json = await res.json()
-      for (const child of json?.data?.children || []) {
-        const d = child?.data
-        topItems.push({
-          id: `reddit_${d?.id}`,
-          provider: 'reddit',
-          title: d?.title,
-          url: d?.url_overridden_by_dest || `https://reddit.com${d?.permalink}`,
-          author: d?.author,
-          timestamp: d?.created_utc ? d.created_utc * 1000 : undefined,
-          score: d?.score,
-          extra: { subreddit: d?.subreddit, comments: d?.num_comments },
-        })
-      }
-    }
-    return topItems
-  }, [refreshTokenIfNeeded])
+    const { subLimit, postsPerSub } = getRedditSettings()
+    const qs = new URLSearchParams({ sub_limit: String(subLimit), posts_per_sub: String(postsPerSub) })
+    const res = await fetchWithAuth(`/aggregations/reddit?${qs.toString()}`, { headers: { 'X-Target-Authorization': `Bearer ${token}` } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  }, [refreshTokenIfNeeded, getRedditSettings])
 
-  // Twitter/Facebook/Instagram placeholders (require app keys); allow users to store bearer/API keys in vault
+  // Twitter/Facebook/Instagram: use manual tokens stored in Vault
   const fetchTwitterTop = useCallback(async (): Promise<AggregatedItem[]> => {
     const item = getVaultItemByName('twitter')
-    const bearer = item?.data?.bearer || item?.data?.access_token
-    if (!bearer) return []
-    // Example: get user timeline likes/retweets would require Elevated API; placeholder returns []
-    return []
-  }, [getVaultItemByName])
+    const token = item?.data?.bearer || item?.data?.access_token
+    if (!token) return []
+    const limit = getProviderLimit('twitter')
+    const qs = new URLSearchParams({ limit: String(limit) })
+    const res = await fetchWithAuth(`/aggregations/twitter?${qs.toString()}`, { headers: { 'X-Target-Authorization': `Bearer ${token}` } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  }, [getVaultItemByName, getProviderLimit])
 
   const fetchFacebookTop = useCallback(async (): Promise<AggregatedItem[]> => {
     const item = getVaultItemByName('facebook')
     const token = item?.data?.access_token
     if (!token) return []
-    return []
-  }, [getVaultItemByName])
+    const limit = getProviderLimit('facebook')
+    const qs = new URLSearchParams({ limit: String(limit) })
+    const res = await fetchWithAuth(`/aggregations/facebook?${qs.toString()}`, { headers: { 'X-Target-Authorization': `Bearer ${token}` } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  }, [getVaultItemByName, getProviderLimit])
 
   const fetchInstagramTop = useCallback(async (): Promise<AggregatedItem[]> => {
     const item = getVaultItemByName('instagram')
     const token = item?.data?.access_token
     if (!token) return []
-    return []
-  }, [getVaultItemByName])
+    const limit = getProviderLimit('instagram')
+    const qs = new URLSearchParams({ limit: String(limit) })
+    const res = await fetchWithAuth(`/aggregations/instagram?${qs.toString()}`, { headers: { 'X-Target-Authorization': `Bearer ${token}` } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  }, [getVaultItemByName, getProviderLimit])
 
   const listRssSources = useCallback((): RssSource[] => {
     const item = getVaultItemByName('rss')
@@ -189,7 +267,7 @@ export function useAggregator() {
     await updateItem(item.id, { data: { ...item.data, sources: next } })
   }, [getVaultItemByName, updateItem])
 
-  const fetchRssItems = useCallback(async (): Promise<AggregatedItem[]> => {
+  const fetchRssItemsInner = useCallback(async (providerLimit: number): Promise<AggregatedItem[]> => {
     const sources = listRssSources()
     const out: AggregatedItem[] = []
     for (const s of sources) {
@@ -198,7 +276,8 @@ export function useAggregator() {
         if (!res.ok) continue
         const text = await res.text()
         const parsed = parseRss(text)
-        for (const it of parsed) {
+        const limit = typeof s.limit === 'number' && s.limit > 0 ? s.limit : providerLimit
+        for (const it of parsed.slice(0, limit)) {
           out.push({
             id: `rss_${s.id}_${hashString(it.link || it.title)}`,
             provider: 'rss',
@@ -217,59 +296,64 @@ export function useAggregator() {
   const fetchGmailUnread = useCallback(async (): Promise<AggregatedItem[]> => {
     const token = await refreshTokenIfNeeded('gmail')
     if (!token) return []
-    const headers: Record<string, string> = { 'X-Target-Authorization': `Bearer ${token}` }
-    const res = await agpFetch('https://www.googleapis.com/gmail/v1/users/me/messages?q=is%3Aunread&maxResults=25', { headers })
+    const limit = getProviderLimit('gmail')
+    const qs = new URLSearchParams({ limit: String(limit) })
+    const res = await fetchWithAuth(`/aggregations/gmail?${qs.toString()}`, { headers: { 'X-Target-Authorization': `Bearer ${token}` } })
     if (!res.ok) return []
-    const json = await res.json()
-    const ids: string[] = (json?.messages || []).map((m: any) => m.id)
-    const out: AggregatedItem[] = []
-    for (const id of ids) {
-      const mRes = await agpFetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, { headers })
-      if (!mRes.ok) continue
-      const m = await mRes.json()
-      const headersArr: Array<{ name: string; value: string }> = m?.payload?.headers || []
-      const subject = headersArr.find(h => h.name === 'Subject')?.value
-      const from = headersArr.find(h => h.name === 'From')?.value
-      const date = headersArr.find(h => h.name === 'Date')?.value
-      out.push({ id: `gmail_${m.id}`, provider: 'gmail', title: subject || '(no subject)', author: from, timestamp: date ? Date.parse(date) : undefined, url: `https://mail.google.com/mail/u/0/#all/${m.id}` })
-    }
-    return out
-  }, [refreshTokenIfNeeded])
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  }, [refreshTokenIfNeeded, getProviderLimit])
 
   const fetchOutlookUnread = useCallback(async (): Promise<AggregatedItem[]> => {
     const token = await refreshTokenIfNeeded('outlook')
     if (!token) return []
-    const headers: Record<string, string> = { 'X-Target-Authorization': `Bearer ${token}` }
-    const res = await agpFetch('https://graph.microsoft.com/v1.0/me/messages?$filter=isRead%20eq%20false&$top=25', { headers })
+    const limit = getProviderLimit('outlook')
+    const qs = new URLSearchParams({ limit: String(limit) })
+    const res = await fetchWithAuth(`/aggregations/outlook?${qs.toString()}`, { headers: { 'X-Target-Authorization': `Bearer ${token}` } })
     if (!res.ok) return []
-    const json = await res.json()
-    const out: AggregatedItem[] = []
-    for (const m of json?.value || []) {
-      out.push({ id: `outlook_${m.id}`, provider: 'outlook', title: m.subject || '(no subject)', author: m.from?.emailAddress?.name, timestamp: m.receivedDateTime ? Date.parse(m.receivedDateTime) : undefined, url: undefined })
-    }
-    return out
-  }, [refreshTokenIfNeeded])
+    const data = await res.json()
+    return Array.isArray(data?.items) ? data.items : []
+  }, [refreshTokenIfNeeded, getProviderLimit])
+
+  type AggregationProviderDef = {
+    name: AggregatedItem['provider']
+    category: 'social' | 'rss' | 'mail'
+    fetch: () => Promise<AggregatedItem[]>
+  }
+
+  const aggregationProviders: AggregationProviderDef[] = useMemo(() => ([
+    { name: 'reddit', category: 'social', fetch: fetchRedditTop },
+    { name: 'twitter', category: 'social', fetch: fetchTwitterTop },
+    { name: 'facebook', category: 'social', fetch: fetchFacebookTop },
+    { name: 'instagram', category: 'social', fetch: fetchInstagramTop },
+    { name: 'rss', category: 'rss', fetch: () => fetchRssItemsInner(getProviderLimit('rss')) },
+    { name: 'gmail', category: 'mail', fetch: fetchGmailUnread },
+    { name: 'outlook', category: 'mail', fetch: fetchOutlookUnread },
+  ]), [fetchFacebookTop, fetchGmailUnread, fetchInstagramTop, fetchOutlookUnread, fetchRedditTop, fetchRssItemsInner, fetchTwitterTop, getProviderLimit])
 
   const refreshAll = useCallback(async () => {
     if (!isUnlocked) return
     setLoading(true)
     try {
-      const [reddit, twitter, facebook, instagram, rss, gmail, outlook] = await Promise.all([
-        fetchRedditTop(),
-        fetchTwitterTop(),
-        fetchFacebookTop(),
-        fetchInstagramTop(),
-        fetchRssItems(),
-        fetchGmailUnread(),
-        fetchOutlookUnread(),
-      ])
-      const combined = [...reddit, ...twitter, ...facebook, ...instagram, ...rss, ...gmail, ...outlook]
+      const results = await Promise.all(aggregationProviders.map(async (p) => {
+        if (!isProviderEnabled(p.name)) return []
+        const cached = cacheRef.current[p.name]
+        const ttl = CACHE_TTLS_MS[p.name]
+        const now = Date.now()
+        if (cached && now - cached.fetchedAt < ttl) {
+          return cached.items
+        }
+        const items = await p.fetch()
+        cacheRef.current[p.name] = { items, fetchedAt: now }
+        return items
+      }))
+      const combined = results.flat()
       combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       setItems(combined)
     } finally {
       setLoading(false)
     }
-  }, [fetchFacebookTop, fetchGmailUnread, fetchInstagramTop, fetchOutlookUnread, fetchRedditTop, fetchRssItems, fetchTwitterTop, isUnlocked])
+  }, [aggregationProviders, isUnlocked])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -297,6 +381,20 @@ export function useAggregator() {
     return true
   }, [ensureProviderEntry, getVaultItemByName, updateItem])
 
+  
+
+  // RSS source limit update
+  const setRssSourceLimit = useCallback(async (id: string, limit: number) => {
+    const it = getVaultItemByName('rss')
+    if (!it) return false
+    const sources: RssSource[] = Array.isArray(it.data.sources) ? it.data.sources : []
+    const safe = Math.max(1, Math.floor(Number(limit) || 1))
+    const next = sources.map((s) => (s.id === id ? { ...s, limit: safe } : s))
+    await updateItem(it.id, { data: { ...it.data, sources: next } })
+    delete cacheRef.current.rss
+    return true
+  }, [getVaultItemByName, updateItem])
+
   return {
     items,
     loading,
@@ -308,6 +406,13 @@ export function useAggregator() {
     getProviderData,
     isConnected,
     saveManualToken,
+    isProviderEnabled,
+    setProviderEnabled,
+    getProviderLimit,
+    setProviderLimit,
+    getRedditSettings,
+    setRedditSettings,
+    setRssSourceLimit,
   }
 }
 

@@ -9,7 +9,24 @@ import { useAggregator } from '@/hooks/useAggregator'
 import { Separator } from '@/components/ui/separator'
 
 export default function Feeds() {
-  const { items, loading, refreshAll, startOAuth, listRssSources, addRssSource, removeRssSource, saveManualToken, getProviderData } = useAggregator()
+  const {
+    items,
+    loading,
+    refreshAll,
+    startOAuth,
+    listRssSources,
+    addRssSource,
+    removeRssSource,
+    saveManualToken,
+    getProviderData,
+    isProviderEnabled,
+    setProviderEnabled,
+    getProviderLimit,
+    setProviderLimit,
+    getRedditSettings,
+    setRedditSettings,
+    setRssSourceLimit,
+  } = useAggregator()
   const [rssUrl, setRssUrl] = useState('')
   const [twitterBearer, setTwitterBearer] = useState(() => (getProviderData('twitter').bearer as string) || '')
   const [facebookToken, setFacebookToken] = useState(() => (getProviderData('facebook').access_token as string) || '')
@@ -53,30 +70,68 @@ export default function Feeds() {
           </div>
           <Card className="mb-4">
             <CardHeader>
-              <CardTitle className="text-sm">Manual tokens (stored securely in Vault)</CardTitle>
+              <CardTitle className="text-sm">Provider settings</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {['reddit','twitter','facebook','instagram'].map((p) => (
+                  <ProviderToggle
+                    key={p}
+                    label={p}
+                    enabled={isProviderEnabled(p as any)}
+                    onToggle={async (v) => { await setProviderEnabled(p as any, v); }}
+                    limit={getProviderLimit(p as any)}
+                    onLimitChange={async (n) => { await setProviderLimit(p as any, n) }}
+                  />
+                ))}
+              </div>
+              <Separator />
               <div>
-                <label className="text-xs text-muted-foreground">Twitter/X Bearer token</label>
-                <div className="flex gap-2 mt-1">
-                  <Input placeholder="Bearer ..." value={twitterBearer} onChange={(e) => setTwitterBearer(e.target.value)} />
-                  <Button onClick={async () => { await saveManualToken('twitter', { bearer: twitterBearer }); }} size="sm">Save</Button>
+                <label className="text-xs text-muted-foreground">Reddit options</label>
+                <div className="flex flex-wrap gap-2 mt-1 items-center">
+                  <small className="text-muted-foreground">Subs:</small>
+                  <Input
+                    className="w-24"
+                    type="number"
+                    min={1}
+                    defaultValue={getRedditSettings().subLimit}
+                    onBlur={async (e) => { await setRedditSettings({ subLimit: Number(e.target.value) }) }}
+                  />
+                  <small className="text-muted-foreground">Posts/sub:</small>
+                  <Input
+                    className="w-24"
+                    type="number"
+                    min={1}
+                    defaultValue={getRedditSettings().postsPerSub}
+                    onBlur={async (e) => { await setRedditSettings({ postsPerSub: Number(e.target.value) }) }}
+                  />
                 </div>
               </div>
               <Separator />
               <div>
-                <label className="text-xs text-muted-foreground">Facebook Graph API token</label>
-                <div className="flex gap-2 mt-1">
-                  <Input placeholder="EAAB..." value={facebookToken} onChange={(e) => setFacebookToken(e.target.value)} />
-                  <Button onClick={async () => { await saveManualToken('facebook', { access_token: facebookToken }); }} size="sm">Save</Button>
-                </div>
-              </div>
-              <Separator />
-              <div>
-                <label className="text-xs text-muted-foreground">Instagram API token</label>
-                <div className="flex gap-2 mt-1">
-                  <Input placeholder="IGQV..." value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
-                  <Button onClick={async () => { await saveManualToken('instagram', { access_token: instagramToken }); }} size="sm">Save</Button>
+                <label className="text-xs text-muted-foreground">Manual tokens (stored securely in Vault)</label>
+                <div className="space-y-3 mt-2">
+                  <div>
+                    <label className="text-xs text-muted-foreground">Twitter/X Bearer token</label>
+                    <div className="flex gap-2 mt-1">
+                      <Input placeholder="Bearer ..." value={twitterBearer} onChange={(e) => setTwitterBearer(e.target.value)} />
+                      <Button onClick={async () => { await saveManualToken('twitter', { bearer: twitterBearer }); }} size="sm">Save</Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Facebook Graph API token</label>
+                    <div className="flex gap-2 mt-1">
+                      <Input placeholder="EAAB..." value={facebookToken} onChange={(e) => setFacebookToken(e.target.value)} />
+                      <Button onClick={async () => { await saveManualToken('facebook', { access_token: facebookToken }); }} size="sm">Save</Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">Instagram API token</label>
+                    <div className="flex gap-2 mt-1">
+                      <Input placeholder="IGQV..." value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
+                      <Button onClick={async () => { await saveManualToken('instagram', { access_token: instagramToken }); }} size="sm">Save</Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -101,7 +156,11 @@ export default function Feeds() {
                   {sources.map((s) => (
                     <li key={s.id} className="flex items-center justify-between gap-2 text-sm">
                       <a href={s.url} target="_blank" className="truncate hover:underline">{s.title || s.url}</a>
-                      <Button variant="ghost" size="sm" onClick={() => removeRssSource(s.id)}>Remove</Button>
+                      <div className="flex items-center gap-2">
+                        <small className="text-muted-foreground">Limit</small>
+                        <Input className="w-20" type="number" min={1} defaultValue={s.limit || 20} onBlur={async (e) => { await setRssSourceLimit(s.id, Number(e.target.value)) }} />
+                        <Button variant="ghost" size="sm" onClick={() => removeRssSource(s.id)}>Remove</Button>
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -119,6 +178,24 @@ export default function Feeds() {
           <FeedList items={[...(grouped.get('gmail') || []), ...(grouped.get('outlook') || [])]} emptyLabel="No unread emails." />
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+function ProviderToggle({ label, enabled, onToggle, limit, onLimitChange }: { label: string; enabled: boolean; onToggle: (v: boolean) => void | Promise<void>; limit: number; onLimitChange: (n: number) => void | Promise<void> }) {
+  return (
+    <div className="border rounded p-2 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium capitalize">{label}</span>
+        <label className="inline-flex items-center gap-2 text-xs">
+          <input type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)} />
+          <span>Enabled</span>
+        </label>
+      </div>
+      <div className="flex items-center gap-2">
+        <small className="text-muted-foreground">Limit</small>
+        <Input className="w-24" type="number" min={1} defaultValue={limit} onBlur={(e) => onLimitChange(Number(e.target.value))} />
+      </div>
     </div>
   )
 }

@@ -57,6 +57,12 @@ Routes
 - `/integrations/oauth/callback/:provider` OAuth redirect target configured in provider apps.
 - `/integrations/oauth/handoff?id=<handoffId>` Exchange ephemeral handoff ID for tokens; requires Supabase auth.
 - `/integrations/oauth/refresh` Refresh tokens server-side; body `{ provider, refresh_token }`; requires Supabase auth.
+ - `/aggregations/reddit?sub_limit=10&posts_per_sub=5` Fetch top reddit posts for subscribed subreddits using forwarded token.
+ - `/aggregations/twitter?limit=20` Fetch recent tweets for the authenticated user.
+ - `/aggregations/facebook?limit=20` Fetch recent Facebook feed items for the authenticated user.
+ - `/aggregations/instagram?limit=20` Fetch recent Instagram media for the authenticated user.
+ - `/aggregations/gmail?limit=25` Fetch unread Gmail messages metadata.
+ - `/aggregations/outlook?limit=25` Fetch unread Outlook messages metadata.
 
 Security
 
