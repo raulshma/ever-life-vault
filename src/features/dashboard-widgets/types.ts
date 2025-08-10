@@ -20,6 +20,7 @@ export interface GridLayout {
 }
 
 export type GridColSpan = 1 | 2 | 3 | 4
+export type GridRowSpan = 1 | 2 | 3
 
 export type LayoutTree = MosaicTree | GridLayout
 

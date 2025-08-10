@@ -8,12 +8,13 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export function AddWidgetDialog() {
   const registry = useWidgetRegistry()
-  const { addWidget, setSpan } = useDashboardRuntime()
+  const { addWidget } = useDashboardRuntime()
   const widgets = registry.list()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [category, setCategory] = React.useState<'all' | 'shortcuts' | 'helpers' | 'analytics' | 'actions' | 'other'>('all')
   const [defaultSpan, setDefaultSpan] = React.useState<'1' | '2' | '3' | '4'>('1')
+  const [defaultRowSpan, setDefaultRowSpan] = React.useState<'1' | '2' | '3'>('1')
 
   const categories: Array<{ id: 'all' | 'shortcuts' | 'helpers' | 'analytics' | 'actions' | 'other'; label: string }> = [
     { id: 'all', label: 'All' },
@@ -52,18 +53,25 @@ export function AddWidgetDialog() {
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <div>Default column span</div>
-            <ToggleGroup type="single" value={defaultSpan} onValueChange={(v) => v && setDefaultSpan(v as any)}>
-              {(['1','2','3','4'] as const).map((n) => (
-                <ToggleGroupItem key={n} value={n} size="sm" aria-label={`Span ${n} columns`}>{n}</ToggleGroupItem>
-              ))}
-            </ToggleGroup>
+            <div>Default size</div>
+            <div className="flex items-center gap-2">
+              <ToggleGroup type="single" value={defaultSpan} onValueChange={(v) => v && setDefaultSpan(v as any)}>
+                {(['1','2','3','4'] as const).map((n) => (
+                  <ToggleGroupItem key={n} value={n} size="sm" aria-label={`Col span ${n}`}>C{n}</ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+              <ToggleGroup type="single" value={defaultRowSpan} onValueChange={(v) => v && setDefaultRowSpan(v as any)}>
+                {(['1','2','3'] as const).map((n) => (
+                  <ToggleGroupItem key={n} value={n} size="sm" aria-label={`Row span ${n}`}>R{n}</ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((w) => (
               <button
                 key={w.id}
-                onClick={() => { addWidget(w, Number(defaultSpan) as any); setOpen(false) }}
+                onClick={() => { addWidget(w, Number(defaultSpan) as any, Number(defaultRowSpan) as any); setOpen(false) }}
                 className="p-3 rounded-lg glass hover:bg-muted/40 hover-lift text-left transition-colors"
               >
                 <div className="font-medium">{w.title}</div>

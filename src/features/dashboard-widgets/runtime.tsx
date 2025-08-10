@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client'
 import type { Json } from '@/integrations/supabase/types'
 import { useWidgetRegistry, registerBuiltInWidgets } from './registry'
 import type { DashboardLayoutRecord, WidgetDefinition, WidgetInstanceId, WidgetProps, WidgetState } from './types'
-import type { LayoutTree, GridLayout, MosaicTree, GridColSpan } from './types'
+import type { LayoutTree, GridLayout, MosaicTree, GridColSpan, GridRowSpan } from './types'
 import { useDrag, useDrop } from 'react-dnd'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
@@ -17,13 +17,15 @@ interface RuntimeContextValue {
   layout: LayoutTree | null
   widgets: WidgetStateMap
   spans: Record<WidgetInstanceId, GridColSpan>
+  rowSpans: Record<WidgetInstanceId, GridRowSpan>
   setLayout: (t: LayoutTree | null) => void
   setWidgets: React.Dispatch<React.SetStateAction<WidgetStateMap>>
-  addWidget: (def: WidgetDefinition<any>, initialSpan?: GridColSpan) => void
+  addWidget: (def: WidgetDefinition<any>, initialSpan?: GridColSpan, initialRowSpan?: GridRowSpan) => void
   removeWidget: (id: WidgetInstanceId) => void
   updateWidgetConfig: <T>(id: WidgetInstanceId, next: T) => void
   reorderWidgets: (order: WidgetInstanceId[]) => void
   setSpan: (id: WidgetInstanceId, span: GridColSpan) => void
+  setRowSpan: (id: WidgetInstanceId, span: GridRowSpan) => void
   resetLayout: () => void
   exportLayout: () => string
   importLayout: (json: string) => void
@@ -80,17 +82,21 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
   const [layout, setLayout] = useState<LayoutTree | null>(null)
   const [widgets, setWidgets] = useState<WidgetStateMap>({})
   const [spans, setSpans] = useState<Record<WidgetInstanceId, GridColSpan>>({})
+  const [rowSpans, setRowSpans] = useState<Record<WidgetInstanceId, GridRowSpan>>({})
   const initialLoadedRef = useRef(false)
 
   useEffect(() => {
     registerBuiltInWidgets()
   }, [])
 
-  const saveDebounced = useDebounced(async (nextLayout: LayoutTree | null, nextWidgets: WidgetStateMap, nextSpans?: Record<WidgetInstanceId, GridColSpan>) => {
+  const saveDebounced = useDebounced(async (nextLayout: LayoutTree | null, nextWidgets: WidgetStateMap, nextSpans?: Record<WidgetInstanceId, GridColSpan>, nextRowSpans?: Record<WidgetInstanceId, GridRowSpan>) => {
     if (!user) return
     await upsertRecord(user.id, nextLayout, nextWidgets)
     // Persist spans client-side for now
-    try { localStorage.setItem('dashboard:spans', JSON.stringify(nextSpans ?? spans)) } catch {}
+    try {
+      localStorage.setItem('dashboard:spans', JSON.stringify(nextSpans ?? spans))
+      localStorage.setItem('dashboard:rowspans', JSON.stringify(nextRowSpans ?? rowSpans))
+    } catch {}
   }, 800)
 
   useEffect(() => {
@@ -113,17 +119,21 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       try {
         const saved = localStorage.getItem('dashboard:spans')
         if (saved) setSpans(JSON.parse(saved))
+        const savedRow = localStorage.getItem('dashboard:rowspans')
+        if (savedRow) setRowSpans(JSON.parse(savedRow))
       } catch {}
       initialLoadedRef.current = true
     })().catch(() => {})
   }, [user])
 
-  const addWidget = useCallback((def: WidgetDefinition<any>, initialSpan: GridColSpan = 1) => {
+  const addWidget = useCallback((def: WidgetDefinition<any>, initialSpan: GridColSpan = 1, initialRowSpan: GridRowSpan = 1) => {
     const id = generateId()
     const nextWidgets = { ...widgets, [id]: { type: def.id, version: def.version, config: def.defaultConfig } }
     setWidgets(nextWidgets)
     const nextSpans = { ...spans, [id]: initialSpan }
+    const nextRowSpans = { ...rowSpans, [id]: initialRowSpan }
     setSpans(nextSpans)
+    setRowSpans(nextRowSpans)
     // Grid-first behavior: append to order, converting legacy mosaic to grid if needed
     let nextLayout: LayoutTree | null = layout
     if (!layout) {
@@ -135,8 +145,8 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       nextLayout = { kind: 'grid', order: [ ...ids, id ] }
     }
     setLayout(nextLayout)
-    saveDebounced(nextLayout, nextWidgets, nextSpans)
-  }, [saveDebounced, layout, widgets, spans])
+    saveDebounced(nextLayout, nextWidgets, nextSpans, nextRowSpans)
+  }, [saveDebounced, layout, widgets, spans, rowSpans])
 
   const removeWidget = useCallback((id: WidgetInstanceId) => {
     setWidgets((prev) => {
@@ -155,39 +165,51 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       const nextSpans = { ...spans }
       delete nextSpans[id]
       setSpans(nextSpans)
-      saveDebounced(nextLayout, next, nextSpans)
+      const nextRowSpans = { ...rowSpans }
+      delete nextRowSpans[id]
+      setRowSpans(nextRowSpans)
+      saveDebounced(nextLayout, next, nextSpans, nextRowSpans)
       return next
     })
-  }, [saveDebounced, layout, spans])
+  }, [saveDebounced, layout, spans, rowSpans])
 
   const updateWidgetConfig = useCallback(<T,>(id: WidgetInstanceId, nextConfig: T) => {
     setWidgets((prev) => {
       const entry = prev[id]
       if (!entry) return prev
       const next = { ...prev, [id]: { ...entry, config: nextConfig } }
-      saveDebounced(layout, next, spans)
+      saveDebounced(layout, next, spans, rowSpans)
       return next
     })
-  }, [saveDebounced, layout, spans])
+  }, [saveDebounced, layout, spans, rowSpans])
 
   const reorderWidgets = useCallback((order: WidgetInstanceId[]) => {
     const nextLayout: GridLayout = { kind: 'grid', order }
     setLayout(nextLayout)
-    saveDebounced(nextLayout, widgets, spans)
-  }, [saveDebounced, widgets, spans])
+    saveDebounced(nextLayout, widgets, spans, rowSpans)
+  }, [saveDebounced, widgets, spans, rowSpans])
 
   const setSpan = useCallback((id: WidgetInstanceId, span: GridColSpan) => {
     setSpans((prev) => {
       const next = { ...prev, [id]: span }
-      saveDebounced(layout, widgets, next)
+      saveDebounced(layout, widgets, next, rowSpans)
       return next
     })
-  }, [layout, widgets, saveDebounced])
+  }, [layout, widgets, rowSpans, saveDebounced])
+
+  const setRowSpan = useCallback((id: WidgetInstanceId, span: GridRowSpan) => {
+    setRowSpans((prev) => {
+      const next = { ...prev, [id]: span }
+      saveDebounced(layout, widgets, spans, next)
+      return next
+    })
+  }, [layout, widgets, spans, saveDebounced])
 
   const value = useMemo(() => ({
     layout,
     widgets,
     spans,
+    rowSpans,
     setLayout: (t: LayoutTree | null) => { setLayout(t); saveDebounced(t, widgets) },
     setWidgets,
     addWidget,
@@ -195,10 +217,11 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
     updateWidgetConfig,
     reorderWidgets,
     setSpan,
+    setRowSpan,
     resetLayout: () => {},
     exportLayout: () => '',
     importLayout: () => {},
-  }) as RuntimeContextValue, [layout, widgets, saveDebounced, addWidget, removeWidget, updateWidgetConfig, reorderWidgets, setWidgets])
+  }) as RuntimeContextValue, [layout, widgets, spans, rowSpans, saveDebounced, addWidget, removeWidget, updateWidgetConfig, reorderWidgets, setWidgets])
   
   const resetLayout = useCallback(() => {
     setLayout(null)
@@ -248,7 +271,7 @@ function collectLeafIds(node: MosaicTree | null): WidgetInstanceId[] {
 
 // Mobile-friendly stacked view (cards)
 export function DashboardStackView({ isEditing = false }: { isEditing?: boolean }) {
-  const { layout, widgets, spans, setSpan, updateWidgetConfig, reorderWidgets, removeWidget } = useDashboardRuntime()
+  const { layout, widgets, spans, rowSpans, setSpan, setRowSpan, updateWidgetConfig, reorderWidgets, removeWidget } = useDashboardRuntime()
   const registry = useWidgetRegistry()
 
   const orderedIds = useMemo(() => {
@@ -278,9 +301,16 @@ export function DashboardStackView({ isEditing = false }: { isEditing?: boolean 
       default: return 'col-span-1'
     }
   }
+  const rowSpanToClass = (s: GridRowSpan): string => {
+    switch (s) {
+      case 3: return 'row-span-3'
+      case 2: return 'row-span-2'
+      default: return 'row-span-1'
+    }
+  }
 
   return (
-    <div className="grid w-full min-w-0 overflow-visible grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid w-full min-w-0 overflow-visible auto-rows-[minmax(6rem,auto)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
       {orderedIds.map((id, index) => {
         const state = widgets[id]
         if (!state) return null
@@ -302,9 +332,11 @@ export function DashboardStackView({ isEditing = false }: { isEditing?: boolean 
             }}
             isEditing={isEditing}
             onRemove={() => removeWidget(id)}
-            gridClassName={spanToClass(currentSpan as GridColSpan)}
+            gridClassName={`${spanToClass(currentSpan as GridColSpan)} ${rowSpanToClass((rowSpans[id] || 1) as GridRowSpan)}`}
             currentSpan={currentSpan as GridColSpan}
             onSpanChange={(s) => setSpan(id, s)}
+            currentRowSpan={(rowSpans[id] || 1) as GridRowSpan}
+            onRowSpanChange={(s) => setRowSpan(id, s)}
           >
             <React.Suspense fallback={<div className="glass rounded-xl p-4">Loading...</div>}>
               <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} />
@@ -325,6 +357,8 @@ function SortableWidgetTile({
   gridClassName,
   currentSpan,
   onSpanChange,
+  currentRowSpan,
+  onRowSpanChange,
   children,
 }: {
   id: WidgetInstanceId
@@ -335,6 +369,8 @@ function SortableWidgetTile({
   gridClassName?: string
   currentSpan: GridColSpan
   onSpanChange: (span: GridColSpan) => void
+  currentRowSpan: GridRowSpan
+  onRowSpanChange: (span: GridRowSpan) => void
   children: React.ReactNode
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null)
@@ -372,6 +408,13 @@ function SortableWidgetTile({
                   {[1,2,3,4].map((n) => (
                     <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Span ${n} columns`}>
                       {n}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <ToggleGroup type="single" value={String(currentRowSpan)} onValueChange={(v) => v && onRowSpanChange(Number(v) as GridRowSpan)}>
+                  {[1,2,3].map((n) => (
+                    <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Row span ${n}`}>
+                      R{n}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
