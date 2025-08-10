@@ -122,7 +122,9 @@ const App = () => (
           <AuthProvider>
             <VaultSessionProvider>
               <FocusTimerProvider>
-                <AppRoutes />
+                <Suspense fallback={<div className="min-h-[40vh] grid place-items-center text-sm text-muted-foreground">Loading…</div>}>
+                  <AppRoutes />
+                </Suspense>
               </FocusTimerProvider>
             </VaultSessionProvider>
           </AuthProvider>

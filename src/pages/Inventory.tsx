@@ -22,7 +22,7 @@ import {
 import { useInventory } from '@/hooks/useInventory';
 import { InventoryDialog } from '@/components/InventoryDialog';
 import { LocationDialog } from '@/components/LocationDialog';
-import { QRScanner } from '@/components/QRScanner';
+const QRScanner = React.lazy(() => import('@/components/QRScanner').then(m => ({ default: m.QRScanner })));
 import PageHeader from '@/components/PageHeader';
 
 export default function Inventory() {
@@ -405,11 +405,13 @@ export default function Inventory() {
         onOpenChange={setLocationDialogOpen}
       />
 
-      <QRScanner
-        open={qrScannerOpen}
-        onOpenChange={setQrScannerOpen}
-        onItemFound={handleQRItemFound}
-      />
+      <React.Suspense fallback={null}>
+        <QRScanner
+          open={qrScannerOpen}
+          onOpenChange={setQrScannerOpen}
+          onItemFound={handleQRItemFound}
+        />
+      </React.Suspense>
     </div>
   );
 }
