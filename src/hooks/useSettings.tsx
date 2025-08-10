@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-type ThemeMode = 'light' | 'dark' | 'system';
+type ThemeMode = 'light' | 'dark' | 'amoled' | 'system';
 
 interface SettingsContextType {
   viewTransitionsEnabled: boolean;
@@ -30,10 +30,18 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const applyThemePreference = (mode: ThemeMode) => {
     try {
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
       const root = document.documentElement;
-      if (isDark) {
+
+      // Always clear AMOLED flag first
+      root.classList.remove('amoled');
+
+      const isDarkMode = mode === 'amoled' || mode === 'dark' || (mode === 'system' && prefersDark);
+
+      if (isDarkMode) {
         root.classList.add('dark');
+        if (mode === 'amoled') {
+          root.classList.add('amoled');
+        }
       } else {
         root.classList.remove('dark');
       }

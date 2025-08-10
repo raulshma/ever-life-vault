@@ -29,6 +29,7 @@ import {
   Sun,
   Moon,
   Laptop2,
+  Contrast,
   Share2,
   User,
 } from "lucide-react";
@@ -103,7 +104,9 @@ const ThemeMenuButton: React.FC = () => {
         aria-haspopup="menu"
         aria-expanded={openThemeMenu}
       >
-        {themeMode === 'dark' ? (
+        {themeMode === 'amoled' ? (
+          <Contrast className="w-4 h-4" />
+        ) : themeMode === 'dark' ? (
           <Moon className="w-4 h-4" />
         ) : themeMode === 'light' ? (
           <Sun className="w-4 h-4" />
@@ -121,6 +124,7 @@ const ThemeMenuButton: React.FC = () => {
             [
               { key: 'light', label: 'Light', icon: Sun },
               { key: 'dark', label: 'Dark', icon: Moon },
+              { key: 'amoled', label: 'AMOLED Black', icon: Contrast },
               { key: 'system', label: 'System', icon: Laptop2 },
             ] as const
           ).map((opt) => (
