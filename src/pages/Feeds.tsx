@@ -67,6 +67,9 @@ export default function Feeds() {
         <TabsContent value="social">
           <div className="mb-3 flex gap-2 flex-wrap">
             <Button onClick={() => startOAuth('reddit')} variant="secondary" size="sm"><ThumbsUp className="h-4 w-4 mr-1"/>Connect Reddit</Button>
+            <Button onClick={() => startOAuth('youtube')} variant="secondary" size="sm">Connect YouTube</Button>
+            <Button onClick={() => startOAuth('youtubemusic')} variant="secondary" size="sm">Connect YouTube Music</Button>
+            <Button onClick={() => startOAuth('spotify')} variant="secondary" size="sm">Connect Spotify</Button>
           </div>
           <Card className="mb-4">
             <CardHeader>
@@ -74,7 +77,7 @@ export default function Feeds() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {['reddit','twitter','facebook','instagram'].map((p) => (
+                {['reddit','twitter','facebook','instagram','youtube','youtubemusic','spotify'].map((p) => (
                   <ProviderToggle
                     key={p}
                     label={p}
@@ -136,7 +139,15 @@ export default function Feeds() {
               </div>
             </CardContent>
           </Card>
-          <FeedList items={[...(grouped.get('reddit') || []), ...(grouped.get('twitter') || []), ...(grouped.get('facebook') || []), ...(grouped.get('instagram') || [])]} emptyLabel="No social items yet." />
+          <FeedList items={[
+            ...(grouped.get('reddit') || []),
+            ...(grouped.get('twitter') || []),
+            ...(grouped.get('facebook') || []),
+            ...(grouped.get('instagram') || []),
+            ...(grouped.get('youtube') || []),
+            ...(grouped.get('youtubemusic') || []),
+            ...(grouped.get('spotify') || []),
+          ]} emptyLabel="No social items yet." />
         </TabsContent>
 
         <TabsContent value="rss">
@@ -237,6 +248,9 @@ function ProviderBadge({ provider }: { provider: string }) {
     rss: <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-600 text-[11px]">RSS</span>,
     gmail: <span className="px-2 py-0.5 rounded bg-red-500/15 text-red-500 text-[11px]">Gmail</span>,
     outlook: <span className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-500 text-[11px]">Outlook</span>,
+    youtube: <span className="px-2 py-0.5 rounded bg-red-600/15 text-red-600 text-[11px]">YouTube</span>,
+    youtubemusic: <span className="px-2 py-0.5 rounded bg-rose-600/15 text-rose-600 text-[11px]">YT Music</span>,
+    spotify: <span className="px-2 py-0.5 rounded bg-emerald-600/15 text-emerald-600 text-[11px]">Spotify</span>,
   }
   return <>{map[provider] || <span className="px-2 py-0.5 rounded bg-muted text-foreground/60 text-[11px]">{provider}</span>}</>
 }

@@ -2,13 +2,19 @@ import { OAuthProvider, ProviderCommonConfig } from './types.js'
 import { RedditProvider } from './providers/reddit.js'
 import { GoogleProvider } from './providers/google.js'
 import { MicrosoftProvider } from './providers/microsoft.js'
+import { YouTubeProvider } from './providers/youtube.js'
+import { YouTubeMusicProvider } from './providers/youtubemusic.js'
+import { SpotifyProvider } from './providers/spotify.js'
 
-export type ProviderName = 'reddit' | 'google' | 'microsoft'
+export type ProviderName = 'reddit' | 'google' | 'microsoft' | 'youtube' | 'youtubemusic' | 'spotify'
 
 export interface RegistryInitConfig {
   reddit: ProviderCommonConfig
   google: ProviderCommonConfig
   microsoft: ProviderCommonConfig
+  youtube: ProviderCommonConfig
+  youtubemusic: ProviderCommonConfig
+  spotify: ProviderCommonConfig
 }
 
 export class ProviderRegistry {
@@ -18,6 +24,9 @@ export class ProviderRegistry {
       ['reddit', new RedditProvider(cfg.reddit)],
       ['google', new GoogleProvider(cfg.google)],
       ['microsoft', new MicrosoftProvider(cfg.microsoft)],
+      ['youtube', new YouTubeProvider(cfg.youtube)],
+      ['youtubemusic', new YouTubeMusicProvider(cfg.youtubemusic)],
+      ['spotify', new SpotifyProvider(cfg.spotify)],
     ])
   }
 

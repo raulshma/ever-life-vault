@@ -37,6 +37,15 @@ export const env = {
   MS_CLIENT_ID: process.env.MS_CLIENT_ID,
   MS_CLIENT_SECRET: process.env.MS_CLIENT_SECRET,
   MS_REDIRECT_URI: process.env.MS_REDIRECT_URI,
+  YT_CLIENT_ID: process.env.YT_CLIENT_ID,
+  YT_CLIENT_SECRET: process.env.YT_CLIENT_SECRET,
+  YT_REDIRECT_URI: process.env.YT_REDIRECT_URI,
+  YTM_CLIENT_ID: process.env.YTM_CLIENT_ID,
+  YTM_CLIENT_SECRET: process.env.YTM_CLIENT_SECRET,
+  YTM_REDIRECT_URI: process.env.YTM_REDIRECT_URI,
+  SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
+  SPOTIFY_CLIENT_SECRET: process.env.SPOTIFY_CLIENT_SECRET,
+  SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI,
 } as const
 
 export type Env = typeof env
