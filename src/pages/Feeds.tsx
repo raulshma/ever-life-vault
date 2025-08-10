@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import PageHeader from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +13,7 @@ export default function Feeds() {
     items,
     loading,
     refreshAll,
+    refreshProvider,
     startOAuth,
     listRssSources,
     addRssSource,
@@ -41,6 +42,12 @@ export default function Feeds() {
     }
     return m
   }, [items])
+
+  useEffect(() => {
+    // Load initial feed items when opening the page
+    refreshAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="space-y-4">
@@ -82,9 +89,9 @@ export default function Feeds() {
                     key={p}
                     label={p}
                     enabled={isProviderEnabled(p as any)}
-                    onToggle={async (v) => { await setProviderEnabled(p as any, v); }}
+                    onToggle={async (v) => { await setProviderEnabled(p as any, v); await refreshAll(); }}
                     limit={getProviderLimit(p as any)}
-                    onLimitChange={async (n) => { await setProviderLimit(p as any, n) }}
+                    onLimitChange={async (n) => { await setProviderLimit(p as any, n); await refreshAll(); }}
                   />
                 ))}
               </div>
@@ -118,21 +125,21 @@ export default function Feeds() {
                     <label className="text-xs text-muted-foreground">Twitter/X Bearer token</label>
                     <div className="flex gap-2 mt-1">
                       <Input placeholder="Bearer ..." value={twitterBearer} onChange={(e) => setTwitterBearer(e.target.value)} />
-                      <Button onClick={async () => { await saveManualToken('twitter', { bearer: twitterBearer }); }} size="sm">Save</Button>
+                      <Button onClick={async () => { await saveManualToken('twitter', { bearer: twitterBearer }); await refreshAll(); }} size="sm">Save</Button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Facebook Graph API token</label>
                     <div className="flex gap-2 mt-1">
                       <Input placeholder="EAAB..." value={facebookToken} onChange={(e) => setFacebookToken(e.target.value)} />
-                      <Button onClick={async () => { await saveManualToken('facebook', { access_token: facebookToken }); }} size="sm">Save</Button>
+                      <Button onClick={async () => { await saveManualToken('facebook', { access_token: facebookToken }); await refreshAll(); }} size="sm">Save</Button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Instagram API token</label>
                     <div className="flex gap-2 mt-1">
                       <Input placeholder="IGQV..." value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} />
-                      <Button onClick={async () => { await saveManualToken('instagram', { access_token: instagramToken }); }} size="sm">Save</Button>
+                      <Button onClick={async () => { await saveManualToken('instagram', { access_token: instagramToken }); await refreshAll(); }} size="sm">Save</Button>
                     </div>
                   </div>
                 </div>
@@ -158,7 +165,7 @@ export default function Feeds() {
             <CardContent>
               <div className="flex gap-2 mb-3">
                 <Input placeholder="https://example.com/feed.xml" value={rssUrl} onChange={(e) => setRssUrl(e.target.value)} />
-                <Button onClick={async () => { if (rssUrl) { await addRssSource(rssUrl); setRssUrl(''); } }}><Rss className="h-4 w-4 mr-1"/>Add</Button>
+                <Button onClick={async () => { if (rssUrl) { await addRssSource(rssUrl); setRssUrl(''); await refreshProvider('rss'); } }}><Rss className="h-4 w-4 mr-1"/>Add</Button>
               </div>
               {sources.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No sources yet.</p>
@@ -169,8 +176,8 @@ export default function Feeds() {
                       <a href={s.url} target="_blank" className="truncate hover:underline">{s.title || s.url}</a>
                       <div className="flex items-center gap-2">
                         <small className="text-muted-foreground">Limit</small>
-                        <Input className="w-20" type="number" min={1} defaultValue={s.limit || 20} onBlur={async (e) => { await setRssSourceLimit(s.id, Number(e.target.value)) }} />
-                        <Button variant="ghost" size="sm" onClick={() => removeRssSource(s.id)}>Remove</Button>
+                        <Input className="w-20" type="number" min={1} defaultValue={s.limit || 20} onBlur={async (e) => { await setRssSourceLimit(s.id, Number(e.target.value)); await refreshProvider('rss'); }} />
+                        <Button variant="ghost" size="sm" onClick={async () => { await removeRssSource(s.id); await refreshProvider('rss'); }}>Remove</Button>
                       </div>
                     </li>
                   ))}
@@ -223,7 +230,7 @@ function FeedList({ items, emptyLabel }: { items: ReturnType<typeof Array.protot
             <CardTitle className="text-sm">
               <span className="inline-flex items-center gap-2">
                 <ProviderBadge provider={it.provider} />
-                <a href={it.url} target="_blank" className="hover:underline truncate inline-block max-w-[14rem] align-middle">{it.title}</a>
+                <a href={it.url || '#'} target="_blank" rel="noreferrer noopener" className="hover:underline truncate inline-block max-w-[14rem] align-middle">{it.title}</a>
               </span>
             </CardTitle>
           </CardHeader>
@@ -232,6 +239,11 @@ function FeedList({ items, emptyLabel }: { items: ReturnType<typeof Array.protot
               <span className="truncate">{it.author || ''}</span>
               {it.timestamp && <span>{new Date(it.timestamp).toLocaleString()}</span>}
             </div>
+            {it.extra?.source && (
+              <div className="mt-1 truncate" title={it.extra.source as string}>
+                <span>Source: {String(it.extra.source)}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
       ))}
