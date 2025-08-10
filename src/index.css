@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure mosaic fills parent height */
+.mosaic-container, .mosaic, .mosaic-root, .mosaic-split, .mosaic-tile, .mosaic-window {
+  height: 100%;
+}
+.mosaic-blueprint-theme .mosaic-window .mosaic-window-body {
+  height: 100%;
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
 */
