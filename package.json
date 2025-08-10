@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "proxy": "tsx server/index.ts"
+    "proxy": "tsx server/index.ts",
+    "types:generate": "npx supabase gen types typescript --project-id ldnilzmkufdosagwowgd > src/integrations/supabase/types.ts"
   },
   "dependencies": {
     "@handsontable/react": "^16.0.1",
