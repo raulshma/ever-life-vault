@@ -23,7 +23,7 @@ import {
 import { useTasks } from '@/hooks/useTasks';
 import { TaskEditDialog } from '@/components/TaskEditDialog';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
-import { MonthlyStatusSheets } from '@/components/MonthlyStatusSheets';
+const MonthlyStatusSheets = React.lazy(() => import('@/components/MonthlyStatusSheets').then(m => ({ default: m.MonthlyStatusSheets })));
 import PageHeader from '@/components/PageHeader';
 
 const columns = [
@@ -442,7 +442,9 @@ export default function DayTracker() {
           </TabsContent>
 
           <TabsContent value="monthly">
-            <MonthlyStatusSheets />
+            <React.Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading monthly sheets…</div>}>
+              <MonthlyStatusSheets />
+            </React.Suspense>
           </TabsContent>
         </Tabs>
       </div>

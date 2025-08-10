@@ -5,12 +5,11 @@ import type { Json } from '@/integrations/supabase/types'
 import { useWidgetRegistry, registerBuiltInWidgets } from './registry'
 import type { DashboardLayoutRecord, WidgetDefinition, WidgetInstanceId, WidgetProps, WidgetState } from './types'
 import type { LayoutTree, GridLayout, MosaicTree, GridColSpan, GridRowSpan } from './types'
-import { useDrag, useDrop } from 'react-dnd'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+// Note: Drag-and-drop is loaded only in EditingStackView to keep the default view light
 
 type WidgetStateMap = Record<WidgetInstanceId, WidgetState<any>>
 
-const DND_WIDGET_ITEM = 'dashboard-widget-item'
+// kept in editing-only module
 
 interface RuntimeContextValue {
   // Grid-first layout state
@@ -270,8 +269,8 @@ function collectLeafIds(node: MosaicTree | null): WidgetInstanceId[] {
 }
 
 // Mobile-friendly stacked view (cards)
-export function DashboardStackView({ isEditing = false }: { isEditing?: boolean }) {
-  const { layout, widgets, spans, rowSpans, setSpan, setRowSpan, updateWidgetConfig, reorderWidgets, removeWidget } = useDashboardRuntime()
+export function DashboardStackView() {
+  const { layout, widgets, spans, rowSpans, updateWidgetConfig } = useDashboardRuntime()
   const registry = useWidgetRegistry()
 
   const orderedIds = useMemo(() => {
@@ -311,128 +310,23 @@ export function DashboardStackView({ isEditing = false }: { isEditing?: boolean 
 
   return (
     <div className="grid w-full min-w-0 overflow-visible auto-rows-[minmax(6rem,auto)] grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
-      {orderedIds.map((id, index) => {
+      {orderedIds.map((id) => {
         const state = widgets[id]
         if (!state) return null
         const def = registry.get(state.type)
         if (!def) return null
         const Component = def.component as React.ComponentType<WidgetProps<any>>
-        const currentSpan = spans[id] || 1
+        const currentSpan = (spans[id] || 1) as GridColSpan
+        const currentRowSpan = (rowSpans[id] || 1) as GridRowSpan
         return (
-          <SortableWidgetTile
-            key={id}
-            id={id}
-            index={index}
-            moveItem={(from, to) => {
-              if (from === to) return
-              const next = [...orderedIds]
-              const [moved] = next.splice(from, 1)
-              next.splice(to, 0, moved)
-              reorderWidgets(next)
-            }}
-            isEditing={isEditing}
-            onRemove={() => removeWidget(id)}
-            gridClassName={`${spanToClass(currentSpan as GridColSpan)} ${rowSpanToClass((rowSpans[id] || 1) as GridRowSpan)}`}
-            currentSpan={currentSpan as GridColSpan}
-            onSpanChange={(s) => setSpan(id, s)}
-            currentRowSpan={(rowSpans[id] || 1) as GridRowSpan}
-            onRowSpanChange={(s) => setRowSpan(id, s)}
-          >
+          <div key={id} className={`min-w-0 ${spanToClass(currentSpan)} ${rowSpanToClass(currentRowSpan)}`}>
             <React.Suspense fallback={<div className="glass rounded-xl p-4">Loading...</div>}>
               <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} />
             </React.Suspense>
-          </SortableWidgetTile>
+          </div>
         )
       })}
     </div>
   )
 }
-
-function SortableWidgetTile({
-  id,
-  index,
-  moveItem,
-  isEditing,
-  onRemove,
-  gridClassName,
-  currentSpan,
-  onSpanChange,
-  currentRowSpan,
-  onRowSpanChange,
-  children,
-}: {
-  id: WidgetInstanceId
-  index: number
-  moveItem: (fromIndex: number, toIndex: number) => void
-  isEditing: boolean
-  onRemove: () => void
-  gridClassName?: string
-  currentSpan: GridColSpan
-  onSpanChange: (span: GridColSpan) => void
-  currentRowSpan: GridRowSpan
-  onRowSpanChange: (span: GridRowSpan) => void
-  children: React.ReactNode
-}) {
-  const ref = React.useRef<HTMLDivElement | null>(null)
-
-  const [, drop] = useDrop({
-    accept: DND_WIDGET_ITEM,
-    hover(item: { id: WidgetInstanceId; index: number }) {
-      if (!ref.current) return
-      const dragIndex = item.index
-      const hoverIndex = index
-      if (dragIndex === hoverIndex) return
-      moveItem(dragIndex, hoverIndex)
-      item.index = hoverIndex
-    },
-  })
-
-  const [{ isDragging }, drag] = useDrag({
-    type: DND_WIDGET_ITEM,
-    item: { id, index },
-    canDrag: () => isEditing,
-    collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
-  })
-
-  drag(drop(ref))
-
-  return (
-    <div ref={ref} className={(isDragging ? 'opacity-60 ' : '') + 'min-w-0 ' + (gridClassName || '')}>
-      <div className="relative">
-        {isEditing && (
-          <div className="absolute inset-x-0 -top-2 z-10 px-1">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">Drag to reorder</div>
-              <div className="ml-auto flex items-center gap-1 overflow-x-auto">
-                <ToggleGroup type="single" value={String(currentSpan)} onValueChange={(v) => v && onSpanChange(Number(v) as GridColSpan)}>
-                  {[1,2,3,4].map((n) => (
-                    <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Span ${n} columns`}>
-                      {n}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                <ToggleGroup type="single" value={String(currentRowSpan)} onValueChange={(v) => v && onRowSpanChange(Number(v) as GridRowSpan)}>
-                  {[1,2,3].map((n) => (
-                    <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Row span ${n}`}>
-                      R{n}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-                <button
-                  aria-label="Remove widget"
-                  className="rounded bg-destructive/90 text-destructive-foreground px-2 py-0.5 text-xs hover:bg-destructive"
-                  onClick={onRemove}
-                >
-                  Remove
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {children}
-      </div>
-    </div>
-  )
-}
-
 

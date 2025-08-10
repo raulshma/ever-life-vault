@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { startTransition } from 'react';
 import { Link, LinkProps, useNavigate } from 'react-router-dom';
 import { useSettings } from '@/hooks/useSettings';
 
@@ -10,6 +10,33 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
   const navigate = useNavigate();
   const { viewTransitionsEnabled } = useSettings();
 
+  const handleMouseEnter = () => {
+    // Best-effort prefetch for common routes to make navigation feel instant
+    if (typeof to !== 'string') return;
+    const path = to;
+    const prefetchers: Array<{ test: (p: string) => boolean; load: () => Promise<unknown> }> = [
+      { test: (p) => p === '/', load: () => import('@/pages/Dashboard') },
+      { test: (p) => p.startsWith('/day-tracker'), load: () => import('@/pages/DayTracker') },
+      { test: (p) => p.startsWith('/knowledge'), load: () => import('@/pages/KnowledgeBase') },
+      { test: (p) => p.startsWith('/focus'), load: () => import('@/pages/Focus') },
+      { test: (p) => p.startsWith('/feeds'), load: () => import('@/pages/Feeds') },
+      { test: (p) => p.startsWith('/vault'), load: () => import('@/pages/Vault') },
+      { test: (p) => p.startsWith('/documents'), load: () => import('@/pages/Documents') },
+      { test: (p) => p.startsWith('/inventory'), load: () => import('@/pages/Inventory') },
+      { test: (p) => p.startsWith('/homelab/servers'), load: () => import('@/pages/homelab/Servers') },
+      { test: (p) => p.startsWith('/homelab/monitoring'), load: () => import('@/pages/homelab/Monitoring') },
+      { test: (p) => p.startsWith('/homelab/network'), load: () => import('@/pages/homelab/Network') },
+      { test: (p) => p.startsWith('/homelab/storage'), load: () => import('@/pages/homelab/Storage') },
+      { test: (p) => p.startsWith('/homelab/jellyfin'), load: () => import('@/pages/homelab/Jellyfin') },
+      { test: (p) => p.startsWith('/homelab/karakeep'), load: () => import('@/pages/homelab/Karakeep') },
+    ];
+    const match = prefetchers.find((f) => f.test(path));
+    if (match) {
+      // Fire and forget
+      match.load().catch(() => {});
+    }
+  };
+
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!viewTransitionsEnabled || !('startViewTransition' in document)) {
       return; // Let the default Link behavior handle navigation
@@ -19,12 +46,12 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
     
     // Use view transitions API if available and enabled
     (document as any).startViewTransition(() => {
-      navigate(to as string);
+      startTransition(() => navigate(to as string));
     });
   };
 
   return (
-    <Link to={to} onClick={handleClick} {...props}>
+    <Link to={to} onMouseEnter={handleMouseEnter} onFocus={handleMouseEnter} onClick={handleClick} {...props}>
       {children}
     </Link>
   );

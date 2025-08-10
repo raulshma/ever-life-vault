@@ -1,6 +1,4 @@
 import React from 'react'
-import { DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
 import { DashboardRuntimeProvider, DashboardStackView } from '../runtime'
 import { AddWidgetDialog } from './AddWidgetDialog'
 import { Button } from '@/components/ui/button'
@@ -10,13 +8,13 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
+const EditingStackView = React.lazy(() => import('./EditingStackView'))
+
 export default function DashboardMosaic() {
   return (
-    <DndProvider backend={HTML5Backend}>
-      <DashboardRuntimeProvider>
-        <DashboardMosaicInner />
-      </DashboardRuntimeProvider>
-    </DndProvider>
+    <DashboardRuntimeProvider>
+      <DashboardMosaicInner />
+    </DashboardRuntimeProvider>
   )
 }
 
@@ -58,7 +56,13 @@ function DashboardMosaicInner() {
           <span className="hidden sm:inline">Default size</span>
           <InlineSpanSelector />
         </div>
-        <DashboardStackView isEditing={isEditing} />
+        {isEditing ? (
+          <React.Suspense fallback={<div className="glass rounded-xl p-4">Loading editor…</div>}>
+            <EditingStackView />
+          </React.Suspense>
+        ) : (
+          <DashboardStackView />
+        )}
       </div>
     </>
   )

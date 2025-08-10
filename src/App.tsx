@@ -3,43 +3,44 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { Suspense, lazy } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import { VaultSessionProvider } from "./hooks/useVaultSession";
 import { SettingsProvider } from "./hooks/useSettings";
 import { Layout } from "@/components/Layout";
-import Dashboard from "./pages/Dashboard";
 import { FocusTimerProvider } from "@/hooks/useFocusTimerController";
-import Auth from "./pages/Auth";
-import DayTracker from "./pages/DayTracker";
-import KnowledgeBase from "./pages/KnowledgeBase";
-import Vault from "./pages/Vault";
-import Documents from "./pages/Documents";
-import Inventory from "./pages/Inventory";
-import HomelabServers from "./pages/homelab/Servers";
-import HomelabMonitoring from "./pages/homelab/Monitoring";
-import HomelabNetwork from "./pages/homelab/Network";
-import HomelabStorage from "./pages/homelab/Storage";
-import HomelabMediaRequests from "./pages/homelab/MediaRequests";
-import HomelabJellyfin from "./pages/homelab/Jellyfin";
-import HomelabKarakeep from "./pages/homelab/Karakeep";
-import NotFound from "./pages/NotFound";
-import Focus from "./pages/Focus";
-import LiveShareNew from "./pages/LiveShareNew";
-import LiveShareRoom from "./pages/LiveShareRoom";
-import Profile from "./pages/Profile";
-import Feeds from "./pages/Feeds";
+
+// Route-level code splitting
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Auth = lazy(() => import("./pages/Auth"));
+const DayTracker = lazy(() => import("./pages/DayTracker"));
+const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
+const Vault = lazy(() => import("./pages/Vault"));
+const Documents = lazy(() => import("./pages/Documents"));
+const Inventory = lazy(() => import("./pages/Inventory"));
+const HomelabServers = lazy(() => import("./pages/homelab/Servers"));
+const HomelabMonitoring = lazy(() => import("./pages/homelab/Monitoring"));
+const HomelabNetwork = lazy(() => import("./pages/homelab/Network"));
+const HomelabStorage = lazy(() => import("./pages/homelab/Storage"));
+const HomelabMediaRequests = lazy(() => import("./pages/homelab/MediaRequests"));
+const HomelabJellyfin = lazy(() => import("./pages/homelab/Jellyfin"));
+const HomelabKarakeep = lazy(() => import("./pages/homelab/Karakeep"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Focus = lazy(() => import("./pages/Focus"));
+const LiveShareNew = lazy(() => import("./pages/LiveShareNew"));
+const LiveShareRoom = lazy(() => import("./pages/LiveShareRoom"));
+const Profile = lazy(() => import("./pages/Profile"));
+const Feeds = lazy(() => import("./pages/Feeds"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Prevent automatic refetch when window/tab regains focus
       refetchOnWindowFocus: false,
-      // Also prevent refetch on reconnect to avoid surprise reloads
       refetchOnReconnect: false,
-      // Optional: don't retry immediately on error while user is navigating
       retry: 1,
+      // Keep data fresh enough to feel instant on navigation
+      staleTime: 60 * 1000,
+      gcTime: 10 * 60 * 1000,
     },
   },
 });
@@ -66,41 +67,43 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   return (
-    <Routes>
-      <Route path="/auth" element={<Auth />} />
-      {/* Public share routes - accessible without auth */}
-      <Route path="/share/:id" element={<LiveShareRoom />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="day-tracker" element={<DayTracker />} />
-        <Route path="knowledge" element={<KnowledgeBase />} />
-        <Route path="focus" element={<Focus />} />
-        <Route path="feeds" element={<Feeds />} />
-        <Route path="share/new" element={<LiveShareNew />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="vault" element={<Vault />} />
-        <Route path="documents" element={<Documents />} />
-        <Route path="inventory" element={<Inventory />} />
-        <Route path="homelab/servers" element={<HomelabServers />} />
-        <Route path="homelab/monitoring" element={<HomelabMonitoring />} />
-        <Route path="homelab/network" element={<HomelabNetwork />} />
-        <Route path="homelab/storage" element={<HomelabStorage />} />
-        <Route path="homelab/jellyfin" element={<HomelabJellyfin />} />
-        <Route path="homelab/karakeep" element={<HomelabKarakeep />} />
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        {/* Public share routes - accessible without auth */}
+        <Route path="/share/:id" element={<LiveShareRoom />} />
         <Route
-          path="homelab/media-requests"
-          element={<HomelabMediaRequests />}
-        />
-      </Route>
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Layout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="day-tracker" element={<DayTracker />} />
+          <Route path="knowledge" element={<KnowledgeBase />} />
+          <Route path="focus" element={<Focus />} />
+          <Route path="feeds" element={<Feeds />} />
+          <Route path="share/new" element={<LiveShareNew />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="vault" element={<Vault />} />
+          <Route path="documents" element={<Documents />} />
+          <Route path="inventory" element={<Inventory />} />
+          <Route path="homelab/servers" element={<HomelabServers />} />
+          <Route path="homelab/monitoring" element={<HomelabMonitoring />} />
+          <Route path="homelab/network" element={<HomelabNetwork />} />
+          <Route path="homelab/storage" element={<HomelabStorage />} />
+          <Route path="homelab/jellyfin" element={<HomelabJellyfin />} />
+          <Route path="homelab/karakeep" element={<HomelabKarakeep />} />
+          <Route
+            path="homelab/media-requests"
+            element={<HomelabMediaRequests />}
+          />
+        </Route>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
