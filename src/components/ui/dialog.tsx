@@ -38,6 +38,8 @@ const DialogContent = React.forwardRef<
   const footerChildren: React.ReactNode[] = [];
   const bodyChildren: React.ReactNode[] = [];
 
+  // Avoid explicit body scroll locking to prevent hidden page scrollbar issues
+
   childrenArray.forEach((child) => {
     const type: any = (child as any)?.type;
     const displayName = type?.displayName;
@@ -61,17 +63,17 @@ const DialogContent = React.forwardRef<
           // Base positioning & animation
           "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
           // Height behavior; avoid nested scrollbars
-          // Make content scrollable so sticky header/footer stick to top/bottom
-          "xs:rounded-lg rounded-none xs:h-auto h-[100dvh] xs:max-h-[85vh] max-h-[100dvh] overflow-y-auto p-0",
+          // The inner wrapper is the only scroll container to avoid double scrollbars
+          "xs:rounded-lg rounded-none xs:h-auto h-[100dvh] xs:max-h-[85vh] max-h-[100dvh] overflow-hidden p-0",
           className
         )}
         {...props}
         aria-describedby={('aria-describedby' in (props as any) ? (props as any)['aria-describedby'] : undefined)}
       >
-        <div className="flex max-h-[inherit] flex-col">
+        <div className="grid max-h-[inherit] grid-rows-[auto_auto_1fr_auto] overflow-y-auto overscroll-contain">
           {headerChildren}
           {subheaderChildren}
-          <div className="min-h-0 flex-1 overflow-x-hidden px-6 py-5">
+          <div className="min-h-0 overflow-x-hidden px-6 py-5">
             {bodyChildren}
           </div>
           {footerChildren.length > 0 ? footerChildren : null}
