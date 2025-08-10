@@ -4,8 +4,9 @@ import { supabase } from '@/integrations/supabase/client'
 import type { Json } from '@/integrations/supabase/types'
 import { useWidgetRegistry, registerBuiltInWidgets } from './registry'
 import type { DashboardLayoutRecord, WidgetDefinition, WidgetInstanceId, WidgetProps, WidgetState } from './types'
-import type { LayoutTree, GridLayout, MosaicTree } from './types'
+import type { LayoutTree, GridLayout, MosaicTree, GridColSpan } from './types'
 import { useDrag, useDrop } from 'react-dnd'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 type WidgetStateMap = Record<WidgetInstanceId, WidgetState<any>>
 
@@ -15,12 +16,14 @@ interface RuntimeContextValue {
   // Grid-first layout state
   layout: LayoutTree | null
   widgets: WidgetStateMap
+  spans: Record<WidgetInstanceId, GridColSpan>
   setLayout: (t: LayoutTree | null) => void
   setWidgets: React.Dispatch<React.SetStateAction<WidgetStateMap>>
-  addWidget: (def: WidgetDefinition<any>) => void
+  addWidget: (def: WidgetDefinition<any>, initialSpan?: GridColSpan) => void
   removeWidget: (id: WidgetInstanceId) => void
   updateWidgetConfig: <T>(id: WidgetInstanceId, next: T) => void
   reorderWidgets: (order: WidgetInstanceId[]) => void
+  setSpan: (id: WidgetInstanceId, span: GridColSpan) => void
   resetLayout: () => void
   exportLayout: () => string
   importLayout: (json: string) => void
@@ -76,15 +79,18 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
   const registry = useWidgetRegistry()
   const [layout, setLayout] = useState<LayoutTree | null>(null)
   const [widgets, setWidgets] = useState<WidgetStateMap>({})
+  const [spans, setSpans] = useState<Record<WidgetInstanceId, GridColSpan>>({})
   const initialLoadedRef = useRef(false)
 
   useEffect(() => {
     registerBuiltInWidgets()
   }, [])
 
-  const saveDebounced = useDebounced(async (nextLayout: LayoutTree | null, nextWidgets: WidgetStateMap) => {
+  const saveDebounced = useDebounced(async (nextLayout: LayoutTree | null, nextWidgets: WidgetStateMap, nextSpans?: Record<WidgetInstanceId, GridColSpan>) => {
     if (!user) return
     await upsertRecord(user.id, nextLayout, nextWidgets)
+    // Persist spans client-side for now
+    try { localStorage.setItem('dashboard:spans', JSON.stringify(nextSpans ?? spans)) } catch {}
   }, 800)
 
   useEffect(() => {
@@ -104,14 +110,20 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
         }
       }
       if (rec?.widget_state) setWidgets(rec.widget_state as any)
+      try {
+        const saved = localStorage.getItem('dashboard:spans')
+        if (saved) setSpans(JSON.parse(saved))
+      } catch {}
       initialLoadedRef.current = true
     })().catch(() => {})
   }, [user])
 
-  const addWidget = useCallback((def: WidgetDefinition<any>) => {
+  const addWidget = useCallback((def: WidgetDefinition<any>, initialSpan: GridColSpan = 1) => {
     const id = generateId()
     const nextWidgets = { ...widgets, [id]: { type: def.id, version: def.version, config: def.defaultConfig } }
     setWidgets(nextWidgets)
+    const nextSpans = { ...spans, [id]: initialSpan }
+    setSpans(nextSpans)
     // Grid-first behavior: append to order, converting legacy mosaic to grid if needed
     let nextLayout: LayoutTree | null = layout
     if (!layout) {
@@ -123,8 +135,8 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       nextLayout = { kind: 'grid', order: [ ...ids, id ] }
     }
     setLayout(nextLayout)
-    saveDebounced(nextLayout, nextWidgets)
-  }, [saveDebounced, layout, widgets])
+    saveDebounced(nextLayout, nextWidgets, nextSpans)
+  }, [saveDebounced, layout, widgets, spans])
 
   const removeWidget = useCallback((id: WidgetInstanceId) => {
     setWidgets((prev) => {
@@ -140,36 +152,49 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
         nextLayout = { kind: 'grid', order: ids.filter((x) => x !== id) }
       }
       setLayout(nextLayout)
-      saveDebounced(nextLayout, next)
+      const nextSpans = { ...spans }
+      delete nextSpans[id]
+      setSpans(nextSpans)
+      saveDebounced(nextLayout, next, nextSpans)
       return next
     })
-  }, [saveDebounced, layout])
+  }, [saveDebounced, layout, spans])
 
   const updateWidgetConfig = useCallback(<T,>(id: WidgetInstanceId, nextConfig: T) => {
     setWidgets((prev) => {
       const entry = prev[id]
       if (!entry) return prev
       const next = { ...prev, [id]: { ...entry, config: nextConfig } }
-      saveDebounced(layout, next)
+      saveDebounced(layout, next, spans)
       return next
     })
-  }, [saveDebounced, layout])
+  }, [saveDebounced, layout, spans])
 
   const reorderWidgets = useCallback((order: WidgetInstanceId[]) => {
     const nextLayout: GridLayout = { kind: 'grid', order }
     setLayout(nextLayout)
-    saveDebounced(nextLayout, widgets)
-  }, [saveDebounced, widgets])
+    saveDebounced(nextLayout, widgets, spans)
+  }, [saveDebounced, widgets, spans])
+
+  const setSpan = useCallback((id: WidgetInstanceId, span: GridColSpan) => {
+    setSpans((prev) => {
+      const next = { ...prev, [id]: span }
+      saveDebounced(layout, widgets, next)
+      return next
+    })
+  }, [layout, widgets, saveDebounced])
 
   const value = useMemo(() => ({
     layout,
     widgets,
+    spans,
     setLayout: (t: LayoutTree | null) => { setLayout(t); saveDebounced(t, widgets) },
     setWidgets,
     addWidget,
     removeWidget,
     updateWidgetConfig,
     reorderWidgets,
+    setSpan,
     resetLayout: () => {},
     exportLayout: () => '',
     importLayout: () => {},
@@ -223,7 +248,7 @@ function collectLeafIds(node: MosaicTree | null): WidgetInstanceId[] {
 
 // Mobile-friendly stacked view (cards)
 export function DashboardStackView({ isEditing = false }: { isEditing?: boolean }) {
-  const { layout, widgets, updateWidgetConfig, reorderWidgets, removeWidget } = useDashboardRuntime()
+  const { layout, widgets, spans, setSpan, updateWidgetConfig, reorderWidgets, removeWidget } = useDashboardRuntime()
   const registry = useWidgetRegistry()
 
   const orderedIds = useMemo(() => {
@@ -245,6 +270,15 @@ export function DashboardStackView({ isEditing = false }: { isEditing?: boolean 
     return <div className="empty-bubble p-6 text-center text-muted-foreground">Add widgets to get started</div>
   }
 
+  const spanToClass = (s: GridColSpan): string => {
+    switch (s) {
+      case 4: return 'col-span-1 sm:col-span-2 lg:col-span-3 2xl:col-span-4'
+      case 3: return 'col-span-1 sm:col-span-2 lg:col-span-3'
+      case 2: return 'col-span-1 sm:col-span-2'
+      default: return 'col-span-1'
+    }
+  }
+
   return (
     <div className="grid w-full min-w-0 overflow-visible grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
       {orderedIds.map((id, index) => {
@@ -253,6 +287,7 @@ export function DashboardStackView({ isEditing = false }: { isEditing?: boolean 
         const def = registry.get(state.type)
         if (!def) return null
         const Component = def.component as React.ComponentType<WidgetProps<any>>
+        const currentSpan = spans[id] || 1
         return (
           <SortableWidgetTile
             key={id}
@@ -267,6 +302,9 @@ export function DashboardStackView({ isEditing = false }: { isEditing?: boolean 
             }}
             isEditing={isEditing}
             onRemove={() => removeWidget(id)}
+            gridClassName={spanToClass(currentSpan as GridColSpan)}
+            currentSpan={currentSpan as GridColSpan}
+            onSpanChange={(s) => setSpan(id, s)}
           >
             <React.Suspense fallback={<div className="glass rounded-xl p-4">Loading...</div>}>
               <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} />
@@ -284,6 +322,9 @@ function SortableWidgetTile({
   moveItem,
   isEditing,
   onRemove,
+  gridClassName,
+  currentSpan,
+  onSpanChange,
   children,
 }: {
   id: WidgetInstanceId
@@ -291,6 +332,9 @@ function SortableWidgetTile({
   moveItem: (fromIndex: number, toIndex: number) => void
   isEditing: boolean
   onRemove: () => void
+  gridClassName?: string
+  currentSpan: GridColSpan
+  onSpanChange: (span: GridColSpan) => void
   children: React.ReactNode
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null)
@@ -317,18 +361,29 @@ function SortableWidgetTile({
   drag(drop(ref))
 
   return (
-    <div ref={ref} className={(isDragging ? 'opacity-60 ' : '') + 'min-w-0'}>
+    <div ref={ref} className={(isDragging ? 'opacity-60 ' : '') + 'min-w-0 ' + (gridClassName || '')}>
       <div className="relative">
         {isEditing && (
-          <div className="absolute inset-x-0 -top-2 z-10 flex justify-between px-1">
-            <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">Drag to reorder</div>
-            <button
-              aria-label="Remove widget"
-              className="rounded bg-destructive/90 text-destructive-foreground px-2 py-0.5 text-xs hover:bg-destructive"
-              onClick={onRemove}
-            >
-              Remove
-            </button>
+          <div className="absolute inset-x-0 -top-2 z-10 px-1">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">Drag to reorder</div>
+              <div className="ml-auto flex items-center gap-1 overflow-x-auto">
+                <ToggleGroup type="single" value={String(currentSpan)} onValueChange={(v) => v && onSpanChange(Number(v) as GridColSpan)}>
+                  {[1,2,3,4].map((n) => (
+                    <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Span ${n} columns`}>
+                      {n}
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+                <button
+                  aria-label="Remove widget"
+                  className="rounded bg-destructive/90 text-destructive-foreground px-2 py-0.5 text-xs hover:bg-destructive"
+                  onClick={onRemove}
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
           </div>
         )}
         {children}

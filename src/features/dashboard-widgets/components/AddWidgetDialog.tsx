@@ -4,14 +4,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useWidgetRegistry } from '../registry'
 import { useDashboardRuntime } from '../runtime'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export function AddWidgetDialog() {
   const registry = useWidgetRegistry()
-  const { addWidget } = useDashboardRuntime()
+  const { addWidget, setSpan } = useDashboardRuntime()
   const widgets = registry.list()
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState('')
   const [category, setCategory] = React.useState<'all' | 'shortcuts' | 'helpers' | 'analytics' | 'actions' | 'other'>('all')
+  const [defaultSpan, setDefaultSpan] = React.useState<'1' | '2' | '3' | '4'>('1')
 
   const categories: Array<{ id: 'all' | 'shortcuts' | 'helpers' | 'analytics' | 'actions' | 'other'; label: string }> = [
     { id: 'all', label: 'All' },
@@ -49,11 +51,19 @@ export function AddWidgetDialog() {
               ))}
             </div>
           </div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div>Default column span</div>
+            <ToggleGroup type="single" value={defaultSpan} onValueChange={(v) => v && setDefaultSpan(v as any)}>
+              {(['1','2','3','4'] as const).map((n) => (
+                <ToggleGroupItem key={n} value={n} size="sm" aria-label={`Span ${n} columns`}>{n}</ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((w) => (
               <button
                 key={w.id}
-                onClick={() => { addWidget(w); setOpen(false) }}
+                onClick={() => { addWidget(w, Number(defaultSpan) as any); setOpen(false) }}
                 className="p-3 rounded-lg glass hover:bg-muted/40 hover-lift text-left transition-colors"
               >
                 <div className="font-medium">{w.title}</div>

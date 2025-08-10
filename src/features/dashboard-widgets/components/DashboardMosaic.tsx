@@ -8,6 +8,7 @@ import { Download, Upload, RefreshCw } from 'lucide-react'
 import { useDashboardRuntime } from '../runtime'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 export default function DashboardMosaic() {
   return (
@@ -53,9 +54,34 @@ function DashboardMosaicInner() {
         </div>
       </div>
       <div className="pb-mobile-tabbar overflow-visible min-w-0 no-page-h-scroll">
+        <div className="flex items-center justify-end mb-2 gap-2 text-xs text-muted-foreground">
+          <span className="hidden sm:inline">Default size</span>
+          <InlineSpanSelector />
+        </div>
         <DashboardStackView isEditing={isEditing} />
       </div>
     </>
+  )
+}
+
+function InlineSpanSelector() {
+  const { spans, setSpan, layout } = useDashboardRuntime()
+  // Apply to last added widget for quick control; on a richer UI, this could be per-tile control.
+  const lastId = React.useMemo(() => {
+    if (!layout || (layout as any).kind !== 'grid') return undefined
+    const ids = (layout as any).order as string[]
+    return ids[ids.length - 1]
+  }, [layout])
+  if (!lastId) return null
+  const value = String(spans[lastId] || 1)
+  return (
+    <ToggleGroup type="single" value={value} onValueChange={(v) => v && setSpan(lastId, Number(v) as any)}>
+      {[1,2,3,4].map((n) => (
+        <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Span ${n} columns`}>
+          {n}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }
 

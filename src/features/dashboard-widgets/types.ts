@@ -19,6 +19,8 @@ export interface GridLayout {
   order: WidgetInstanceId[]
 }
 
+export type GridColSpan = 1 | 2 | 3 | 4
+
 export type LayoutTree = MosaicTree | GridLayout
 
 export interface WidgetState<TConfig = unknown> {
