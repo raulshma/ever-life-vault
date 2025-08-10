@@ -66,10 +66,9 @@ This project is built with:
 - Run the proxy server for external integrations: `pnpm proxy`
 - Supabase types: `pnpm types:generate`
 
-### New Mosaic Dashboard
+### Dashboard Widgets
 
-- Set `VITE_NEW_DASHBOARD=1` in your environment to enable the new mosaic dashboard on `Dashboard`.
-- Layout persists per-user to `public.dashboard_layouts`.
+- Grid-based dashboard with drag-and-drop reordering and per-user persistence to `public.dashboard_layouts`.
 - Widgets are modular via `src/features/dashboard-widgets/`.
 - See `docs/dashboard-widgets.md` for architecture and tracking.
 

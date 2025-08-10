@@ -2,7 +2,24 @@ import React from 'react'
 
 export type WidgetInstanceId = string
 
-export type MosaicTree = import('react-mosaic-component').MosaicNode<WidgetInstanceId>
+// Legacy Mosaic tree (kept only for migration of previously saved layouts)
+export type LegacyMosaicNode<T> =
+  | T
+  | {
+      direction: 'row' | 'column'
+      first: LegacyMosaicNode<T>
+      second: LegacyMosaicNode<T>
+      splitPercentage?: number
+    }
+
+export type MosaicTree = LegacyMosaicNode<WidgetInstanceId>
+
+export interface GridLayout {
+  kind: 'grid'
+  order: WidgetInstanceId[]
+}
+
+export type LayoutTree = MosaicTree | GridLayout
 
 export interface WidgetState<TConfig = unknown> {
   type: string
@@ -13,7 +30,7 @@ export interface WidgetState<TConfig = unknown> {
 export interface DashboardLayoutRecord<TState extends Record<WidgetInstanceId, WidgetState> = Record<WidgetInstanceId, WidgetState>> {
   id: string
   user_id: string
-  layout_tree: MosaicTree | null
+  layout_tree: LayoutTree | null
   widget_state: TState
   updated_at: string
 }

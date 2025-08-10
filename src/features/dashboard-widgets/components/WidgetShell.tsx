@@ -7,7 +7,7 @@ export function WidgetShell({ title, actions, children }: { title: string; actio
         <div className="truncate">{title}</div>
         <div className="ml-auto flex items-center gap-1">{actions}</div>
       </div>
-      <div className="flex-1 min-h-0 overflow-auto p-4">{children}</div>
+      <div className="flex-1 min-h-0 overflow-auto p-4 min-w-0">{children}</div>
     </div>
   )
 }

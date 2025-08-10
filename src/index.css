@@ -2,58 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Ensure mosaic fills parent height */
-/* Allow mosaic to grow with content, and only constrain where we explicitly set a height */
-.mosaic-container {
-  min-height: 0; /* let parent control */
-}
-.mosaic,
-.mosaic-root,
-.mosaic-tile,
-.mosaic-window {
-  height: auto;
-}
-.mosaic-blueprint-theme .mosaic-window .mosaic-window-body {
-  height: auto;
-}
-
-/* Mosaic visual overrides to match design system */
-.mosaic-blueprint-theme .mosaic-window {
-  background: hsl(var(--card) / 0.65);
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-.mosaic-blueprint-theme .mosaic-window .mosaic-window-toolbar {
-  height: 42px;
-  background: hsl(var(--card) / 0.8);
-  border-bottom: 1px solid hsl(var(--border));
-  padding: 0 0.75rem;
-  display: flex;
-  align-items: center;
-  color: hsl(var(--foreground) / 0.85);
-}
-.mosaic-blueprint-theme .mosaic-window .mosaic-window-title {
-  font-weight: 600;
-  font-size: 0.925rem;
-}
-.mosaic-blueprint-theme .mosaic-split {
-  background: transparent;
-}
-.mosaic-blueprint-theme .mosaic-split:hover {
-  box-shadow: none;
-}
-.mosaic-blueprint-theme .mosaic-split:before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, hsl(var(--accent) / 0.18), hsl(var(--primary) / 0.18));
-  opacity: 0;
-  transition: opacity 150ms ease;
-}
-.mosaic-blueprint-theme .mosaic-split:hover:before {
-  opacity: 1;
-}
+/* Remove legacy mosaic overrides */
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here.
 All colors MUST be HSL.
@@ -211,9 +160,7 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  html {
-    @apply overflow-x-hidden;
-  }
+  html {}
   
   body,
   #root {
@@ -226,7 +173,6 @@ All colors MUST be HSL.
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    overflow-x: hidden;
   }
 
   /* Respect safe areas on devices with notches */
@@ -454,6 +400,10 @@ All colors MUST be HSL.
 
 /* Mobile-only utilities */
 @layer utilities {
+  /* prevent long action rows from causing full-page horizontal scroll */
+  .no-page-h-scroll {
+    overflow-x: clip;
+  }
   /* Ensures page content clears the fixed mobile bottom tab bar and respects safe areas */
   .pb-mobile-tabbar {
     /* Allow enough space for the fixed mobile tab bar and the floating quick-add button */
