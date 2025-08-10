@@ -42,9 +42,9 @@ function DashboardMosaicInner() {
           }}>
             <Upload className="h-4 w-4" /> Import
           </Button>
-          <div className="hidden sm:flex items-center gap-2 mr-1">
-            <Label htmlFor="edit-layout" className="text-xs">Edit layout</Label>
-            <Switch id="edit-layout" checked={isEditing} onCheckedChange={setIsEditing} />
+          <div className="flex items-center gap-2 mr-1">
+            <Label htmlFor="edit-layout" className="text-xs hidden sm:inline">Edit layout</Label>
+            <Switch id="edit-layout" aria-label="Edit layout" checked={isEditing} onCheckedChange={setIsEditing} />
           </div>
           <Button variant="ghost" size="sm" className="gap-1 shrink-0" onClick={() => resetLayout()}>
             <RefreshCw className="h-4 w-4" /> Reset
