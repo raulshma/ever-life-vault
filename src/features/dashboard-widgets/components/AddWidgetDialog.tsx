@@ -41,7 +41,7 @@ export function AddWidgetDialog() {
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row gap-2">
             <Input placeholder="Search widgets..." value={query} onChange={(e) => setQuery(e.target.value)} />
-            <div className="flex gap-1 overflow-x-auto">
+            <div className="flex flex-wrap gap-1">
               {categories.map((c) => (
                 <Button key={c.id} variant={category === c.id ? 'default' : 'ghost'} size="sm" onClick={() => setCategory(c.id)}>
                   {c.label}
@@ -49,7 +49,7 @@ export function AddWidgetDialog() {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[60vh] overflow-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtered.map((w) => (
               <button
                 key={w.id}

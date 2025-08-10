@@ -16,10 +16,10 @@ const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
+      <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-foreground/80  data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+        "fixed inset-0 z-50 bg-foreground/80 overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -59,8 +59,8 @@ const DialogContent = React.forwardRef<
         className={cn(
           // Base positioning & animation
           "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 border bg-background shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-          // Height behavior; prevent outer scroll; scroll body only
-          "xs:rounded-lg rounded-none xs:h-auto h-[100dvh] xs:max-h-[85vh] max-h-[100dvh] overflow-hidden p-0",
+          // Height behavior; avoid nested scrollbars
+          "xs:rounded-lg rounded-none xs:h-auto h-[100dvh] xs:max-h-[85vh] max-h-[100dvh] p-0",
           className
         )}
         {...props}
@@ -69,7 +69,7 @@ const DialogContent = React.forwardRef<
         <div className="flex max-h-[inherit] flex-col">
           {headerChildren}
           {subheaderChildren}
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-6 py-5">
             {bodyChildren}
           </div>
           {footerChildren.length > 0 ? footerChildren : null}
