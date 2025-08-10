@@ -3,11 +3,56 @@
 @tailwind utilities;
 
 /* Ensure mosaic fills parent height */
-.mosaic-container, .mosaic, .mosaic-root, .mosaic-split, .mosaic-tile, .mosaic-window {
-  height: 100%;
+/* Allow mosaic to grow with content, and only constrain where we explicitly set a height */
+.mosaic-container {
+  min-height: 0; /* let parent control */
+}
+.mosaic,
+.mosaic-root,
+.mosaic-tile,
+.mosaic-window {
+  height: auto;
 }
 .mosaic-blueprint-theme .mosaic-window .mosaic-window-body {
-  height: 100%;
+  height: auto;
+}
+
+/* Mosaic visual overrides to match design system */
+.mosaic-blueprint-theme .mosaic-window {
+  background: hsl(var(--card) / 0.65);
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.mosaic-blueprint-theme .mosaic-window .mosaic-window-toolbar {
+  height: 42px;
+  background: hsl(var(--card) / 0.8);
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 0 0.75rem;
+  display: flex;
+  align-items: center;
+  color: hsl(var(--foreground) / 0.85);
+}
+.mosaic-blueprint-theme .mosaic-window .mosaic-window-title {
+  font-weight: 600;
+  font-size: 0.925rem;
+}
+.mosaic-blueprint-theme .mosaic-split {
+  background: transparent;
+}
+.mosaic-blueprint-theme .mosaic-split:hover {
+  box-shadow: none;
+}
+.mosaic-blueprint-theme .mosaic-split:before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, hsl(var(--accent) / 0.18), hsl(var(--primary) / 0.18));
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.mosaic-blueprint-theme .mosaic-split:hover:before {
+  opacity: 1;
 }
 
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here.

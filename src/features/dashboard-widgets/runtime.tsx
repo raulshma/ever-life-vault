@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { MosaicNode } from 'react-mosaic-component'
 import { Mosaic, MosaicWindow } from 'react-mosaic-component'
+import { X } from 'lucide-react'
 import 'react-mosaic-component/react-mosaic-component.css'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
@@ -19,6 +20,9 @@ interface RuntimeContextValue {
   addWidget: (def: WidgetDefinition<any>) => void
   removeWidget: (id: WidgetInstanceId) => void
   updateWidgetConfig: <T>(id: WidgetInstanceId, next: T) => void
+  resetLayout: () => void
+  exportLayout: () => string
+  importLayout: (json: string) => void
 }
 
 const RuntimeContext = createContext<RuntimeContextValue | undefined>(undefined)
@@ -108,11 +112,24 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
   }, [saveDebounced, tree, widgets])
 
   const removeWidget = useCallback((id: WidgetInstanceId) => {
-    // Removing a leaf from mosaic tree requires using Mosaic helpers; for MVP just clear state and leave layout change to user
+    function removeFromTree(node: MosaicNode<WidgetInstanceId> | null): MosaicNode<WidgetInstanceId> | null {
+      if (!node) return null
+      if (typeof node === 'string') return node === id ? null : node
+      const branch = node as unknown as { direction: 'row' | 'column'; first: MosaicNode<WidgetInstanceId>; second: MosaicNode<WidgetInstanceId>; splitPercentage?: number }
+      const first = removeFromTree(branch.first)
+      const second = removeFromTree(branch.second)
+      if (first && second) return { ...branch, first, second }
+      if (first) return first
+      if (second) return second
+      return null
+    }
+
     setWidgets((prev) => {
       const next = { ...prev }
       delete next[id]
-      saveDebounced(tree, next)
+      const nextTree = removeFromTree(tree)
+      setTree(nextTree)
+      saveDebounced(nextTree, next)
       return next
     })
   }, [saveDebounced, tree])
@@ -127,10 +144,46 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
     })
   }, [saveDebounced, tree])
 
-  const value = useMemo<RuntimeContextValue>(() => ({ tree, widgets, setTree: (t) => { setTree(t); saveDebounced(t, widgets) }, setWidgets, addWidget, removeWidget, updateWidgetConfig }), [tree, widgets, saveDebounced, addWidget, removeWidget, updateWidgetConfig])
+  const value = useMemo(() => ({
+    tree,
+    widgets,
+    setTree: (t: MosaicNode<WidgetInstanceId> | null) => { setTree(t); saveDebounced(t, widgets) },
+    setWidgets,
+    addWidget,
+    removeWidget,
+    updateWidgetConfig,
+    resetLayout: () => {},
+    exportLayout: () => '',
+    importLayout: () => {}
+  }) as RuntimeContextValue, [tree, widgets, saveDebounced, addWidget, removeWidget, updateWidgetConfig, setWidgets])
+  
+  const resetLayout = useCallback(() => {
+    setTree(null)
+    setWidgets({})
+    saveDebounced(null, {})
+  }, [saveDebounced])
+
+  const exportLayout = useCallback(() => {
+    try {
+      return JSON.stringify({ tree, widgets })
+    } catch {
+      return '{}'
+    }
+  }, [tree, widgets])
+
+  const importLayout = useCallback((json: string) => {
+    try {
+      const parsed = JSON.parse(json) as { tree: MosaicNode<WidgetInstanceId> | null; widgets: WidgetStateMap }
+      setTree(parsed.tree || null)
+      setWidgets(parsed.widgets || {})
+      saveDebounced(parsed.tree || null, parsed.widgets || {})
+    } catch {
+      // ignore invalid
+    }
+  }, [saveDebounced])
 
   return (
-    <RuntimeContext.Provider value={value}>
+    <RuntimeContext.Provider value={{ ...value, resetLayout, exportLayout, importLayout }}>
       {children}
     </RuntimeContext.Provider>
   )
@@ -143,7 +196,7 @@ export function useDashboardRuntime(): RuntimeContextValue {
 }
 
 export function DashboardMosaicView() {
-  const { tree, setTree, widgets, updateWidgetConfig } = useDashboardRuntime()
+  const { tree, setTree, widgets, updateWidgetConfig, removeWidget } = useDashboardRuntime()
   const registry = useWidgetRegistry()
 
   const renderTile = useCallback((id: WidgetInstanceId, path: any) => {
@@ -161,6 +214,15 @@ export function DashboardMosaicView() {
             <div className="mosaic-window-title" title={def?.title || state.type}>
               {def?.title || state.type}
             </div>
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                aria-label="Remove widget"
+                className="action-ghost"
+                onClick={() => removeWidget(id)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
       >
@@ -169,7 +231,7 @@ export function DashboardMosaicView() {
         </React.Suspense>
       </MosaicWindow>
     )
-  }, [registry, updateWidgetConfig, widgets])
+  }, [registry, updateWidgetConfig, widgets, removeWidget])
 
   return (
     <div className="mosaic-container h-full">
@@ -179,6 +241,48 @@ export function DashboardMosaicView() {
         onChange={setTree}
         className="mosaic-blueprint-theme h-full"
       />
+    </div>
+  )
+}
+
+// Derive an ordered list of leaf widget ids from the mosaic tree (left-to-right)
+function collectLeafIds(node: MosaicNode<WidgetInstanceId> | null): WidgetInstanceId[] {
+  if (!node) return []
+  if (typeof node === 'string') return [node]
+  const branch = node as unknown as { first: MosaicNode<WidgetInstanceId>; second: MosaicNode<WidgetInstanceId> }
+  return [...collectLeafIds(branch.first), ...collectLeafIds(branch.second)]
+}
+
+// Mobile-friendly stacked view (cards)
+export function DashboardStackView() {
+  const { tree, widgets, updateWidgetConfig } = useDashboardRuntime()
+  const registry = useWidgetRegistry()
+
+  const orderedIds = useMemo(() => {
+    const fromTree = collectLeafIds(tree)
+    const known = fromTree.filter((id) => widgets[id])
+    const remaining = Object.keys(widgets).filter((id) => !known.includes(id))
+    return [...known, ...remaining]
+  }, [tree, widgets])
+
+  if (orderedIds.length === 0) {
+    return <div className="empty-bubble p-6 text-center text-muted-foreground">Add widgets to get started</div>
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:gap-4">
+      {orderedIds.map((id) => {
+        const state = widgets[id]
+        if (!state) return null
+        const def = registry.get(state.type)
+        if (!def) return null
+        const Component = def.component as React.ComponentType<WidgetProps<any>>
+        return (
+          <React.Suspense key={id} fallback={<div className="glass rounded-xl p-4">Loading...</div>}>
+            <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} />
+          </React.Suspense>
+        )
+      })}
     </div>
   )
 }
