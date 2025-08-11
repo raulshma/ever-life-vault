@@ -1,19 +1,41 @@
 import React from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import { TouchBackend } from 'react-dnd-touch-backend'
 import { useDashboardRuntime } from '../runtime'
 import { useWidgetRegistry } from '../registry'
 import type { GridColSpan, GridLayout, GridRowSpan, MosaicTree, WidgetInstanceId, WidgetProps } from '../types'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useDrag, useDrop, useDragLayer } from 'react-dnd'
 import { Button } from '@/components/ui/button'
+import { GripVertical } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const DND_WIDGET_ITEM = 'dashboard-widget-item'
 
 export default function EditingStackView() {
+  const isTouch = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    // Prefer reliable hardware signal; avoids false positives on desktop Safari/Chrome
+    const maxTouchPoints = (navigator as any).maxTouchPoints ?? 0
+    if (maxTouchPoints && maxTouchPoints > 0) return true
+    // Fallback to coarse pointer, but only treat as touch when there are touch points
+    const hasCoarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+    return hasCoarse && maxTouchPoints > 0
+  }, [])
+  const backend = isTouch ? (TouchBackend as any) : (HTML5Backend as any)
+  const options = isTouch
+    ? ({
+        enableMouseEvents: true,
+        ignoreContextMenu: true,
+        delayTouchStart: 200,
+        delayMouseStart: 0,
+        touchSlop: 8,
+        scrollAngleRanges: [{ start: 30, end: 150 }],
+      } as any)
+    : undefined
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={backend} options={options}>
       <EditingStackInner />
     </DndProvider>
   )
@@ -132,10 +154,11 @@ function SortableWidgetTile({
   children: React.ReactNode
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null)
+  const [hoverSide, setHoverSide] = React.useState<'top' | 'bottom' | 'left' | 'right' | null>(null)
 
   const [{ isOver }, drop] = useDrop({
     accept: DND_WIDGET_ITEM,
-    // Only trigger reorder once the cursor crosses the midpoint of the hovered tile
+    // Trigger reorder when crossing midpoint horizontally OR vertically to support grid layouts
     hover(item: { id: WidgetInstanceId; index: number }, monitor) {
       if (!ref.current) return
       const dragIndex = item.index
@@ -145,10 +168,21 @@ function SortableWidgetTile({
       const clientOffset = monitor.getClientOffset()
       if (!clientOffset) return
       const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
+      const hoverMiddleX = (hoverBoundingRect.right - hoverBoundingRect.left) / 2
       const hoverClientY = clientOffset.y - hoverBoundingRect.top
-      // Only perform the move when the mouse has crossed half of the item's height
-      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return
-      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return
+      const hoverClientX = clientOffset.x - hoverBoundingRect.left
+      // Determine visual insert hint side
+      const nextSide = Math.abs(hoverClientX - hoverMiddleX) > Math.abs(hoverClientY - hoverMiddleY)
+        ? (hoverClientX < hoverMiddleX ? 'left' : 'right')
+        : (hoverClientY < hoverMiddleY ? 'top' : 'bottom')
+      if (nextSide !== hoverSide) setHoverSide(nextSide)
+      const crossedYForward = hoverClientY >= hoverMiddleY
+      const crossedYBackward = hoverClientY <= hoverMiddleY
+      const crossedXForward = hoverClientX >= hoverMiddleX
+      const crossedXBackward = hoverClientX <= hoverMiddleX
+      // Allow move when crossing either axis midpoint, supporting horizontal moves across columns
+      if (dragIndex < hoverIndex && !(crossedYForward || crossedXForward)) return
+      if (dragIndex > hoverIndex && !(crossedYBackward || crossedXBackward)) return
       moveItem(dragIndex, hoverIndex)
       item.index = hoverIndex
     },
@@ -162,12 +196,25 @@ function SortableWidgetTile({
     collect: (monitor) => ({ isDragging: !!monitor.isDragging() }),
   })
 
-  drag(drop(ref))
+  // Connect drop to the tile container; connect drag to the visible handle only
+  drop(ref)
+
+  // Clear hover side when no longer over
+  React.useEffect(() => {
+    if (!isOver && hoverSide) setHoverSide(null)
+  }, [isOver, hoverSide])
 
   return (
     <div
       ref={ref}
-      className={(isDragging ? 'opacity-60 ' : '') + 'min-w-0 ' + (gridClassName || '') + ' cursor-grab select-none'}
+      className={
+        (isDragging
+          ? 'opacity-70 z-20 scale-[0.98] shadow-lg shadow-primary/20 cursor-grabbing '
+          : 'cursor-grab ') +
+        'min-w-0 ' +
+        (gridClassName || '') +
+        ' select-none transition-all duration-150 ease-out'
+      }
     >
       <div className="relative">
         {/* Drag highlight overlay */}
@@ -179,9 +226,38 @@ function SortableWidgetTile({
             }
           />
         )}
+        {/* Insert position indicator */}
+        {dragActive && isOver && hoverSide && (
+          <div className="pointer-events-none absolute inset-0">
+            {hoverSide === 'top' && (
+              <div className="absolute left-1 right-1 top-0 h-1 rounded-full bg-primary/70 animate-pulse" />
+            )}
+            {hoverSide === 'bottom' && (
+              <div className="absolute left-1 right-1 bottom-0 h-1 rounded-full bg-primary/70 animate-pulse" />
+            )}
+            {hoverSide === 'left' && (
+              <div className="absolute top-1 bottom-1 left-0 w-1 rounded-full bg-primary/70 animate-pulse" />
+            )}
+            {hoverSide === 'right' && (
+              <div className="absolute top-1 bottom-1 right-0 w-1 rounded-full bg-primary/70 animate-pulse" />
+            )}
+          </div>
+        )}
         <div className="absolute inset-x-0 -top-2 z-10 px-1">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">Drag to reorder</div>
+            <div className="flex items-center gap-1">
+              <div
+                aria-label="Drag handle"
+                role="button"
+                className="h-6 w-6 flex items-center justify-center rounded-md border bg-card/90 hover:bg-card/100 active:bg-card text-muted-foreground/90"
+                ref={drag as unknown as React.Ref<HTMLDivElement>}
+              >
+                <GripVertical className="h-3.5 w-3.5" />
+              </div>
+              <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">
+                {isDragging ? 'Reordering…' : 'Drag to reorder'}
+              </div>
+            </div>
             <div className="ml-auto flex items-center gap-1 sm:gap-2">
               <Popover>
                 <PopoverTrigger asChild>
