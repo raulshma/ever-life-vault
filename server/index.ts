@@ -2,6 +2,7 @@ import Fastify, { FastifyInstance } from 'fastify'
 import { env } from './config/env.js'
 import { registerCors } from './plugins/cors.js'
 import { registerServiceProxies } from './plugins/proxies.js'
+import { registerPerfPlugins } from './plugins/perf.js'
 import { makeIsTargetAllowed } from './utils/allowedTargets.js'
 import { createSupabaseClient, requireSupabaseUserFactory } from './auth/supabase.js'
 import { registerDynRoute } from './routes/dyn.js'
@@ -12,6 +13,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
 
   await registerCors(server, env.ALLOWED_ORIGINS)
+  await registerPerfPlugins(server)
 
   const targets: Record<string, string | undefined> = {
     jellyseerr: env.JELLYSEERR_BASE,

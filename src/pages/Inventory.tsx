@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useDeferredValue } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,10 +42,14 @@ export default function Inventory() {
   const qrItems = getItemsWithQR().length;
   const totalValue = getTotalValue();
 
+  // Defer search input to keep large filtering responsive
+  const deferredSearch = useDeferredValue(searchTerm);
   const filteredItems = items.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const q = deferredSearch.trim().toLowerCase();
+    const matchesSearch = q.length === 0 ||
+      item.name.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      item.description?.toLowerCase().includes(q);
     const matchesLocation = !selectedLocation || item.location_id === selectedLocation;
     return matchesSearch && matchesLocation;
   });

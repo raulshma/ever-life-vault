@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useDeferredValue, startTransition, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
@@ -25,6 +25,7 @@ export function useEncryptedVault() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { isUnlocked, masterKey } = useVaultSession();
+  const latestDecryptAbortRef = useRef<{ aborted: boolean } | null>(null);
 
   // Fetch and decrypt vault items
   const fetchItems = useCallback(async () => {
@@ -45,31 +46,47 @@ export function useEncryptedVault() {
 
       if (error) throw error;
       
-      // Decrypt items client-side
-      const decryptedItems: VaultItem[] = [];
-      
-      for (const encryptedItem of data || []) {
-        try {
-          const decryptedItem = await decryptVaultItem(
-            {
-              ...encryptedItem,
-              item_type: encryptedItem.item_type as 'login' | 'note' | 'api' | 'document',
-            },
-            masterKey
-          );
-          decryptedItems.push(decryptedItem);
-        } catch (decryptError) {
-          console.error('Failed to decrypt item:', encryptedItem.id, decryptError);
-          // Skip corrupted items but don't fail the entire operation
-          toast({
-            title: "Decryption Warning",
-            description: `Failed to decrypt item "${encryptedItem.name}". It may be corrupted.`,
-            variant: "destructive",
-          });
+      // Decrypt items client-side with controlled concurrency
+      const encryptedList = (data || []).map((encryptedItem) => ({
+        ...encryptedItem,
+        item_type: encryptedItem.item_type as 'login' | 'note' | 'api' | 'document',
+      }));
+
+      const concurrency = Math.min(8, Math.max(2, (typeof navigator !== 'undefined' && (navigator as any).hardwareConcurrency) || 4));
+      const results: VaultItem[] = [];
+
+      const abortRef = { aborted: false } as { aborted: boolean };
+      latestDecryptAbortRef.current = abortRef;
+
+      const worker = async (queue: typeof encryptedList) => {
+        while (queue.length && !abortRef.aborted) {
+          const next = queue.shift();
+          if (!next) break;
+          try {
+            const decrypted = await decryptVaultItem(next as any, masterKey);
+            results.push(decrypted);
+          } catch (decryptError) {
+            console.error('Failed to decrypt item:', (next as any).id, decryptError);
+            toast({
+              title: 'Decryption Warning',
+              description: `Failed to decrypt item "${(next as any).name}". It may be corrupted.`,
+              variant: 'destructive',
+            });
+          }
+          // Yield back to event loop between items
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.resolve();
         }
-      }
-      
-      setItems(decryptedItems);
+      };
+
+      const queue = [...encryptedList];
+      await Promise.all(Array.from({ length: concurrency }).map(() => worker(queue)));
+
+      if (abortRef.aborted || latestDecryptAbortRef.current !== abortRef) return;
+
+      startTransition(() => {
+        setItems(results);
+      });
     } catch (error) {
       console.error('Error fetching vault items:', error);
       toast({
@@ -379,20 +396,19 @@ export function useEncryptedVault() {
     }
   }, [user, isUnlocked, masterKey, items, addItem, toast]);
 
-  // Filter items based on search query
+  // Deferred search query keeps typing snappy for large lists
+  const deferredQuery = useDeferredValue(searchQuery);
   const filteredItems = items.filter(item => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase();
+    const q = deferredQuery.trim().toLowerCase();
+    if (!q) return true;
     const searchableText = [
       item.name,
-      item.data.username,
-      item.data.url,
-      item.data.notes,
-      item.data.content,
+      item.data?.username,
+      item.data?.url,
+      item.data?.notes,
+      item.data?.content,
     ].filter(Boolean).join(' ').toLowerCase();
-    
-    return searchableText.includes(query);
+    return searchableText.includes(q);
   });
 
   // Group items by type
@@ -411,6 +427,11 @@ export function useEncryptedVault() {
       setItems([]);
       setLoading(false);
     }
+    return () => {
+      if (latestDecryptAbortRef.current) {
+        latestDecryptAbortRef.current.aborted = true;
+      }
+    };
   }, [isUnlocked, masterKey, fetchItems]);
 
   // Clear items when vault is locked
