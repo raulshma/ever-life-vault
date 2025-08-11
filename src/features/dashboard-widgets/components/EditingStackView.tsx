@@ -15,13 +15,12 @@ const DND_WIDGET_ITEM = 'dashboard-widget-item'
 
 export default function EditingStackView() {
   const isTouch = React.useMemo(() => {
-    if (typeof window === 'undefined') return false
-    // Prefer reliable hardware signal; avoids false positives on desktop Safari/Chrome
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
     const maxTouchPoints = (navigator as any).maxTouchPoints ?? 0
-    if (maxTouchPoints && maxTouchPoints > 0) return true
-    // Fallback to coarse pointer, but only treat as touch when there are touch points
-    const hasCoarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
-    return hasCoarse && maxTouchPoints > 0
+    const hasTouchEvent = 'ontouchstart' in window
+    const hasCoarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+    // Be liberal in detecting touch so we reliably use the TouchBackend on mobile
+    return maxTouchPoints > 0 || hasTouchEvent || hasCoarsePointer
   }, [])
   const backend = isTouch ? (TouchBackend as any) : (HTML5Backend as any)
   const options = isTouch
@@ -249,7 +248,8 @@ function SortableWidgetTile({
               <div
                 aria-label="Drag handle"
                 role="button"
-                className="h-6 w-6 flex items-center justify-center rounded-md border bg-card/90 hover:bg-card/100 active:bg-card text-muted-foreground/90"
+                className="h-6 w-6 flex items-center justify-center rounded-md border bg-card/90 hover:bg-card/100 active:bg-card text-muted-foreground/90 select-none"
+                style={{ touchAction: 'none' }}
                 ref={drag as unknown as React.Ref<HTMLDivElement>}
               >
                 <GripVertical className="h-3.5 w-3.5" />
