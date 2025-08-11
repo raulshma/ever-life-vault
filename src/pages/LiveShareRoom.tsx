@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -100,9 +100,10 @@ export default function LiveShareRoom() {
     }
   };
 
-  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey } = useP2PShare({ shareId: id!, maxPeers, encryptionKey: key, debug: true, enabled: verified });
+  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ shareId: id!, maxPeers, encryptionKey: key, debug: true, enabled: verified });
   const [chatInput, setChatInput] = useState("");
   const [diag, setDiag] = useState<any[]>([]);
+  const editorRef = useRef<HTMLDivElement | null>(null);
 
   // Persist and restore last text locally for recovery
   useEffect(() => {
@@ -215,13 +216,61 @@ export default function LiveShareRoom() {
             </div>
           )}
           {!roomFull && !(state.blockedByLock && !state.isHost) ? (
-            <Textarea
-              value={state.text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder={needsPassword && !key ? "Enter the password to start editing..." : "Start typing..."}
-              className="min-h-[50vh]"
-              disabled={needsPassword && !key}
-            />
+            <div
+              ref={editorRef}
+              className="relative"
+              onMouseMove={(e) => {
+                const el = editorRef.current;
+                if (!el) return;
+                const ta = el.querySelector('textarea');
+                const rect = (ta ?? el).getBoundingClientRect();
+                const x = (e.clientX - rect.left) / Math.max(1, rect.width);
+                const y = (e.clientY - rect.top) / Math.max(1, rect.height);
+                setCursorNormalized(x, y);
+              }}
+              onMouseLeave={() => clearCursor()}
+              onTouchMove={(e) => {
+                const el = editorRef.current;
+                if (!el) return;
+                const touch = e.touches?.[0];
+                if (!touch) return;
+                const ta = el.querySelector('textarea');
+                const rect = (ta ?? el).getBoundingClientRect();
+                const x = (touch.clientX - rect.left) / Math.max(1, rect.width);
+                const y = (touch.clientY - rect.top) / Math.max(1, rect.height);
+                setCursorNormalized(x, y);
+              }}
+            >
+              <Textarea
+                value={state.text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder={needsPassword && !key ? "Enter the password to start editing..." : "Start typing..."}
+                className="min-h-[50vh]"
+                disabled={needsPassword && !key}
+              />
+              {/* Cursor overlay */}
+              {state.remoteCursors?.length ? (
+                <div className="pointer-events-none absolute inset-0 z-10">
+                  {state.remoteCursors.map((c) => (
+                    <div
+                      key={c.peerId}
+                      className="absolute -translate-x-1/2 -translate-y-1/2"
+                      style={{ left: `${c.x * 100}%`, top: `${c.y * 100}%` }}
+                    >
+                      <div className="flex items-center gap-1 -translate-y-3 translate-x-2">
+                        <span
+                          className="inline-block w-2.5 h-2.5 rounded-full shadow"
+                          style={{ backgroundColor: c.color || '#6366f1', boxShadow: `0 0 0 2px white` }}
+                        />
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-white/90 text-slate-700 shadow border">
+                          {(c.name || c.peerId.slice(0,6))}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           ) : null}
           {showRoomUI && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

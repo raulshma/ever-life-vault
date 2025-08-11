@@ -40,6 +40,7 @@ export type P2PShareState = {
   isWithinCapacity: boolean;
   presencePeerIds: string[];
   typingPeerIds: string[];
+  remoteCursors: { peerId: string; x: number; y: number; name?: string; color?: string; ts: number }[];
   isHost: boolean;
   roomLocked: boolean;
   kicked: boolean;
@@ -91,6 +92,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
     isWithinCapacity: false,
     presencePeerIds: [],
     typingPeerIds: [],
+    remoteCursors: [],
     isHost: false,
     roomLocked: false,
     kicked: false,
@@ -116,11 +118,15 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const ydocRef = useRef<any | null>(null);
   const ytextRef = useRef<any | null>(null);
   const awarenessRef = useRef<Awareness | null>(null);
+  const cursorRafRef = useRef<number | null>(null);
+  const lastCursorSentAtRef = useRef<number>(0);
   const denylistRef = useRef<Set<string>>(new Set());
   const hostIdRef = useRef<string | null>(null);
   const isHostRef = useRef<boolean>(false);
   const createdByUserIdRef = useRef<string | null>(null);
   const myUserIdRef = useRef<string | null>(null);
+  const myDisplayNameRef = useRef<string>("Guest");
+  const myColorRef = useRef<string>("#6b7280");
   const participantsRef = useRef<number>(0);
   const encryptionKeyRef = useRef<CryptoKey | null>(encryptionKey ?? null);
   // Dedup cache for chat messages to avoid double rendering when both P2P and Realtime deliver the same payload
@@ -140,6 +146,17 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   }, []);
   // keep ref in sync with prop
   useEffect(() => { encryptionKeyRef.current = encryptionKey ?? null; }, [encryptionKey]);
+
+  // Utility: pick stable color from id
+  const pickColorFromId = useCallback((id: string): string => {
+    const palette = [
+      '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#22c55e', '#06b6d4'
+    ];
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash) + id.charCodeAt(i) | 0;
+    const idx = Math.abs(hash) % palette.length;
+    return palette[idx];
+  }, []);
 
   const log = useCallback(
     (...args: any[]) => {
@@ -222,6 +239,30 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
       }
     }
   }, [isStarActive, sendEncrypted]);
+
+  // Helper: recompute remote cursors from awareness states and push into React state
+  const computeAndSetRemoteCursors = useCallback(() => {
+    try {
+      const awareness = awarenessRef.current as any;
+      const map: Map<number, any> = (awareness?.getStates?.() ?? awareness?.states ?? new Map());
+      const now = Date.now();
+      const cursors: { peerId: string; x: number; y: number; name?: string; color?: string; ts: number }[] = [];
+      map.forEach((st: any) => {
+        const user = st?.user as { peerId?: string; name?: string; color?: string } | undefined;
+        const cursor = st?.cursor as { x?: number; y?: number; ts?: number } | undefined;
+        const peerId = user?.peerId;
+        const x = Number(cursor?.x);
+        const y = Number(cursor?.y);
+        const ts = Number(cursor?.ts) || 0;
+        if (!peerId || peerId === myPeerId) return;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        if (now - ts > 3000) return; // stale
+        cursors.push({ peerId, x: Math.max(0, Math.min(1, x)), y: Math.max(0, Math.min(1, y)), name: user?.name, color: user?.color, ts });
+      });
+      cursors.sort((a, b) => (a.peerId < b.peerId ? -1 : 1));
+      setState((s) => ({ ...s, remoteCursors: cursors }));
+    } catch {}
+  }, [myPeerId]);
 
   const sendWithRetry = useCallback(
     async (event: string, payload: any, attempt: number = 0): Promise<void> => {
@@ -1138,17 +1179,75 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
           }
         } catch {}
       }
+      computeAndSetRemoteCursors();
     });
 
     return () => {
       try { ydoc.destroy(); } catch {}
     };
-  }, [sendEncrypted, sendWithRetry]);
+  }, [sendEncrypted, sendWithRetry, computeAndSetRemoteCursors]);
+
+  // Initialize identity and base presence in awareness
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const email = data?.session?.user?.email ?? undefined;
+        const name = data?.session?.user?.user_metadata?.full_name ?? email ?? 'Guest';
+        myDisplayNameRef.current = String(name);
+      } catch {}
+      const color = pickColorFromId(myPeerId);
+      myColorRef.current = color;
+      const aw = awarenessRef.current as any;
+      if (aw?.setLocalState) {
+        const prev = aw.getLocalState?.() ?? {};
+        aw.setLocalState({ ...prev, user: { peerId: myPeerId, name: myDisplayNameRef.current, color }, cursor: null });
+      }
+    };
+    run();
+  }, [myPeerId, pickColorFromId]);
 
   return {
     state,
     setText,
     leave,
+    // Presence helpers
+    setPresenceIdentity: (name?: string, color?: string) => {
+      if (typeof name === 'string' && name.trim()) myDisplayNameRef.current = name.trim();
+      if (typeof color === 'string' && color.trim()) myColorRef.current = color.trim();
+      const aw = awarenessRef.current as any;
+      if (aw?.setLocalState) {
+        const prev = aw.getLocalState?.() ?? {};
+        aw.setLocalState({ ...prev, user: { peerId: myPeerId, name: myDisplayNameRef.current, color: myColorRef.current } });
+      }
+    },
+    setCursorNormalized: (x: number, y: number) => {
+      const aw = awarenessRef.current as any;
+      if (!aw?.setLocalState) return;
+      const nx = Math.max(0, Math.min(1, Number(x)));
+      const ny = Math.max(0, Math.min(1, Number(y)));
+      const now = performance.now();
+      const send = () => {
+        const prev = aw.getLocalState?.() ?? {};
+        aw.setLocalState({ ...prev, cursor: { x: nx, y: ny, ts: Date.now() } });
+        lastCursorSentAtRef.current = now;
+        if (cursorRafRef.current) {
+          cancelAnimationFrame(cursorRafRef.current);
+          cursorRafRef.current = null;
+        }
+      };
+      if (now - lastCursorSentAtRef.current < 30) {
+        if (!cursorRafRef.current) cursorRafRef.current = requestAnimationFrame(send);
+        return;
+      }
+      send();
+    },
+    clearCursor: () => {
+      const aw = awarenessRef.current as any;
+      if (!aw?.setLocalState) return;
+      const prev = aw.getLocalState?.() ?? {};
+      aw.setLocalState({ ...prev, cursor: null });
+    },
     exportSnapshot: async (): Promise<{ yUpdateB64: string | null; text: string }> => {
       try {
         const ydoc = ydocRef.current as any;
