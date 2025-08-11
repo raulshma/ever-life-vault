@@ -6,6 +6,8 @@ import { useWidgetRegistry } from '../registry'
 import type { GridColSpan, GridLayout, GridRowSpan, MosaicTree, WidgetInstanceId, WidgetProps } from '../types'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { useDrag, useDrop } from 'react-dnd'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
 const DND_WIDGET_ITEM = 'dashboard-widget-item'
 
@@ -152,28 +154,35 @@ function SortableWidgetTile({
         <div className="absolute inset-x-0 -top-2 z-10 px-1">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">Drag to reorder</div>
-            <div className="ml-auto flex items-center gap-1 overflow-x-auto">
-              <ToggleGroup type="single" value={String(currentSpan)} onValueChange={(v) => v && onSpanChange(Number(v) as GridColSpan)}>
-                {[1,2,3,4].map((n) => (
-                  <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Span ${n} columns`}>
-                    {n}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <ToggleGroup type="single" value={String(currentRowSpan)} onValueChange={(v) => v && onRowSpanChange(Number(v) as GridRowSpan)}>
-                {[1,2,3].map((n) => (
-                  <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Row span ${n}`}>
-                    R{n}
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
-              <button
-                aria-label="Remove widget"
-                className="rounded bg-destructive/90 text-destructive-foreground px-2 py-0.5 text-xs hover:bg-destructive"
-                onClick={onRemove}
-              >
+            <div className="ml-auto flex items-center gap-1 sm:gap-2">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button size="sm" variant="glass" className="h-7 px-2 text-xs">Size</Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-auto">
+                  <div className="space-y-2">
+                    <div className="text-xs font-medium text-muted-foreground">Width</div>
+                    <ToggleGroup type="single" value={String(currentSpan)} onValueChange={(v) => v && onSpanChange(Number(v) as GridColSpan)}>
+                      {[1,2,3,4].map((n) => (
+                        <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Span ${n} columns`}>
+                          {n}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                    <div className="pt-1 text-xs font-medium text-muted-foreground">Height</div>
+                    <ToggleGroup type="single" value={String(currentRowSpan)} onValueChange={(v) => v && onRowSpanChange(Number(v) as GridRowSpan)}>
+                      {[1,2,3].map((n) => (
+                        <ToggleGroupItem key={n} value={String(n)} size="sm" aria-label={`Row span ${n}`}>
+                          R{n}
+                        </ToggleGroupItem>
+                      ))}
+                    </ToggleGroup>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button aria-label="Remove widget" variant="destructive" size="sm" className="h-7 px-2 text-xs" onClick={onRemove}>
                 Remove
-              </button>
+              </Button>
             </div>
           </div>
         </div>
