@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
+import { useSettings } from "./hooks/useSettings";
 import { VaultSessionProvider } from "./hooks/useVaultSession";
 import { SettingsProvider } from "./hooks/useSettings";
 import { Layout } from "@/components/Layout";
@@ -66,6 +67,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
+  // Default index renders Dashboard
+  const indexElement = <Dashboard />;
   return (
     <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
       <Routes>
@@ -80,7 +83,7 @@ function AppRoutes() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
+          <Route index element={indexElement} />
           <Route path="day-tracker" element={<DayTracker />} />
           <Route path="knowledge" element={<KnowledgeBase />} />
           <Route path="focus" element={<Focus />} />

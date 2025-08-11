@@ -5,34 +5,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useSettings } from "@/hooks/useSettings";
 import { ViewTransitionLink } from "@/components/ViewTransitionLink";
-import {
-  Calendar,
-  BookOpen,
-  Shield,
-  FileText,
-  Package2,
-  Plus,
-  Home,
-  Search,
-  LogOut,
-  Server,
-  Monitor,
-  Network,
-  Database,
-  ChevronDown,
-  Film,
-  Play,
-  Bookmark,
-  Menu,
-  Sparkles,
-  Pause,
-  Sun,
-  Moon,
-  Laptop2,
-  Contrast,
-  Share2,
-  User,
-} from "lucide-react";
+import { Calendar, Plus, ChevronDown, Bookmark, Menu, Sparkles, Pause, Sun, Moon, Laptop2, Contrast, Settings, Home, BookOpen, Shield, Search, LogOut } from "lucide-react";
 import {
   CommandDialog,
   CommandInput,
@@ -43,50 +16,11 @@ import {
 } from "@/components/ui/command";
 import { AddTaskDialog } from "@/components/AddTaskDialog";
 import { FloatingMiniTimer } from "@/components/focus/FloatingMiniTimer";
-import {
-  SidebarProvider,
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarSeparator,
-  SidebarInset,
-  useSidebar,
-} from "@/components/ui/sidebar";
+import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarSeparator, SidebarInset, useSidebar } from "@/components/ui/sidebar";
+import { moduleCategories as baseModuleCategories, orderedGroupTitles } from "@/lib/navigation";
+import NavigationCustomizeDialog from "@/components/NavigationCustomizeDialog";
 
-const moduleCategories = {
-  daily: [
-    { name: "Dashboard", path: "/", icon: Home },
-    { name: "Day Tracker", path: "/day-tracker", icon: Calendar },
-    { name: "Focus", path: "/focus", icon: Sparkles },
-    { name: "Feeds", path: "/feeds", icon: Bookmark },
-    { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
-    { name: "Vault", path: "/vault", icon: Shield },
-    { name: "Documents", path: "/documents", icon: FileText },
-    { name: "Inventory", path: "/inventory", icon: Package2 },
-  ],
-  share: [
-    { name: "Live Share", path: "/share/new", icon: Share2 },
-  ],
-  homelab: [
-    { name: "Servers", path: "/homelab/servers", icon: Server },
-    { name: "Monitoring", path: "/homelab/monitoring", icon: Monitor },
-    { name: "Network", path: "/homelab/network", icon: Network },
-    { name: "Storage", path: "/homelab/storage", icon: Database },
-    { name: "Jellyfin", path: "/homelab/jellyfin", icon: Play },
-    { name: "Media Requests", path: "/homelab/media-requests", icon: Film },
-    { name: "Karakeep", path: "/homelab/karakeep", icon: Bookmark },
-  ],
-  account: [
-    { name: "Profile", path: "/profile", icon: User },
-  ],
-};
+const moduleCategories = baseModuleCategories;
 
 // Theme menu button (moved from footer to header)
 const ThemeMenuButton: React.FC = () => {
@@ -156,13 +90,43 @@ const SidebarNavigation: React.FC<{
   location: ReturnType<typeof useLocation>;
   onOpenSearch: () => void;
   onOpenQuickAdd: () => void;
-}> = ({ location, onOpenSearch, onOpenQuickAdd }) => {
-  const navGroups = [
-    { title: "Daily", items: moduleCategories.daily },
-    { title: "Share", items: moduleCategories.share },
-    { title: "Homelab", items: moduleCategories.homelab },
-    { title: "Account", items: moduleCategories.account },
-  ];
+  onOpenCustomize: () => void;
+}> = ({ location, onOpenSearch, onOpenQuickAdd, onOpenCustomize }) => {
+  const { sidebarOrder } = useSettings();
+  const groupMap = {
+    Daily: "daily",
+    Share: "share",
+    Homelab: "homelab",
+    Account: "account",
+  } as const;
+
+  const deriveGroupItems = (
+    title: keyof typeof groupMap
+  ) => {
+    const key = groupMap[title];
+    const order = sidebarOrder?.[key] ?? [];
+    const base = moduleCategories[key as keyof typeof moduleCategories];
+    if (!order.length) return base;
+    const pathToItem = new Map(base.map((i) => [i.path, i] as const));
+    const seen = new Set<string>();
+    const orderedExisting = order
+      .map((p) => {
+        const item = pathToItem.get(p);
+        if (item && !seen.has(p)) {
+          seen.add(p);
+          return item;
+        }
+        return null;
+      })
+      .filter(Boolean) as typeof base;
+    const remaining = base.filter((i) => !seen.has(i.path));
+    return [...orderedExisting, ...remaining];
+  };
+
+  const navGroups = orderedGroupTitles.map(({ title }) => ({
+    title,
+    items: deriveGroupItems(title as keyof typeof groupMap),
+  }));
 
   return (
     <>
@@ -174,7 +138,19 @@ const SidebarNavigation: React.FC<{
             </div>
             <span className="font-semibold text-base">Life OS</span>
           </ViewTransitionLink>
-          <ThemeMenuButton />
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onOpenCustomize}
+              className="text-muted-foreground hover:text-foreground"
+              title="Customize navigation"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="sr-only">Customize navigation</span>
+            </Button>
+            <ThemeMenuButton />
+          </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
@@ -298,11 +274,12 @@ const MobileTabBar: React.FC<{ location: ReturnType<typeof useLocation>; onQuick
       <div className="flex items-stretch justify-between px-2 py-1">
         {tabs.map((t) => {
           const Icon = t.icon;
+          const targetPath = t.path;
           const isActive = location.pathname === t.path;
           return (
             <ViewTransitionLink
               key={t.path}
-              to={t.path}
+              to={targetPath}
               className={cn(
                 "flex-1 grid place-items-center py-2 rounded-xl mx-1 transition-all",
                 isActive ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -343,6 +320,7 @@ export const Layout: React.FC = React.memo(() => {
   // Local UI state for Search (Command Palette) and Quick Add
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = React.useState(false);
+  const [isCustomizeOpen, setIsCustomizeOpen] = React.useState(false);
 
   // Quick Add handler (no-op for onAdd until wired to tasks hook/page)
   const handleQuickAdd = async (
@@ -377,6 +355,7 @@ export const Layout: React.FC = React.memo(() => {
             location={location}
             onOpenSearch={() => setIsSearchOpen(true)}
             onOpenQuickAdd={() => setIsQuickAddOpen(true)}
+            onOpenCustomize={() => setIsCustomizeOpen(true)}
           />
         </Sidebar>
         <SidebarInset>
@@ -393,6 +372,8 @@ export const Layout: React.FC = React.memo(() => {
           />
         </SidebarInset>
       </SidebarProvider>
+
+      <NavigationCustomizeDialog open={isCustomizeOpen} onOpenChange={setIsCustomizeOpen} />
 
       {/* Search Command Palette */}
       <CommandDialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>

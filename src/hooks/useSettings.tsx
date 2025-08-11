@@ -2,11 +2,17 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 type ThemeMode = 'light' | 'dark' | 'amoled' | 'system';
 
+type SidebarOrder = Record<string, string[]>; // group title -> array of path strings
+
 interface SettingsContextType {
   viewTransitionsEnabled: boolean;
   setViewTransitionsEnabled: (enabled: boolean) => void;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  // Navigation customization
+  sidebarOrder: SidebarOrder;
+  setSidebarOrder: (order: SidebarOrder) => void;
+  resetSidebarOrder: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -21,6 +27,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const stored = localStorage.getItem('themeMode') as ThemeMode | null;
     return stored ?? 'system';
   });
+
+  const [sidebarOrder, setSidebarOrderState] = useState<SidebarOrder>(() => {
+    try {
+      const raw = localStorage.getItem('sidebarOrder');
+      return raw ? (JSON.parse(raw) as SidebarOrder) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Cleanup: remove previously stored default page preference if present
+  useEffect(() => {
+    try {
+      localStorage.removeItem('defaultPagePath');
+    } catch {}
+  }, []);
+
 
   const setViewTransitionsEnabled = (enabled: boolean) => {
     setViewTransitionsEnabledState(enabled);
@@ -55,6 +78,21 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     localStorage.setItem('themeMode', mode);
   };
 
+  const setSidebarOrder = (order: SidebarOrder) => {
+    setSidebarOrderState(order);
+    try {
+      localStorage.setItem('sidebarOrder', JSON.stringify(order));
+    } catch {}
+  };
+
+  const resetSidebarOrder = () => {
+    setSidebarOrderState({});
+    try {
+      localStorage.removeItem('sidebarOrder');
+    } catch {}
+  };
+
+
   // Persist view transition preference
   useEffect(() => {
     localStorage.setItem('viewTransitionsEnabled', JSON.stringify(viewTransitionsEnabled));
@@ -83,7 +121,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [themeMode]);
 
   return (
-    <SettingsContext.Provider value={{ viewTransitionsEnabled, setViewTransitionsEnabled, themeMode, setThemeMode }}>
+    <SettingsContext.Provider value={{
+      viewTransitionsEnabled,
+      setViewTransitionsEnabled,
+      themeMode,
+      setThemeMode,
+      sidebarOrder,
+      setSidebarOrder,
+      resetSidebarOrder,
+    }}>
       {children}
     </SettingsContext.Provider>
   );
