@@ -5,7 +5,7 @@ import { useDashboardRuntime } from '../runtime'
 import { useWidgetRegistry } from '../registry'
 import type { GridColSpan, GridLayout, GridRowSpan, MosaicTree, WidgetInstanceId, WidgetProps } from '../types'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useDrag, useDrop } from 'react-dnd'
+import { useDrag, useDrop, useDragLayer } from 'react-dnd'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 
@@ -35,6 +35,9 @@ function EditingStackInner() {
     const remaining = Object.keys(widgets).filter((id) => !known.includes(id))
     return [...known, ...remaining]
   }, [layout, widgets])
+
+  // Global drag state to drive visual highlights across all tiles
+  const isDragActive = useDragLayer((monitor) => monitor.isDragging())
 
   if (orderedIds.length === 0) {
     return <div className="empty-bubble p-6 text-center text-muted-foreground">Add widgets to get started</div>
@@ -71,6 +74,7 @@ function EditingStackInner() {
             key={id}
             id={id}
             index={index}
+            dragActive={isDragActive}
             moveItem={(from, to) => {
               if (from === to) return
               const next = [...orderedIds]
@@ -105,6 +109,7 @@ function collectLeafIds(node: MosaicTree | null): WidgetInstanceId[] {
 function SortableWidgetTile({
   id,
   index,
+  dragActive,
   moveItem,
   onRemove,
   gridClassName,
@@ -116,6 +121,7 @@ function SortableWidgetTile({
 }: {
   id: WidgetInstanceId
   index: number
+  dragActive: boolean
   moveItem: (fromIndex: number, toIndex: number) => void
   onRemove: () => void
   gridClassName?: string
@@ -127,16 +133,26 @@ function SortableWidgetTile({
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null)
 
-  const [, drop] = useDrop({
+  const [{ isOver }, drop] = useDrop({
     accept: DND_WIDGET_ITEM,
-    hover(item: { id: WidgetInstanceId; index: number }) {
+    // Only trigger reorder once the cursor crosses the midpoint of the hovered tile
+    hover(item: { id: WidgetInstanceId; index: number }, monitor) {
       if (!ref.current) return
       const dragIndex = item.index
       const hoverIndex = index
       if (dragIndex === hoverIndex) return
+      const hoverBoundingRect = ref.current.getBoundingClientRect()
+      const clientOffset = monitor.getClientOffset()
+      if (!clientOffset) return
+      const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2
+      const hoverClientY = clientOffset.y - hoverBoundingRect.top
+      // Only perform the move when the mouse has crossed half of the item's height
+      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return
+      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return
       moveItem(dragIndex, hoverIndex)
       item.index = hoverIndex
     },
+    collect: (monitor) => ({ isOver: monitor.isOver({ shallow: true }) }),
   })
 
   const [{ isDragging }, drag] = useDrag({
@@ -149,8 +165,20 @@ function SortableWidgetTile({
   drag(drop(ref))
 
   return (
-    <div ref={ref} className={(isDragging ? 'opacity-60 ' : '') + 'min-w-0 ' + (gridClassName || '')}>
+    <div
+      ref={ref}
+      className={(isDragging ? 'opacity-60 ' : '') + 'min-w-0 ' + (gridClassName || '') + ' cursor-grab select-none'}
+    >
       <div className="relative">
+        {/* Drag highlight overlay */}
+        {dragActive && (
+          <div
+            className={
+              'pointer-events-none absolute inset-0 rounded-xl ' +
+              (isOver ? 'ring-2 ring-primary/70 bg-primary/10' : 'ring-1 ring-primary/30 bg-primary/5')
+            }
+          />
+        )}
         <div className="absolute inset-x-0 -top-2 z-10 px-1">
           <div className="flex items-center justify-between gap-2">
             <div className="text-xs rounded bg-card/80 px-2 py-0.5 border">Drag to reorder</div>
