@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getConfigValue, setConfigValue } from '@/integrations/supabase/configStore';
 
 type ThemeMode = 'light' | 'dark' | 'amoled' | 'system';
 
@@ -18,7 +19,7 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [viewTransitionsEnabled, setViewTransitionsEnabledState] = useState(() => {
+  const [viewTransitionsEnabled, setViewTransitionsEnabledState] = useState<boolean>(() => {
     const stored = localStorage.getItem('viewTransitionsEnabled');
     return stored !== null ? JSON.parse(stored) : true;
   });
@@ -47,7 +48,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setViewTransitionsEnabled = (enabled: boolean) => {
     setViewTransitionsEnabledState(enabled);
-    localStorage.setItem('viewTransitionsEnabled', JSON.stringify(enabled));
+    // Mirror locally for quick client-side reads
+    try { localStorage.setItem('viewTransitionsEnabled', JSON.stringify(enabled)); } catch {}
+    void setConfigValue('settings', 'viewTransitionsEnabled', enabled);
   };
 
   const applyThemePreference = (mode: ThemeMode) => {
@@ -75,7 +78,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const setThemeMode = (mode: ThemeMode) => {
     setThemeModeState(mode);
-    localStorage.setItem('themeMode', mode);
+    try { localStorage.setItem('themeMode', mode); } catch {}
+    void setConfigValue('settings', 'themeMode', mode);
   };
 
   const setSidebarOrder = (order: SidebarOrder) => {
@@ -95,8 +99,33 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   // Persist view transition preference
   useEffect(() => {
-    localStorage.setItem('viewTransitionsEnabled', JSON.stringify(viewTransitionsEnabled));
+    try { localStorage.setItem('viewTransitionsEnabled', JSON.stringify(viewTransitionsEnabled)); } catch {}
   }, [viewTransitionsEnabled]);
+
+  // Load settings from DB on mount
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [dbTheme, dbTransitions] = await Promise.all([
+          getConfigValue<ThemeMode>('settings', 'themeMode'),
+          getConfigValue<boolean>('settings', 'viewTransitionsEnabled'),
+        ]);
+        if (!mounted) return;
+        const allowedModes: ThemeMode[] = ['light', 'dark', 'amoled', 'system']
+        if (dbTheme && typeof dbTheme === 'string' && (allowedModes as string[]).includes(dbTheme)) {
+          setThemeModeState(dbTheme as ThemeMode);
+          // Mirror for theme-init on next loads
+          try { localStorage.setItem('themeMode', dbTheme as string); } catch {}
+        }
+        if (typeof dbTransitions === 'boolean') {
+          setViewTransitionsEnabledState(dbTransitions);
+          try { localStorage.setItem('viewTransitionsEnabled', JSON.stringify(dbTransitions)); } catch {}
+        }
+      } catch {}
+    })();
+    return () => { mounted = false };
+  }, []);
 
   // Apply theme immediately on mount and when theme changes
   useEffect(() => {

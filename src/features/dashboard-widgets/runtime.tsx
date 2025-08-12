@@ -5,6 +5,7 @@ import type { Json } from '@/integrations/supabase/types'
 import { useWidgetRegistry, registerBuiltInWidgets } from './registry'
 import type { DashboardLayoutRecord, WidgetDefinition, WidgetInstanceId, WidgetProps, WidgetState } from './types'
 import type { LayoutTree, GridLayout, MosaicTree, GridColSpan, GridRowSpan } from './types'
+import { getConfigValue, setConfigValue } from '@/integrations/supabase/configStore'
 // Note: Drag-and-drop is loaded only in EditingStackView to keep the default view light
 
 type WidgetStateMap = Record<WidgetInstanceId, WidgetState<any>>
@@ -98,7 +99,16 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       localStorage.setItem('dashboard:spans', JSON.stringify(nextSpans ?? spans))
       localStorage.setItem('dashboard:rowspans', JSON.stringify(nextRowSpans ?? rowSpans))
     } catch {}
-  }, 1200)
+    // Persist spans to DB for cross-device sync
+    try {
+      const safeSpans = Object.fromEntries(Object.entries((nextSpans ?? spans) || {}).map(([k, v]) => [k, Math.max(1, Math.min(4, Number(v) || 1))]))
+      const safeRowSpans = Object.fromEntries(Object.entries((nextRowSpans ?? rowSpans) || {}).map(([k, v]) => [k, Math.max(1, Math.min(3, Number(v) || 1))]))
+      await Promise.all([
+        setConfigValue('dashboard', 'spans', safeSpans),
+        setConfigValue('dashboard', 'rowspans', safeRowSpans),
+      ])
+    } catch {}
+  }, 800)
 
   useEffect(() => {
     if (!user || initialLoadedRef.current) return
@@ -122,6 +132,21 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
         if (saved) setSpans(JSON.parse(saved))
         const savedRow = localStorage.getItem('dashboard:rowspans')
         if (savedRow) setRowSpans(JSON.parse(savedRow))
+      } catch {}
+      // Load DB-synced spans
+      try {
+        const [dbSpans, dbRowSpans] = await Promise.all([
+          getConfigValue<Record<WidgetInstanceId, GridColSpan>>('dashboard', 'spans'),
+          getConfigValue<Record<WidgetInstanceId, GridRowSpan>>('dashboard', 'rowspans'),
+        ])
+        if (dbSpans && typeof dbSpans === 'object') {
+          const safe = Object.fromEntries(Object.entries(dbSpans).map(([k, v]) => [k, Math.max(1, Math.min(4, Number(v) || 1))])) as Record<WidgetInstanceId, GridColSpan>
+          setSpans(safe)
+        }
+        if (dbRowSpans && typeof dbRowSpans === 'object') {
+          const safe = Object.fromEntries(Object.entries(dbRowSpans).map(([k, v]) => [k, Math.max(1, Math.min(3, Number(v) || 1))])) as Record<WidgetInstanceId, GridRowSpan>
+          setRowSpans(safe)
+        }
       } catch {}
       initialLoadedRef.current = true
     })().catch(() => {})

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { getConfigValue, setConfigValue } from "@/integrations/supabase/configStore";
 
 // Register Handsontable modules
 registerAllModules();
@@ -99,10 +100,25 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   });
 
   const persistSchema = useCallback((next: CustomSchema) => {
-    setSchema(next);
+    // Validate schema structure (ids unique, safe titles)
+    const ids = new Set<string>();
+    const safeColumns = (next.columns || []).filter((c) => {
+      if (!c?.id || ids.has(c.id)) return false;
+      ids.add(c.id);
+      return true;
+    }).map((c) => ({
+      id: String(c.id).slice(0, 64),
+      title: String(c.title || '').slice(0, 64),
+      type: (c.type === 'dropdown' ? 'dropdown' : 'text') as CustomColumnType,
+      options: Array.isArray(c.options) ? c.options.slice(0, 100).map((o) => String(o).slice(0, 128)) : undefined,
+      position: typeof c.position === 'number' ? c.position : undefined,
+    }));
+    const sanitized: CustomSchema = { columns: safeColumns };
+    setSchema(sanitized);
     try {
-      localStorage.setItem(LS_SCHEMA_KEY, JSON.stringify(next));
+      localStorage.setItem(LS_SCHEMA_KEY, JSON.stringify(sanitized));
     } catch {}
+    void setConfigValue('mss', 'schema', sanitized);
   }, []);
 
   // Per month custom values
@@ -124,10 +140,23 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   }, []);
 
   const persistMonthCustomData = useCallback((month: string, next: CustomMonthData) => {
-    setCustomMonthData(next);
+    // Shallow sanitize values to strings/numbers/booleans/null to keep payload modest
+    const sanitized: CustomMonthData = {};
+    Object.entries(next || {}).forEach(([day, row]) => {
+      const safeRow: Record<string, any> = {};
+      Object.entries(row || {}).forEach(([k, v]) => {
+        const t = typeof v;
+        if (t === 'string' || t === 'number' || t === 'boolean') safeRow[k] = v;
+        else if (v == null) safeRow[k] = null;
+        else safeRow[k] = String(v).slice(0, 1024);
+      });
+      sanitized[Number(day)] = safeRow;
+    });
+    setCustomMonthData(sanitized);
     try {
-      localStorage.setItem(LS_MONTH_DATA_PREFIX + month, JSON.stringify(next));
+      localStorage.setItem(LS_MONTH_DATA_PREFIX + month, JSON.stringify(sanitized));
     } catch {}
+    void setConfigValue('mss', `custom_${month}`, sanitized);
   }, []);
 
   // Fullscreen state
@@ -198,6 +227,16 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     // load custom values when month changes
     const monthData = loadMonthCustomData(monthYear);
     setCustomMonthData(monthData);
+    // also try DB-backed values
+    (async () => {
+      try {
+        const dbMonth = await getConfigValue<CustomMonthData>('mss', `custom_${monthYear}`);
+        if (dbMonth && typeof dbMonth === 'object') {
+          setCustomMonthData(dbMonth);
+          try { localStorage.setItem(LS_MONTH_DATA_PREFIX + monthYear, JSON.stringify(dbMonth)); } catch {}
+        }
+      } catch {}
+    })();
   }, [fetchData, monthYear, loadMonthCustomData]);
 
   // Helper function to check if a day is weekend (Saturday = 6, Sunday = 0)
@@ -353,10 +392,20 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   });
 
   const persistExportConfig = (cfg: ExportConfig) => {
-    setExportConfig(cfg);
+    // Sanitize export config
+    const safeCfg: ExportConfig = {
+      columns: Object.fromEntries(Object.entries(cfg.columns || {}).slice(0, 200).map(([k, v]) => [String(k).slice(0, 64), Boolean(v)])),
+      transforms: Object.fromEntries(Object.entries(cfg.transforms || {}).slice(0, 200).map(([k, v]) => [String(k).slice(0, 64), String(v || '').slice(0, 4000)])),
+      fileName: String(cfg.fileName || DEFAULT_EXPORT_CONFIG.fileName).slice(0, 128),
+      sheetName: String(cfg.sheetName || DEFAULT_EXPORT_CONFIG.sheetName).slice(0, 64),
+      dateFormat: cfg.dateFormat === 'dd' ? 'dd' : 'd',
+      numberFormat: String(cfg.numberFormat || DEFAULT_EXPORT_CONFIG.numberFormat).slice(0, 16),
+    };
+    setExportConfig(safeCfg);
     try {
-      localStorage.setItem("mss_export_config", JSON.stringify(cfg));
+      localStorage.setItem("mss_export_config", JSON.stringify(safeCfg));
     } catch {}
+    void setConfigValue('mss', 'export_config', safeCfg);
   };
 
   const performExport = useCallback(
@@ -415,6 +464,29 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     },
     [tableData, currentMonth, orderedCustomColumns, customMonthData]
   );
+
+  // Load schema and export config from DB on mount for cross-device sync
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const [dbSchema, dbExport] = await Promise.all([
+          getConfigValue<CustomSchema>('mss', 'schema'),
+          getConfigValue<ExportConfig>('mss', 'export_config'),
+        ]);
+        if (!mounted) return;
+        if (dbSchema && typeof dbSchema === 'object') {
+          setSchema(dbSchema);
+          try { localStorage.setItem(LS_SCHEMA_KEY, JSON.stringify(dbSchema)); } catch {}
+        }
+        if (dbExport && typeof dbExport === 'object') {
+          setExportConfig(dbExport);
+          try { localStorage.setItem('mss_export_config', JSON.stringify(dbExport)); } catch {}
+        }
+      } catch {}
+    })();
+    return () => { mounted = false };
+  }, []);
 
   return (
     <div className={isFullscreen ? "fixed inset-0 z-[100] bg-background flex flex-col" : ""}>
