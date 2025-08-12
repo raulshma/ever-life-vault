@@ -40,6 +40,9 @@ const queryClient = new QueryClient({
       // Keep data fresh enough to feel instant on navigation
       staleTime: 60 * 1000,
       gcTime: 10 * 60 * 1000,
+      // Minimize jitter
+      refetchOnMount: false,
+      retryOnMount: false,
     },
   },
 });

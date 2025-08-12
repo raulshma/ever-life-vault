@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Maximize2, Minimize2, Settings2, Download } from "lucide-react";
 import { useMonthlyStatusSheets } from "@/hooks/useMonthlyStatusSheets";
 import { format, getDaysInMonth, getDay } from "date-fns";
-import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -148,6 +147,36 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     });
   }, []);
 
+  // Batch and debounce persistence to DB per-day to avoid excessive writes
+  const pendingSaveByDayRef = useRef<Map<number, { status?: string; notes?: string; customPatch?: Record<string, any> }>>(new Map())
+  const saveTimersRef = useRef<Map<number, number>>(new Map())
+
+  const scheduleSaveForDay = useCallback((dayNumber: number, monthYearValue: string) => {
+    const existingTimer = saveTimersRef.current.get(dayNumber)
+    if (existingTimer) {
+      window.clearTimeout(existingTimer)
+    }
+    const timerId = window.setTimeout(() => {
+      const payload = pendingSaveByDayRef.current.get(dayNumber)
+      if (payload) {
+        // Fire-and-forget to avoid blocking UI
+        void updateEntry(dayNumber, monthYearValue, payload.status, payload.notes, payload.customPatch)
+        pendingSaveByDayRef.current.delete(dayNumber)
+      }
+      saveTimersRef.current.delete(dayNumber)
+    }, 500)
+    saveTimersRef.current.set(dayNumber, timerId)
+  }, [updateEntry])
+
+  // Cleanup any outstanding timers on unmount
+  useEffect(() => () => {
+    for (const id of saveTimersRef.current.values()) {
+      try { window.clearTimeout(id) } catch {}
+    }
+    saveTimersRef.current.clear()
+    pendingSaveByDayRef.current.clear()
+  }, [])
+
   // Escape to exit fullscreen
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -219,53 +248,40 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
       const nextMonthData: CustomMonthData = { ...customMonthData };
 
       changes.forEach(([row, col, oldValue, newValue]) => {
-        if (oldValue !== newValue && row !== null && col !== null) {
-          const dayNumber = (row as number) + 1;
-          const colIndex = typeof col === "number" ? col : Number(col);
+        if (oldValue === newValue || row === null || col === null) return;
+        const dayNumber = (row as number) + 1;
+        const colIndex = typeof col === "number" ? col : Number(col);
 
-          if (colIndex <= 3) {
-            const status =
-              colIndex === 2
-                ? (newValue as string)
-                : data.find((entry) => entry.day_number === dayNumber)?.status || "";
-            const notes =
-              colIndex === 3
-                ? (newValue as string)
-                : data.find((entry) => entry.day_number === dayNumber)?.notes || "";
+        // Prepare or merge pending payload for this day
+        const pending = pendingSaveByDayRef.current.get(dayNumber) ?? {};
 
-            updateEntry(dayNumber, monthYear, status, notes);
-          } else {
-            const customIndex = colIndex - 4;
-            const def = orderedCustomColumns[customIndex];
-            if (!def) return;
-            const rowData = nextMonthData[dayNumber] ? { ...nextMonthData[dayNumber] } : {};
-            rowData[def.id] = newValue;
-            nextMonthData[dayNumber] = rowData;
+        if (colIndex <= 3) {
+          // Built-in columns: 0 Day, 1 Weekday (read-only), 2 Status, 3 Notes
+          if (colIndex === 2) {
+            pending.status = (newValue as string) ?? ''
           }
+          if (colIndex === 3) {
+            pending.notes = (newValue as string) ?? ''
+          }
+        } else {
+          // Custom column value
+          const customIndex = colIndex - 4;
+          const def = orderedCustomColumns[customIndex];
+          if (!def) return;
+          const rowData = nextMonthData[dayNumber] ? { ...nextMonthData[dayNumber] } : {};
+          rowData[def.id] = newValue;
+          nextMonthData[dayNumber] = rowData;
+          pending.customPatch = { ...(pending.customPatch ?? {}), [def.id]: newValue };
         }
+
+        pendingSaveByDayRef.current.set(dayNumber, pending);
+        scheduleSaveForDay(dayNumber, monthYear);
       });
 
+      // Persist local custom data snapshot immediately for UX
       persistMonthCustomData(monthYear, nextMonthData);
-
-      // Persist changed custom columns to DB as well
-      try {
-        changes.forEach(([row, col, _oldValue, newValue]) => {
-          if (row === null || col === null) return;
-          const colIndex = typeof col === "number" ? col : Number(col);
-          if (colIndex > 3) {
-            const dayNumber = (row as number) + 1;
-            const customIndex = colIndex - 4;
-            const def = orderedCustomColumns[customIndex];
-            if (def) {
-              void updateEntry(dayNumber, monthYear, undefined, undefined, { [def.id]: newValue });
-            }
-          }
-        });
-      } catch (e) {
-        console.error("Failed persisting custom column to DB:", e);
-      }
     },
-    [data, monthYear, updateEntry, customMonthData, persistMonthCustomData, orderedCustomColumns]
+    [customMonthData, monthYear, orderedCustomColumns, persistMonthCustomData, scheduleSaveForDay]
   );
 
   const navigateMonth = useCallback((direction: "prev" | "next") => {
@@ -344,7 +360,8 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
   };
 
   const performExport = useCallback(
-    (cfg: ExportConfig) => {
+    async (cfg: ExportConfig) => {
+      const XLSX = await import("xlsx");
       const builtinOrder: BuiltinColumnKey[] = ["Day", "Weekday", "Status", "Notes"];
       const customOrder = orderedCustomColumns.map((c) => c.title);
       const columnTitles = [...builtinOrder, ...customOrder] as ExportColumnKey[];

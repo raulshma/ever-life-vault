@@ -470,10 +470,12 @@ export function QRScanner({
     // requestVideoFrameCallback preferred
     const hasRVFC = 'requestVideoFrameCallback' in video && typeof (video as any).requestVideoFrameCallback === 'function';
 
+    const shouldProcess = () => document.visibilityState !== 'hidden' && !stopRequestedRef.current && phaseRef.current === 'scanning'
+
     if (hasRVFC) {
       const loop = (now: number) => {
-        decodeTick(now);
-        if (!stopRequestedRef.current && phaseRef.current === 'scanning') {
+        if (shouldProcess()) decodeTick(now)
+        if (shouldProcess()) {
           rVFCIdRef.current = (video as any).requestVideoFrameCallback(loop);
         }
       };
@@ -481,8 +483,8 @@ export function QRScanner({
     } else {
       // Fallback: interval
       intervalIdRef.current = window.setInterval(() => {
-        decodeTick(performance.now());
-      }, Math.max(50, decodeOpts.throttleMs));
+        if (shouldProcess()) decodeTick(performance.now());
+      }, Math.max(100, decodeOpts.throttleMs));
     }
 
     // Optional timeout to avoid hanging
@@ -494,6 +496,18 @@ export function QRScanner({
       }, decodeOpts.timeoutMs);
     }
   }, [decodeOpts.throttleMs, decodeOpts.timeoutMs, decodeTick]);
+
+  // Suspend decoding when tab is hidden to save CPU/battery
+  useEffect(() => {
+    const onVis = () => {
+      // When becoming visible, nudge the loop by calling runDecodeLoop again
+      if (document.visibilityState === 'visible' && phaseRef.current === 'scanning') {
+        runDecodeLoop()
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [runDecodeLoop])
 
   // React to dialog open/close
   useEffect(() => {

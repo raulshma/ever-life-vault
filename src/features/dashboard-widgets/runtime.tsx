@@ -90,13 +90,15 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
 
   const saveDebounced = useDebounced(async (nextLayout: LayoutTree | null, nextWidgets: WidgetStateMap, nextSpans?: Record<WidgetInstanceId, GridColSpan>, nextRowSpans?: Record<WidgetInstanceId, GridRowSpan>) => {
     if (!user) return
-    await upsertRecord(user.id, nextLayout, nextWidgets)
+    try {
+      await upsertRecord(user.id, nextLayout, nextWidgets)
+    } catch {}
     // Persist spans client-side for now
     try {
       localStorage.setItem('dashboard:spans', JSON.stringify(nextSpans ?? spans))
       localStorage.setItem('dashboard:rowspans', JSON.stringify(nextRowSpans ?? rowSpans))
     } catch {}
-  }, 800)
+  }, 1200)
 
   useEffect(() => {
     if (!user || initialLoadedRef.current) return

@@ -7,7 +7,11 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   build: {
     sourcemap: false,
+    reportCompressedSize: false,
     chunkSizeWarningLimit: 1200,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
     rollupOptions: {
       output: {
         manualChunks: {
@@ -69,6 +73,9 @@ export default defineConfig(({ mode }) => ({
       babel: {
         plugins: [["babel-plugin-react-compiler", { target: "19" }]],
       },
+      jsxImportSource: undefined,
+      fastRefresh: mode === 'development',
+      // prune propTypes etc. handled by compiler; keep runtime lean with removeConsole in prod
     }),
     mode === 'development' &&
     componentTagger(),
@@ -77,5 +84,13 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  optimizeDeps: {
+    include: [
+      '@supabase/supabase-js',
+      'react-router-dom',
+      '@tanstack/react-query',
+      'lucide-react',
+    ],
   },
 }));

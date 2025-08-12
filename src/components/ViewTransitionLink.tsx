@@ -28,10 +28,13 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
       { test: (p) => p.startsWith('/homelab/karakeep'), load: () => import('@/pages/homelab/Karakeep') },
     ];
     const match = prefetchers.find((f) => f.test(path));
-    if (match) {
-      // Fire and forget
-      match.load().catch(() => {});
+    if (match && 'connection' in navigator) {
+      const conn: any = (navigator as any).connection;
+      const saveData = Boolean(conn?.saveData);
+      const slow = ['slow-2g', '2g'].includes(conn?.effectiveType);
+      if (saveData || slow) return; // Respect Data Saver/slow connections
     }
+    if (match) match.load().catch(() => {});
   };
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
