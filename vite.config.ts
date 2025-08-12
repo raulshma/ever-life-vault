@@ -49,6 +49,10 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:8787",
         changeOrigin: true,
       },
+      "/api": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
       "/aggregations": {
         target: "http://localhost:8787",
         changeOrigin: true,

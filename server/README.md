@@ -48,6 +48,9 @@ YTM_REDIRECT_URI=http://localhost:8787/integrations/oauth/callback/youtubemusic
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
 SPOTIFY_REDIRECT_URI=http://localhost:8787/integrations/oauth/callback/spotify
+
+# Steam Web API
+STEAM_WEB_API_KEY=...
 ```
 
 Install dev dependency (first run only):
