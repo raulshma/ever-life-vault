@@ -17,4 +17,10 @@ declare module "y-protocols/awareness" {
 
 // react-mosaic-component removed; legacy types no longer needed
 
+declare module "qrcode" {
+  const QRCode: any;
+  export default QRCode;
+  export const toDataURL: any;
+}
+
 

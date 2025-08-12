@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { arrayBufferToBase64, generateSalt, generateAesKey, exportAesKeyToBase64 } from "@/lib/crypto";
 import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import QRCode from "qrcode";
 
 function base64UrlEncode(input: string) {
   return btoa(input)
@@ -30,6 +31,7 @@ export default function LiveShareNew() {
   const [passwordEnabled, setPasswordEnabled] = useState<boolean>(false);
   const [password, setPassword] = useState<string>("");
   const [link, setLink] = useState<string>("");
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [expiryPreset, setExpiryPreset] = useState<string>("30m");
   const [myRooms, setMyRooms] = useState<any[]>([]);
   const [loadingRooms, setLoadingRooms] = useState<boolean>(false);
@@ -37,14 +39,53 @@ export default function LiveShareNew() {
   const [permChat, setPermChat] = useState<boolean>(true);
   const [permImport, setPermImport] = useState<boolean>(false);
 
-  // Use a full 128-bit random id (UUID v4 without dashes) to prevent easy enumeration
-  const shareId = useMemo(() => crypto.randomUUID().replace(/-/g, ""), []);
+  const reservedSlugs = new Set(["new"]);
+
+  const generateRandomSlug = (): string => Math.random().toString(36).slice(2, 8);
+
+  const normalizeSlug = (raw: string): string => {
+    const s = raw
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    return s.slice(0, 32);
+  };
+
+  const isSlugValid = (s: string): boolean => {
+    if (!s) return false;
+    if (reservedSlugs.has(s)) return false;
+    return /^[a-z0-9-]{3,32}$/.test(s);
+  };
+
+  const [slug, setSlug] = useState<string>(generateRandomSlug());
+  const [slugError, setSlugError] = useState<string>("");
 
   const createLink = async () => {
     try {
+      const id = normalizeSlug(slug);
+      setSlug(id);
+      if (!isSlugValid(id)) {
+        setSlugError("Use 3–32 chars: lowercase letters, numbers, hyphens. 'new' is reserved.");
+        toast({ title: "Invalid slug", description: "Please enter a valid URL slug.", variant: "destructive" });
+        return;
+      }
+
+      // Ensure slug availability (avoid overwriting existing rooms)
+      const { count, error: existErr } = await supabase
+        .from("live_share_rooms_public" as any)
+        .select("id", { count: 'exact', head: true })
+        .eq("id", id);
+      if (!existErr && (count ?? 0) > 0) {
+        setSlugError("This slug is already taken.");
+        toast({ title: "Slug taken", description: "Please try a different one.", variant: "destructive" });
+        return;
+      }
+
       const url = new URL(window.location.origin);
-      url.pathname = `/share/${shareId}`;
-      url.searchParams.set("max", String(maxPeers));
+      url.pathname = `/share/${id}`;
+      // Keep URL short: rely on server-side max_peers instead of query string
 
       // Prepare optional password salt/proof or ephemeral key (default-on encryption)
       let saltB64: string | null = null;
@@ -58,7 +99,7 @@ export default function LiveShareNew() {
         }
         const salt = generateSalt();
         saltB64 = arrayBufferToBase64(salt.buffer);
-        proof = await sha256Base64(`${shareId}:${password}:${saltB64}`);
+        proof = await sha256Base64(`${id}:${password}:${saltB64}`);
         // Do NOT put proof/salt in query string. Place in URL fragment to avoid referrer/log leakage.
         const hash = new URLSearchParams();
         hash.set("proof", proof);
@@ -73,7 +114,7 @@ export default function LiveShareNew() {
       }
 
       // Persist authoritative room config server-side (idempotent)
-      const payload: any = { id: shareId, max_peers: Math.min(8, Math.max(2, maxPeers)) };
+      const payload: any = { id, max_peers: Math.min(8, Math.max(2, maxPeers)) };
       // Expiration from preset
       const now = Date.now();
       const addMs =
@@ -103,7 +144,7 @@ export default function LiveShareNew() {
         if (permChat) actions.push('chat');
         if (permImport) actions.push('import');
         const expiresAtPerm = payload.expires_at as string | undefined;
-        const res = await fetch(`/live-share/rooms/${shareId}/permissions`, {
+        const res = await fetch(`/live-share/rooms/${id}/permissions`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ resourceType: 'room', grantedTo: 'guests', actions, expiresAt: expiresAtPerm }),
@@ -115,6 +156,10 @@ export default function LiveShareNew() {
       } catch {}
 
       setLink(url.toString());
+      try {
+        const qr = await QRCode.toDataURL(url.toString(), { width: 256, margin: 1 });
+        setQrDataUrl(qr);
+      } catch {}
       await navigator.clipboard.writeText(url.toString());
       toast({ title: "Link created", description: "Copied to clipboard." });
       // Navigate host directly into the room; include hash so encryption/proof is available client-side only
@@ -160,6 +205,28 @@ export default function LiveShareNew() {
           <CardDescription>Peer-to-peer editing with optional password. No content is stored on the server.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4 items-start">
+            <Label htmlFor="slug">Custom URL slug</Label>
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-2">
+                <Input
+                  id="slug"
+                  value={slug}
+                  onChange={(e) => {
+                    const next = normalizeSlug(e.target.value);
+                    setSlug(next);
+                    if (next && isSlugValid(next)) setSlugError("");
+                  }}
+                  placeholder="e.g. team-sync"
+                />
+                <Button type="button" variant="outline" onClick={() => setSlug(generateRandomSlug())}>Random</Button>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Preview: {`${window.location.origin}/share/${slug || "your-slug"}`}
+              </div>
+              {slugError && <div className="text-xs text-red-600">{slugError}</div>}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4 items-center">
             <Label htmlFor="max">Max participants</Label>
             <Input
@@ -226,6 +293,11 @@ export default function LiveShareNew() {
             <div className="space-y-2">
               <Label>Share link</Label>
               <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+              {qrDataUrl && (
+                <div className="pt-2">
+                  <img src={qrDataUrl} alt="QR code" className="h-40 w-40 border rounded bg-white p-1" />
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -257,7 +329,6 @@ export default function LiveShareNew() {
             const expired = r.expires_at ? Date.now() > new Date(r.expires_at).getTime() : false;
             const baseUrl = new URL(window.location.origin);
             baseUrl.pathname = `/share/${r.id}`;
-            baseUrl.searchParams.set("max", String(r.max_peers ?? 2));
             const baseLink = baseUrl.toString();
             return (
               <div key={r.id} className="border rounded p-3">

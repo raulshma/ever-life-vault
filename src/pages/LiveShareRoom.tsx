@@ -10,6 +10,7 @@ import { arrayBufferToBase64, deriveKey, importAesKeyFromBase64, generateAesKey,
 import { useP2PShare } from "@/hooks/useP2PShare";
 import { supabase } from "@/integrations/supabase/client";
 import { Separator } from "@/components/ui/separator";
+import QRCode from "qrcode";
 
 export default function LiveShareRoom() {
   const { toast } = useToast();
@@ -31,8 +32,10 @@ export default function LiveShareRoom() {
   const [permChatHost, setPermChatHost] = useState<boolean>(true);
   const [permImportHost, setPermImportHost] = useState<boolean>(false);
   const [savingPerms, setSavingPerms] = useState<boolean>(false);
+  const [qrDataUrl, setQrDataUrl] = useState<string>("");
 
-  const maxPeers = Math.min(8, Math.max(2, Number(params.get("max")) || 2));
+  // Derive max peers from server instead of URL to avoid long query strings
+  const [effectiveMaxPeers, setEffectiveMaxPeers] = useState<number>(2);
   // Sensitive data are passed via URL fragment to avoid referrer leakage
   const fragment = useMemo(() => {
     try {
@@ -42,9 +45,9 @@ export default function LiveShareRoom() {
       return new URLSearchParams();
     }
   }, []);
-  const proof = fragment.get("proof") || params.get("proof") || undefined;
-  const keyB64 = fragment.get("k") || params.get("k") || undefined;
-  const inviteCodeParam = params.get("code") || undefined;
+  const proof = fragment.get("proof") || undefined;
+  const keyB64 = fragment.get("k") || undefined;
+  const inviteCodeParam = fragment.get("code") || undefined;
 
   useEffect(() => {
     // Load server-side room config to determine if password-protected
@@ -52,13 +55,17 @@ export default function LiveShareRoom() {
       try {
         const { data } = await supabase
           .from("live_share_rooms_public")
-          .select("password_salt, max_peers")
+           .select("password_salt, max_peers")
           .eq("id", id)
           .maybeSingle();
         const salt = data?.password_salt as string | null;
         setServerSalt(salt || null);
         const protectedRoom = Boolean(salt);
         setNeedsPassword(protectedRoom);
+         const maxPeersServer = (data as any)?.max_peers as number | undefined;
+         if (typeof maxPeersServer === 'number') {
+           setEffectiveMaxPeers(Math.min(8, Math.max(2, maxPeersServer)));
+         }
         if (protectedRoom && proof) {
           // Try server-side verification using provided proof
           const client: any = supabase;
@@ -82,6 +89,18 @@ export default function LiveShareRoom() {
     };
     if (id) run();
   }, [id, proof, keyB64]);
+
+  // Generate QR for the full current URL so the fragment is included (for E2E info)
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const url = window.location.href;
+        const data = await QRCode.toDataURL(url, { width: 200, margin: 1 });
+        setQrDataUrl(data);
+      } catch {}
+    };
+    run();
+  }, []);
 
   async function sha256Base64(data: string): Promise<string> {
     const enc = new TextEncoder();
@@ -112,7 +131,7 @@ export default function LiveShareRoom() {
 
   const isGuest = Boolean(inviteCodeParam);
   const shouldEnable = verified && (!isGuest || approvalStatus === 'approved');
-  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ shareId: id!, maxPeers, encryptionKey: key, debug: true, enabled: shouldEnable });
+  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ shareId: id!, maxPeers: effectiveMaxPeers, encryptionKey: key, debug: true, enabled: shouldEnable });
   const [chatInput, setChatInput] = useState("");
   const [diag, setDiag] = useState<any[]>([]);
   const editorRef = useRef<HTMLDivElement | null>(null);
@@ -260,44 +279,59 @@ export default function LiveShareRoom() {
     <div className="max-w-5xl mx-auto mt-4 space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            Live Share Room
-            {state.roomLocked && (
-              <span className="text-xs px-2 py-1 rounded bg-muted">Locked</span>
-            )}
-          </CardTitle>
-          <CardDescription>
-            Share ID: <code>{id}</code> • Participants: {state.participants}/{state.effectiveMaxPeers}
-            {(serverProof || proof || keyB64) && (
-              <span className="ml-2">• Safety code: <code>{safetyCode ?? 'N/A'}</code></span>
-            )}
-          </CardDescription>
-          {state.isHost && (
-            <div className="mt-2">
-              <Button size="sm" variant="outline" onClick={() => updateRoomLocked(!state.roomLocked)}>
-                {state.roomLocked ? "Unlock room" : "Lock room"}
-              </Button>
-              <Button size="sm" variant="outline" className="ml-2" onClick={() => rotateKey()}>Rotate key</Button>
-              <Button size="sm" variant="ghost" className="ml-2" onClick={async () => { await leave(); navigate("/share/new", { replace: true }); }}>End & leave</Button>
-              <Button size="sm" variant="secondary" className="ml-2" onClick={async () => {
-                try {
-                  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-                  const { data: sess } = await supabase.auth.getSession();
-                  const token = sess?.session?.access_token;
-                  const res = await fetch(`/live-share/rooms/${id}/invites`, {
-                    method: 'POST',
-                    headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-                    body: JSON.stringify({ expiresAt, maxUses: 5 }),
-                  });
-                  const data = await res.json();
-                  if (!res.ok) throw new Error(data?.error || 'Failed');
-                  setCreatedInviteCode(data.code);
-                } catch (e: any) {
-                  toast({ title: 'Failed to create invite', description: e?.message ?? String(e), variant: 'destructive' });
-                }
-              }}>Create invite</Button>
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2">
+                Live Share Room
+                {state.roomLocked && (
+                  <span className="text-xs px-2 py-1 rounded bg-muted">Locked</span>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Share ID: <code>{id}</code> • Participants: {state.participants}/{state.effectiveMaxPeers}
+                {(serverProof || proof || keyB64) && (
+                  <span className="ml-2">• Safety code: <code>{safetyCode ?? 'N/A'}</code></span>
+                )}
+              </CardDescription>
+              {state.isHost && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Button size="sm" variant="outline" onClick={() => updateRoomLocked(!state.roomLocked)}>
+                    {state.roomLocked ? "Unlock room" : "Lock room"}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => rotateKey()}>Rotate key</Button>
+                  <Button size="sm" variant="ghost" onClick={async () => { await leave(); navigate("/share/new", { replace: true }); }}>End & leave</Button>
+                  <Button size="sm" variant="secondary" onClick={async () => {
+                    try {
+                      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+                      const { data: sess } = await supabase.auth.getSession();
+                      const token = sess?.session?.access_token;
+                      const res = await fetch(`/live-share/rooms/${id}/invites`, {
+                        method: 'POST',
+                        headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                        body: JSON.stringify({ expiresAt, maxUses: 5 }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data?.error || 'Failed');
+                      setCreatedInviteCode(data.code);
+                    } catch (e: any) {
+                      toast({ title: 'Failed to create invite', description: e?.message ?? String(e), variant: 'destructive' });
+                    }
+                  }}>Create invite</Button>
+                </div>
+              )}
             </div>
-          )}
+            <div className="shrink-0 flex flex-col items-center gap-2">
+              {qrDataUrl && (
+                <img src={qrDataUrl} alt="QR" className="h-24 w-24 md:h-28 md:w-28 border rounded bg-white p-1" />
+              )}
+              <Button size="sm" variant="outline" onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(window.location.href);
+                  toast({ title: 'Copied', description: 'Share link copied.' });
+                } catch {}
+              }}>Copy link</Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {createdInviteCode && (
@@ -309,8 +343,11 @@ export default function LiveShareRoom() {
               }}>Copy</Button>
               <Button size="sm" variant="outline" onClick={async () => {
                 try {
+                  // Keep URL short: put invite code in fragment instead of query string
                   const url = new URL(window.location.href);
-                  url.searchParams.set('code', createdInviteCode);
+                  const fragmentParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+                  fragmentParams.set('code', createdInviteCode);
+                  url.hash = fragmentParams.toString();
                   await navigator.clipboard.writeText(url.toString());
                   toast({ title: 'Copied', description: 'Invite link copied.' });
                 } catch {}
