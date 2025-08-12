@@ -52,6 +52,8 @@ export type P2PShareState = {
   blockedByLock?: boolean;
   /** True if the host ended the room. Hook will auto-leave when set. */
   ended?: boolean;
+  /** Allowed actions for this client as resolved from room permissions */
+  allowedActions?: string[];
 };
 
 type PeerRecord = {
@@ -114,6 +116,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const lastSeenRef = useRef<Map<string, number>>(new Map());
   const restartAttemptsRef = useRef<Map<string, number>>(new Map());
   const heartbeatIntervalRef = useRef<number | null>(null);
+  const permissionsIntervalRef = useRef<number | null>(null);
   const roomLockedRef = useRef<boolean>(false);
   const ydocRef = useRef<any | null>(null);
   const ytextRef = useRef<any | null>(null);
@@ -129,6 +132,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const myColorRef = useRef<string>("#6b7280");
   const participantsRef = useRef<number>(0);
   const encryptionKeyRef = useRef<CryptoKey | null>(encryptionKey ?? null);
+  const allowedActionsRef = useRef<Set<string>>(new Set());
   // Dedup cache for chat messages to avoid double rendering when both P2P and Realtime deliver the same payload
   const chatSeenIdsRef = useRef<Set<string>>(new Set());
   const chatSeenQueueRef = useRef<string[]>([]);
@@ -413,6 +417,11 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
 
   const setText = useCallback(
     (next: string) => {
+      // Gating: guests require 'edit'
+      if (!isHostRef.current) {
+        const hasEdit = allowedActionsRef.current.has('edit');
+        if (!hasEdit) return; // drop local edits when not allowed
+      }
       // Prefer CRDT (Yjs) edits when available; fall back to legacy text broadcast otherwise
       const ytext = ytextRef.current as any;
       if (ytext) {
@@ -1063,6 +1072,52 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
             createdByUserIdRef.current = (data as any)?.created_by ?? null;
           }
         } catch {}
+        // Fetch permissions for this room and set allowed actions
+        try {
+          const res = await fetch(`/live-share/rooms/${shareId}/permissions`, { method: 'GET' });
+          const json = await res.json();
+          if (res.ok && json?.items) {
+            const set = new Set<string>();
+            for (const it of (json.items as any[])) {
+              const grantedTo = (it as any)?.granted_to as string | undefined;
+              if (grantedTo && (grantedTo === 'guests' || grantedTo === 'all')) {
+                const acts: string[] = Array.isArray((it as any)?.actions) ? (it as any).actions : [];
+                for (const a of acts) set.add(String(a));
+              }
+            }
+            allowedActionsRef.current = set;
+            setState((s) => ({ ...s, allowedActions: Array.from(set) }));
+          }
+        } catch {}
+        // Periodically refresh permissions to reflect host changes
+        try {
+          if (permissionsIntervalRef.current) window.clearInterval(permissionsIntervalRef.current);
+          permissionsIntervalRef.current = window.setInterval(async () => {
+            try {
+              const res = await fetch(`/live-share/rooms/${shareId}/permissions`, { method: 'GET' });
+              const json = await res.json();
+              if (res.ok && json?.items) {
+                const set = new Set<string>();
+                for (const it of (json.items as any[])) {
+                  const grantedTo = (it as any)?.granted_to as string | undefined;
+                  if (grantedTo && (grantedTo === 'guests' || grantedTo === 'all')) {
+                    const acts: string[] = Array.isArray((it as any)?.actions) ? (it as any).actions : [];
+                    for (const a of acts) set.add(String(a));
+                  }
+                }
+                const next = Array.from(set);
+                // Only update state if changed to avoid renders
+                setState((s) => {
+                  const prev = Array.isArray(s.allowedActions) ? s.allowedActions.join('|') : '';
+                  const curr = next.join('|');
+                  if (prev === curr) return s;
+                  allowedActionsRef.current = set;
+                  return { ...s, allowedActions: next };
+                });
+              }
+            } catch {}
+          }, 5000);
+        } catch {}
         // tracking will be decided on first presence sync
       }
     });
@@ -1099,6 +1154,10 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
       if (heartbeatIntervalRef.current) {
         window.clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = null;
+      }
+      if (permissionsIntervalRef.current) {
+        window.clearInterval(permissionsIntervalRef.current);
+        permissionsIntervalRef.current = null;
       }
       // telemetry: leave
        try { void supabase.from("live_share_events" as any).insert({ room_id: shareId, event: "leave", peer_id: myPeerId, encryption_enabled: Boolean(encryptionKeyRef.current) }); } catch {}
@@ -1261,6 +1320,10 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
     },
     importSnapshot: async (payload: { yUpdateB64?: string | null; text?: string }) => {
       try {
+        if (!isHostRef.current) {
+          const hasImport = allowedActionsRef.current.has('import');
+          if (!hasImport) return;
+        }
         const { yUpdateB64, text } = payload || {} as any;
         const ydoc = ydocRef.current as any;
         if (ydoc && yUpdateB64) {
@@ -1357,6 +1420,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
       } catch {}
     },
     sendChatMessage: async (text: string) => {
+      if (!isHostRef.current && !allowedActionsRef.current.has('chat')) return;
       const id = crypto.randomUUID();
       const ts = Date.now();
       const payload = { type: "chat", id, text, ts, from: myPeerId } as const;

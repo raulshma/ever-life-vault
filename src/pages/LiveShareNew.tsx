@@ -33,6 +33,9 @@ export default function LiveShareNew() {
   const [expiryPreset, setExpiryPreset] = useState<string>("30m");
   const [myRooms, setMyRooms] = useState<any[]>([]);
   const [loadingRooms, setLoadingRooms] = useState<boolean>(false);
+  const [permEdit, setPermEdit] = useState<boolean>(true);
+  const [permChat, setPermChat] = useState<boolean>(true);
+  const [permImport, setPermImport] = useState<boolean>(false);
 
   // Use a full 128-bit random id (UUID v4 without dashes) to prevent easy enumeration
   const shareId = useMemo(() => crypto.randomUUID().replace(/-/g, ""), []);
@@ -92,6 +95,24 @@ export default function LiveShareNew() {
       if (upsertErr) {
         throw upsertErr;
       }
+
+      // Set default guest permissions
+      try {
+        const actions: string[] = [];
+        if (permEdit) actions.push('edit');
+        if (permChat) actions.push('chat');
+        if (permImport) actions.push('import');
+        const expiresAtPerm = payload.expires_at as string | undefined;
+        const res = await fetch(`/live-share/rooms/${shareId}/permissions`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ resourceType: 'room', grantedTo: 'guests', actions, expiresAt: expiresAtPerm }),
+        });
+        if (!res.ok) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to set permissions');
+        }
+      } catch {}
 
       setLink(url.toString());
       await navigator.clipboard.writeText(url.toString());
@@ -169,6 +190,24 @@ export default function LiveShareNew() {
                 <SelectItem value="7d">7 days</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-4 items-start">
+            <Label>Guest permissions</Label>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={permEdit} onChange={(e) => setPermEdit(e.target.checked)} />
+                Allow edit
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={permChat} onChange={(e) => setPermChat(e.target.checked)} />
+                Allow chat
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={permImport} onChange={(e) => setPermImport(e.target.checked)} />
+                Allow import
+              </label>
+              <p className="text-xs text-muted-foreground">You can adjust permissions later; clients refresh periodically.</p>
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <div>

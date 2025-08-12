@@ -84,6 +84,58 @@ export function registerLiveShareRoutes(
     if (error) return reply.code(400).send({ error: error.message });
     return reply.send({ ok: true });
   });
+
+  // Permissions: list current permissions for room
+  server.get('/live-share/rooms/:roomId/permissions', async (req, reply) => {
+    const supabase = makeClientForRequest(req);
+    if (!supabase) return reply.code(500).send({ error: 'server_not_configured' });
+    const params = z.object({ roomId: z.string() }).parse((req as any).params);
+    const { data, error } = await supabase
+      .from('live_share_permissions')
+      .select('*')
+      .eq('room_id', params.roomId)
+      .order('created_at', { ascending: false });
+    if (error) return reply.code(400).send({ error: error.message });
+    return reply.send({ items: data || [] });
+  });
+
+  // Permissions: upsert a single guest permission record for room
+  server.post('/live-share/rooms/:roomId/permissions', async (req, reply) => {
+    const user = await requireSupabaseUser(req, reply);
+    if (!user) return;
+    const supabase = makeClientForRequest(req);
+    if (!supabase) return reply.code(500).send({ error: 'server_not_configured' });
+    const params = z.object({ roomId: z.string() }).parse((req as any).params);
+    const body = z
+      .object({
+        resourceType: z.string().default('room'),
+        grantedTo: z.string().default('guests'),
+        actions: z.array(z.string()).min(0),
+        expiresAt: z.string().optional(),
+      })
+      .parse((req as any).body || {});
+
+    // Replace any existing record for (room, resourceType, grantedTo)
+    const { error: delErr } = await supabase
+      .from('live_share_permissions')
+      .delete()
+      .eq('room_id', params.roomId)
+      .eq('resource_type', body.resourceType)
+      .eq('granted_to', body.grantedTo);
+    if (delErr) return reply.code(400).send({ error: delErr.message });
+
+    const insertPayload: any = {
+      room_id: params.roomId,
+      resource_type: body.resourceType,
+      resource_id: params.roomId,
+      actions: body.actions,
+      granted_to: body.grantedTo,
+    };
+    if (body.expiresAt) insertPayload.expires_at = new Date(body.expiresAt).toISOString();
+    const { error: insErr } = await supabase.from('live_share_permissions').insert(insertPayload);
+    if (insErr) return reply.code(400).send({ error: insErr.message });
+    return reply.send({ ok: true });
+  });
 }
 
 

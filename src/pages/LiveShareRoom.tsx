@@ -27,6 +27,10 @@ export default function LiveShareRoom() {
   const [pendingParticipants, setPendingParticipants] = useState<any[]>([]);
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [approvalStatus, setApprovalStatus] = useState<'idle' | 'pending' | 'approved' | 'banned'>("idle");
+  const [permEditHost, setPermEditHost] = useState<boolean>(true);
+  const [permChatHost, setPermChatHost] = useState<boolean>(true);
+  const [permImportHost, setPermImportHost] = useState<boolean>(false);
+  const [savingPerms, setSavingPerms] = useState<boolean>(false);
 
   const maxPeers = Math.min(8, Math.max(2, Number(params.get("max")) || 2));
   // Sensitive data are passed via URL fragment to avoid referrer leakage
@@ -134,6 +138,15 @@ export default function LiveShareRoom() {
       leave();
     };
   }, [leave]);
+
+  // Initialize host permission toggles from allowedActions
+  useEffect(() => {
+    if (state.allowedActions && state.isHost) {
+      setPermEditHost(state.allowedActions.includes('edit'));
+      setPermChatHost(state.allowedActions.includes('chat'));
+      setPermImportHost(state.allowedActions.includes('import'));
+    }
+  }, [state.allowedActions, state.isHost]);
 
   // Guest: redeem invite code and wait for approval
   useEffect(() => {
@@ -294,6 +307,14 @@ export default function LiveShareRoom() {
               <Button size="sm" variant="outline" onClick={async () => {
                 try { await navigator.clipboard.writeText(createdInviteCode); toast({ title: 'Copied', description: 'Invite code copied.' }); } catch {}
               }}>Copy</Button>
+              <Button size="sm" variant="outline" onClick={async () => {
+                try {
+                  const url = new URL(window.location.href);
+                  url.searchParams.set('code', createdInviteCode);
+                  await navigator.clipboard.writeText(url.toString());
+                  toast({ title: 'Copied', description: 'Invite link copied.' });
+                } catch {}
+              }}>Copy link</Button>
             </div>
           )}
           {roomFull && (
@@ -400,7 +421,12 @@ export default function LiveShareRoom() {
                   Waiting for host approval...
                 </div>
               )}
-              <div className="text-sm font-medium mb-1">Chat</div>
+              <div className="text-sm font-medium mb-1 flex items-center gap-2">
+                <span>Chat</span>
+                {state.allowedActions && !state.allowedActions.includes('chat') && (
+                  <span className="text-[10px] px-1 py-0.5 rounded bg-muted">read-only</span>
+                )}
+              </div>
               <div className="border rounded p-2 h-40 overflow-auto bg-background">
                 {state.chatMessages?.length ? (
                   state.chatMessages.slice(-100).map((m) => (
@@ -415,11 +441,13 @@ export default function LiveShareRoom() {
                 )}
               </div>
               <div className="mt-2 flex gap-2">
-                <Input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message and press Enter" onKeyDown={async (e) => {
+                <Input value={chatInput} disabled={state.allowedActions && !state.allowedActions.includes('chat')} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message and press Enter" onKeyDown={async (e) => {
                   if (e.key === "Enter" && chatInput.trim()) {
                     e.preventDefault();
-                    await sendChatMessage(chatInput.trim());
-                    setChatInput("");
+                    if (!state.allowedActions || state.allowedActions.includes('chat')) {
+                      await sendChatMessage(chatInput.trim());
+                      setChatInput("");
+                    }
                   }
                 }} />
                 <Button variant="outline" onClick={async () => {
@@ -441,7 +469,7 @@ export default function LiveShareRoom() {
                     toast({ title: 'Export failed', description: e?.message ?? String(e), variant: 'destructive' });
                   }
                 }}>Export</Button>
-                <Button variant="outline" onClick={async () => {
+                <Button variant="outline" disabled={state.allowedActions && !state.allowedActions.includes('import')} onClick={async () => {
                   try {
                     const input = document.createElement('input');
                     input.type = 'file';
@@ -513,6 +541,48 @@ export default function LiveShareRoom() {
                       ))}
                     </div>
                   )}
+                </div>
+              )}
+              {state.isHost && (
+                <div className="pt-3">
+                  <Separator className="my-2" />
+                  <div className="text-sm font-medium mb-2">Guest permissions</div>
+                  <div className="flex flex-col gap-2 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={permEditHost} onChange={(e) => setPermEditHost(e.target.checked)} /> Allow edit
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={permChatHost} onChange={(e) => setPermChatHost(e.target.checked)} /> Allow chat
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input type="checkbox" checked={permImportHost} onChange={(e) => setPermImportHost(e.target.checked)} /> Allow import
+                    </label>
+                    <div>
+                      <Button size="sm" variant="secondary" disabled={savingPerms} onClick={async () => {
+                        try {
+                          setSavingPerms(true);
+                          const actions: string[] = [];
+                          if (permEditHost) actions.push('edit');
+                          if (permChatHost) actions.push('chat');
+                          if (permImportHost) actions.push('import');
+                          const { data: sess } = await supabase.auth.getSession();
+                          const token = sess?.session?.access_token;
+                          const res = await fetch(`/live-share/rooms/${id}/permissions`, {
+                            method: 'POST',
+                            headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                            body: JSON.stringify({ resourceType: 'room', grantedTo: 'guests', actions }),
+                          });
+                          const json = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(json?.error || 'Failed');
+                          toast({ title: 'Permissions updated', description: 'Guests will see changes shortly.' });
+                        } catch (e: any) {
+                          toast({ title: 'Failed to update permissions', description: e?.message ?? String(e), variant: 'destructive' });
+                        } finally {
+                          setSavingPerms(false);
+                        }
+                      }}>Save</Button>
+                    </div>
+                  </div>
                 </div>
               )}
               <div className="pt-2">
