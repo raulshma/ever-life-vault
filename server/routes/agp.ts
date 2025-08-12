@@ -18,7 +18,8 @@ export function registerAgpRoute(
     }
 
     const incomingHeaders = request.headers as Record<string, any>
-    const forwardHeaders = buildForwardHeaders(incomingHeaders, true)
+    // Do not forward Authorization or Cookie from the caller by default; we inject provider auth below
+    const forwardHeaders = buildForwardHeaders(incomingHeaders, true, true)
 
     const targetAuth = incomingHeaders['x-target-authorization'] || (incomingHeaders as any)['X-Target-Authorization']
     if (targetAuth) {
@@ -28,8 +29,17 @@ export function registerAgpRoute(
     const method = request.method.toUpperCase()
     const body = prepareBody(method, incomingHeaders, (request as any).body, forwardHeaders)
 
-    const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any })
-    return sendUpstreamResponse(reply, res)
+    // Add a timeout to avoid resource exhaustion from slow upstreams
+    const ac = new AbortController()
+    const to = setTimeout(() => ac.abort(), 30_000)
+    let res: Response
+    try {
+      res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as any })
+    } finally {
+      clearTimeout(to)
+    }
+    // Allow Set-Cookie only if upstream is same-host as target? Keep default allow to not break integrations
+    return sendUpstreamResponse(reply, res, false)
   })
 }
 

@@ -1,19 +1,28 @@
 import { Readable } from 'node:stream'
 
-export function buildForwardHeaders(incomingHeaders: Record<string, any>, omitAuthorization: boolean = false) {
+export function buildForwardHeaders(
+  incomingHeaders: Record<string, any>,
+  omitAuthorization: boolean = false,
+  omitCookies: boolean = false,
+) {
   const forwardHeaders: Record<string, any> = {}
   for (const [key, value] of Object.entries(incomingHeaders)) {
     const k = key.toLowerCase()
+    // Never forward hop-by-hop headers
     if (['host', 'content-length', 'connection', 'origin', 'referer'].includes(k)) continue
     if (omitAuthorization && k === 'authorization') continue
+    if (omitCookies && k === 'cookie') continue
     forwardHeaders[k] = value
   }
   return forwardHeaders
 }
 
-export async function sendUpstreamResponse(reply: any, res: Response) {
+export async function sendUpstreamResponse(reply: any, res: Response, allowSetCookie: boolean = true) {
   for (const [hk, hv] of (res.headers as any)) {
-    if (['content-type', 'set-cookie', 'cache-control', 'etag', 'last-modified'].includes(hk.toLowerCase())) {
+    const lower = hk.toLowerCase()
+    if (['content-type', 'cache-control', 'etag', 'last-modified'].includes(lower)) {
+      reply.header(hk, hv)
+    } else if (allowSetCookie && lower === 'set-cookie') {
       reply.header(hk, hv)
     }
   }

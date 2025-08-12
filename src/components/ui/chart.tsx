@@ -65,6 +65,22 @@ const ChartContainer = React.forwardRef<
 })
 ChartContainer.displayName = "Chart"
 
+function isSafeColor(value: unknown): value is string {
+  if (typeof value !== "string") return false
+  const v = value.trim()
+  // Allow common safe CSS color formats and CSS variables; disallow dangerous characters
+  const dangerous = /[;{}]/
+  if (dangerous.test(v)) return false
+  const hex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+  const rgb = /^rgb\(\s*([0-9]{1,3}\s*,){2}\s*[0-9]{1,3}\s*\)$/
+  const rgba = /^rgba\(\s*([0-9]{1,3}\s*,){3}\s*(0|1|0?\.\d+)\s*\)$/
+  const hsl = /^hsl\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}%\s*,\s*[0-9]{1,3}%\s*\)$/
+  const hsla = /^hsla\(\s*[0-9]{1,3}\s*,\s*[0-9]{1,3}%\s*,\s*[0-9]{1,3}%\s*,\s*(0|1|0?\.\d+)\s*\)$/
+  const variable = /^var\(\s*--[a-zA-Z0-9_-]+(\s*,\s*[^)]+)?\)$/
+  const keywords = /^(transparent|currentColor)$/i
+  return hex.test(v) || rgb.test(v) || rgba.test(v) || hsl.test(v) || hsla.test(v) || variable.test(v) || keywords.test(v)
+}
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(
     ([_, config]) => config.theme || config.color
@@ -77,7 +93,7 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   return (
     <style
       dangerouslySetInnerHTML={{
-        __html: Object.entries(THEMES)
+    __html: Object.entries(THEMES)
           .map(
             ([theme, prefix]) => `
 ${prefix} [data-chart=${id}] {
@@ -86,7 +102,7 @@ ${colorConfig
     const color =
       itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
       itemConfig.color
-    return color ? `  --color-${key}: ${color};` : null
+    return color && isSafeColor(color) ? `  --color-${key}: ${color};` : null
   })
   .join("\n")}
 }

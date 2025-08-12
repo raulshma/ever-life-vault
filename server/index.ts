@@ -30,6 +30,10 @@ export async function buildServer(): Promise<FastifyInstance> {
   const requireSupabaseUser = requireSupabaseUserFactory(supabase, server.log)
 
   const isTargetAllowed = makeIsTargetAllowed(env.ALLOWED_TARGET_HOSTS)
+  if (env.ALLOWED_TARGET_HOSTS.length === 0 && process.env.NODE_ENV === 'production') {
+    server.log.error('ALLOWED_TARGET_HOSTS must be non-empty in production.')
+    process.exit(1)
+  }
 
   registerAgpRoute(server, isTargetAllowed, requireSupabaseUser)
   registerDynRoute(server, isTargetAllowed)
