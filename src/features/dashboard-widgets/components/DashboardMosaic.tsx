@@ -91,16 +91,12 @@ function DashboardMosaicInner() {
             <TooltipContent>Reset layout</TooltipContent>
           </Tooltip>
 
+          {/* Use a plain button as the dialog trigger to ensure onOpenChange works reliably */}
           <AddWidgetDialog
             trigger={
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="default" size="icon" aria-label="Add widget" className="shrink-0">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Add widget</TooltipContent>
-              </Tooltip>
+              <Button variant="default" size="icon" aria-label="Add widget" className="shrink-0">
+                <Plus className="h-4 w-4" />
+              </Button>
             }
           />
         </div>

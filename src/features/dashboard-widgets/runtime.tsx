@@ -61,9 +61,11 @@ async function loadRecord(userId: string): Promise<DashboardLayoutRecord | null>
 }
 
 async function upsertRecord(userId: string, layout: LayoutTree | null, widgetState: WidgetStateMap): Promise<DashboardLayoutRecord | null> {
+  // Never persist SQL NULL into layout_tree (column is NOT NULL). Use an empty grid layout instead.
+  const safeLayout: Json = ((layout ?? { kind: 'grid', order: [] }) as unknown) as Json
   const payload = {
     user_id: userId,
-    layout_tree: layout as unknown as Json,
+    layout_tree: safeLayout,
     widget_state: widgetState as unknown as Json,
     updated_at: new Date().toISOString(),
   }
@@ -250,9 +252,11 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
   }) as RuntimeContextValue, [layout, widgets, spans, rowSpans, saveDebounced, addWidget, removeWidget, updateWidgetConfig, reorderWidgets, setWidgets])
   
   const resetLayout = useCallback(() => {
+    // Keep in-memory state minimal but make sure DB gets a non-null layout
+    const emptyGrid: LayoutTree = { kind: 'grid', order: [] }
     setLayout(null)
     setWidgets({})
-    saveDebounced(null, {})
+    saveDebounced(emptyGrid, {})
   }, [saveDebounced])
 
   const exportLayout = useCallback(() => {
