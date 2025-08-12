@@ -21,6 +21,7 @@ export const env = {
   HOST: process.env.HOST || '0.0.0.0',
   ALLOWED_ORIGINS: splitCsv(process.env.ALLOWED_ORIGINS),
   ALLOWED_TARGET_HOSTS: splitCsv(process.env.ALLOWED_TARGET_HOSTS),
+  ALLOW_UNAUTH_AGP: ['1', 'true', 'yes'].includes(String(process.env.ALLOW_UNAUTH_AGP || '').toLowerCase()),
   JELLYSEERR_BASE: process.env.JELLYSEERR_BASE,
   JELLYFIN_BASE: process.env.JELLYFIN_BASE,
   KARAKEEP_BASE: process.env.KARAKEEP_BASE,

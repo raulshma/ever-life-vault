@@ -4,6 +4,8 @@ import type { WidgetProps } from '../types'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import { useJellyfin, type JellyfinConfig, type JellyfinSession, type JellyfinSystemInfo } from '@/hooks/useJellyfin'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { RefreshCw } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function JellyfinWidget(_props: WidgetProps<{}>) {
@@ -43,7 +45,14 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
                 </>
               )}
             </div>
-            <Button size="sm" variant="outline" onClick={load}>Refresh</Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" aria-label="Refresh" onClick={load}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Refresh</TooltipContent>
+            </Tooltip>
           </div>
           <div>
             {info ? (

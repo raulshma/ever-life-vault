@@ -3,6 +3,8 @@ import { WidgetShell } from '../components/WidgetShell'
 import type { WidgetProps } from '../types'
 import { useNotes } from '@/hooks/useNotes'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Link } from 'react-router-dom'
 
@@ -25,7 +27,14 @@ export default function NotesWidget({ config }: WidgetProps<NotesConfig>) {
       <div className="space-y-3">
         <div className="flex gap-2">
           <Input placeholder="Quick note title" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onAdd() }} />
-          <Button onClick={onAdd}>Add</Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" aria-label="Add" onClick={onAdd}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Add</TooltipContent>
+          </Tooltip>
         </div>
         <ul className="space-y-1 text-sm">
           {top.length === 0 ? (

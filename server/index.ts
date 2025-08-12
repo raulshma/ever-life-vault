@@ -35,7 +35,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     process.exit(1)
   }
 
-  registerAgpRoute(server, isTargetAllowed, requireSupabaseUser)
+  registerAgpRoute(server, isTargetAllowed, requireSupabaseUser, env.ALLOW_UNAUTH_AGP)
   registerDynRoute(server, isTargetAllowed)
   registerIntegrationRoutes(server, {
     requireSupabaseUser,

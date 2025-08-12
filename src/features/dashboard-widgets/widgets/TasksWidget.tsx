@@ -4,6 +4,8 @@ import type { WidgetProps } from '../types'
 import { useTasks } from '@/hooks/useTasks'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Link } from 'react-router-dom'
@@ -31,7 +33,14 @@ export default function TasksWidget({ config }: WidgetProps<TasksConfig>) {
       <div className="space-y-3">
         <div className="flex gap-2">
           <Input placeholder="Quick add task" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') onAdd() }} />
-          <Button onClick={onAdd}>Add</Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" aria-label="Add" onClick={onAdd}>
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Add</TooltipContent>
+          </Tooltip>
         </div>
         <div className="space-y-2">
           {loading ? (

@@ -6,7 +6,7 @@ import { useWidgetRegistry } from '../registry'
 import { useDashboardRuntime } from '../runtime'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
-export function AddWidgetDialog() {
+export function AddWidgetDialog({ trigger }: { trigger?: React.ReactNode }) {
   const registry = useWidgetRegistry()
   const { addWidget } = useDashboardRuntime()
   const widgets = registry.list()
@@ -35,7 +35,7 @@ export function AddWidgetDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">Add widget</Button>
+        {trigger ?? <Button variant="default">Add widget</Button>}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>

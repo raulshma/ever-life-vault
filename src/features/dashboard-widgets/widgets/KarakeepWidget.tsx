@@ -4,6 +4,8 @@ import type { WidgetProps } from '../types'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import useKarakeep, { type KarakeepConfig, type KarakeepItem } from '@/hooks/useKarakeep'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { RefreshCw } from 'lucide-react'
 
 export default function KarakeepWidget(_props: WidgetProps<{}>) {
   const { itemsByType } = useEncryptedVault()
@@ -29,7 +31,14 @@ export default function KarakeepWidget(_props: WidgetProps<{}>) {
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
             <div>Recent items</div>
-            <Button size="sm" variant="outline" onClick={load}>Refresh</Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" aria-label="Refresh" onClick={load}>
+                  <RefreshCw className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Refresh</TooltipContent>
+            </Tooltip>
           </div>
           <ul className="space-y-1">
             {items.slice(0, 8).map((r) => (
