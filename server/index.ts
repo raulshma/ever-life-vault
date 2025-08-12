@@ -8,6 +8,7 @@ import { createSupabaseClient, requireSupabaseUserFactory } from './auth/supabas
 import { registerDynRoute } from './routes/dyn.js'
 import { registerAgpRoute } from './routes/agp.js'
 import { registerIntegrationRoutes } from './routes/integrations.js'
+import { registerLiveShareRoutes } from './routes/live-share.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -54,6 +55,13 @@ export async function buildServer(): Promise<FastifyInstance> {
     SPOTIFY_CLIENT_ID: env.SPOTIFY_CLIENT_ID,
     SPOTIFY_CLIENT_SECRET: env.SPOTIFY_CLIENT_SECRET,
     SPOTIFY_REDIRECT_URI: env.SPOTIFY_REDIRECT_URI,
+  })
+
+  // Live Share private API (requires supabase auth token for host actions)
+  registerLiveShareRoutes(server, {
+    requireSupabaseUser,
+    SUPABASE_URL: env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
   })
 
   server.get('/', async () => ({

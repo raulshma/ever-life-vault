@@ -11,7 +11,6 @@ import {
   Clock,
   Flag,
   CheckCircle2,
-  Loader2,
   Edit,
   Trash2,
   Grid,
@@ -20,6 +19,7 @@ import {
   ArrowUpDown,
   RefreshCw
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'
 import { useTasks } from '@/hooks/useTasks';
 import { TaskEditDialog } from '@/components/TaskEditDialog';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
@@ -157,10 +157,61 @@ export default function DayTracker() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading tasks...</p>
+      <div className="min-h-screen bg-gradient-subtle pb-0">
+        <PageHeader
+          title="Day Tracker"
+          description="Manage your tasks and track daily productivity"
+          icon={Calendar}
+        />
+        <div className="pt-4 pb-0 container">
+          <div className="grid gap-4 sm:gap-6 md:grid-cols-3">
+            <div className="md:col-span-2 bg-card/60 dark:bg-card/20 border border-border rounded-2xl p-6">
+              <Skeleton className="h-5 w-32 mb-4" />
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  <Skeleton className="h-10 w-full" />
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <Skeleton key={i} className="h-8 w-24 rounded-full" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-card rounded-2xl p-6">
+              <Skeleton className="h-5 w-24 mb-3" />
+              <Skeleton className="h-2 w-full mb-2" />
+              <div className="flex justify-between text-xs">
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-8" />
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3 mt-6">
+            {['To Do','In Progress','Done'].map((title, idx) => (
+              <div key={idx} className="space-y-3 rounded-2xl p-1">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="h-5 w-10" />
+                </div>
+                <div className="space-y-3 min-h-[320px] sm:min-h-[400px]">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="gradient-border-l bg-card/80 border rounded-2xl p-4">
+                      <Skeleton className="h-4 w-1/2 mb-2" />
+                      <Skeleton className="h-3 w-1/4 mb-2" />
+                      <div className="flex justify-between">
+                        <Skeleton className="h-6 w-16 rounded-full" />
+                        <div className="flex gap-2">
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                          <Skeleton className="h-8 w-8 rounded-md" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -442,7 +493,7 @@ export default function DayTracker() {
           </TabsContent>
 
           <TabsContent value="monthly">
-            <React.Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading monthly sheets…</div>}>
+            <React.Suspense fallback={<div className="p-6"><div className="space-y-2"><div className="h-5 w-32 bg-muted rounded" /><div className="grid grid-cols-4 gap-1">{Array.from({length:8}).map((_,i)=>(<div key={i} className="h-6 bg-muted rounded" />))}</div></div></div>}>
               <MonthlyStatusSheets />
             </React.Suspense>
           </TabsContent>

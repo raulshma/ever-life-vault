@@ -12,6 +12,7 @@ import { useMonthlyStatusSheets } from "@/hooks/useMonthlyStatusSheets";
 import { format, getDaysInMonth, getDay } from "date-fns";
 import * as XLSX from "xlsx";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { TableSkeleton } from "@/components/skeletons/TableSkeleton";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -472,9 +473,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
         </CardHeader>
         <CardContent className={isFullscreen ? "flex-1 flex flex-col min-h-0" : ""}>
           {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="text-muted-foreground">Loading...</div>
-            </div>
+            <TableSkeleton headers={6} rows={12} />
           ) : (
             <div className={isFullscreen ? "flex-1 flex flex-col min-h-0 space-y-4" : "space-y-4"}>
               <div className={isFullscreen ? "flex-1 min-h-0 overflow-auto" : "overflow-auto"}>

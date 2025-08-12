@@ -10,6 +10,8 @@ import { VaultSessionProvider } from "./hooks/useVaultSession";
 import { SettingsProvider } from "./hooks/useSettings";
 import { Layout } from "@/components/Layout";
 import { FocusTimerProvider } from "@/hooks/useFocusTimerController";
+import { Skeleton } from "@/components/ui/skeleton";
+import PageSkeleton from "@/components/PageSkeleton";
 
 // Route-level code splitting
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -19,10 +21,6 @@ const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const Vault = lazy(() => import("./pages/Vault"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Inventory = lazy(() => import("./pages/Inventory"));
-const HomelabServers = lazy(() => import("./pages/homelab/Servers"));
-const HomelabMonitoring = lazy(() => import("./pages/homelab/Monitoring"));
-const HomelabNetwork = lazy(() => import("./pages/homelab/Network"));
-const HomelabStorage = lazy(() => import("./pages/homelab/Storage"));
 const HomelabMediaRequests = lazy(() => import("./pages/homelab/MediaRequests"));
 const HomelabJellyfin = lazy(() => import("./pages/homelab/Jellyfin"));
 const HomelabKarakeep = lazy(() => import("./pages/homelab/Karakeep"));
@@ -52,8 +50,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-subtle">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="animate-pulse rounded-md h-8 w-8 bg-muted mx-auto mb-3" />
+          <p className="text-muted-foreground">Loading…</p>
         </div>
       </div>
     );
@@ -70,7 +68,7 @@ function AppRoutes() {
   // Default index renders Dashboard
   const indexElement = <Dashboard />;
   return (
-    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading…</div>}>
+    <Suspense fallback={<PageSkeleton cards={6} /> }>
       <Routes>
         <Route path="/auth" element={<Auth />} />
         {/* Public share routes - accessible without auth */}
@@ -93,10 +91,7 @@ function AppRoutes() {
           <Route path="vault" element={<Vault />} />
           <Route path="documents" element={<Documents />} />
           <Route path="inventory" element={<Inventory />} />
-          <Route path="homelab/servers" element={<HomelabServers />} />
-          <Route path="homelab/monitoring" element={<HomelabMonitoring />} />
-          <Route path="homelab/network" element={<HomelabNetwork />} />
-          <Route path="homelab/storage" element={<HomelabStorage />} />
+          {/* homelab pages removed */}
           <Route path="homelab/jellyfin" element={<HomelabJellyfin />} />
           <Route path="homelab/karakeep" element={<HomelabKarakeep />} />
           <Route
@@ -125,7 +120,7 @@ const App = () => (
           <AuthProvider>
             <VaultSessionProvider>
               <FocusTimerProvider>
-                <Suspense fallback={<div className="min-h-[40vh] grid place-items-center text-sm text-muted-foreground">Loading…</div>}>
+                <Suspense fallback={<PageSkeleton withHeader={false} cards={3} cardHeightClassName="h-20" className="w-full" /> }>
                   <AppRoutes />
                 </Suspense>
               </FocusTimerProvider>

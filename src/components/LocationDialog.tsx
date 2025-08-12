@@ -246,7 +246,10 @@ export function LocationDialog({ location, mode, trigger, open, onOpenChange }: 
               disabled={loading}
             >
               {loading ? (
-                <>Loading...</>
+                <>
+                  <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                  Saving…
+                </>
               ) : mode === 'add' ? (
                 <>
                   <MapPin className="w-4 h-4 mr-2" />

@@ -84,7 +84,7 @@ export default function ModuleGrid() {
     {
       name: 'Servers',
       description: 'Manage and monitor your home servers',
-      path: '/homelab/servers',
+      // homelab servers removed
       icon: Server,
       color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
@@ -92,7 +92,7 @@ export default function ModuleGrid() {
     {
       name: 'Monitoring',
       description: 'System health, metrics, and alerts',
-      path: '/homelab/monitoring',
+      // homelab monitoring removed
       icon: Monitor,
       color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
@@ -100,7 +100,7 @@ export default function ModuleGrid() {
     {
       name: 'Network',
       description: 'Devices, bandwidth and security status',
-      path: '/homelab/network',
+      // homelab network removed
       icon: Network,
       color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }
@@ -108,7 +108,7 @@ export default function ModuleGrid() {
     {
       name: 'Storage',
       description: 'Disks, arrays, backups and capacity',
-      path: '/homelab/storage',
+      // homelab storage removed
       icon: Database,
       color: 'from-[hsl(var(--accent))] to-[hsl(var(--primary-glow))]',
       stats: { category: 'Homelab' }

@@ -38,6 +38,7 @@ import {
 } from "@/hooks/useJellyfin";
 import { useServiceApiConfig } from "@/hooks/useServiceApiConfig";
 import { useVaultSession } from "@/hooks/useVaultSession";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Jellyfin() {
   const { isUnlocked } = useVaultSession();
@@ -383,7 +384,11 @@ export default function Jellyfin() {
                 serviceConfig.saving
               }
             >
-              {loading ? "Connecting..." : "Connect to Jellyfin"}
+              {loading ? (
+                <span className="inline-flex items-center"><span className="w-3.5 h-3.5 mr-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />Connecting</span>
+              ) : (
+                "Connect to Jellyfin"
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -519,7 +524,11 @@ export default function Jellyfin() {
                   serviceConfig.saving
                 }
               >
-                {loading ? "Connecting..." : "Save & Test"}
+                {loading ? (
+                  <span className="inline-flex items-center"><span className="w-3.5 h-3.5 mr-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />Connecting</span>
+                ) : (
+                  "Save & Test"
+                )}
               </Button>
               <Button
                 variant="outline"
@@ -549,6 +558,26 @@ export default function Jellyfin() {
       )}
 
       {/* System Info */}
+      {loading && !systemInfo && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Server className="w-5 h-5 mr-2" />
+              Server Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i}>
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-5 w-32" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {systemInfo && (
         <Card>
           <CardHeader>
@@ -593,6 +622,23 @@ export default function Jellyfin() {
       )}
 
       {/* Statistics */}
+      {loading && !stats && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="flex items-center">
+                  <Skeleton className="w-8 h-8 rounded mr-4" />
+                  <div className="ml-2">
+                    <Skeleton className="h-6 w-12 mb-1" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
           <Card>
@@ -702,7 +748,22 @@ export default function Jellyfin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {sessions.filter((s) => s.NowPlayingItem).length === 0 ? (
+          {loading && sessions.filter((s) => s.NowPlayingItem).length === 0 ? (
+            <div className="space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <Skeleton className="h-5 w-48 mb-2" />
+                      <Skeleton className="h-4 w-40" />
+                    </div>
+                    <Skeleton className="h-6 w-16 rounded" />
+                  </div>
+                  <Skeleton className="h-2 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : sessions.filter((s) => s.NowPlayingItem).length === 0 ? (
             <p className="text-muted-foreground">No active playback sessions</p>
           ) : (
             <div className="space-y-4">
@@ -899,39 +960,57 @@ export default function Jellyfin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {users.map((user) => (
-              <div key={user.Id} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-semibold">{user.Name}</h3>
-                  <div className="flex gap-1">
-                    {user.IsAdministrator && (
-                      <Badge variant="secondary">Admin</Badge>
+          {loading && users.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <Skeleton className="h-5 w-32" />
+                    <div className="flex gap-1">
+                      <Skeleton className="h-5 w-10" />
+                      <Skeleton className="h-5 w-12" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-40 mb-1" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {users.map((user) => (
+                <div key={user.Id} className="border rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold">{user.Name}</h3>
+                    <div className="flex gap-1">
+                      {user.IsAdministrator && (
+                        <Badge variant="secondary">Admin</Badge>
+                      )}
+                      <Badge className={user.IsActive ? "bg-[hsl(var(--success))]" : "bg-muted-foreground"}>
+                        {user.IsActive ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    {user.LastActivityDate && (
+                      <div className="flex items-center">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Last activity:{" "}
+                        {new Date(user.LastActivityDate).toLocaleDateString()}
+                      </div>
                     )}
-                    <Badge className={user.IsActive ? "bg-[hsl(var(--success))]" : "bg-muted-foreground"}>
-                      {user.IsActive ? "Active" : "Inactive"}
-                    </Badge>
+                    {user.LastLoginDate && (
+                      <div className="flex items-center">
+                        <Activity className="w-3 h-3 mr-1" />
+                        Last login:{" "}
+                        {new Date(user.LastLoginDate).toLocaleDateString()}
+                      </div>
+                    )}
                   </div>
                 </div>
-                    <div className="text-sm text-muted-foreground space-y-1">
-                  {user.LastActivityDate && (
-                    <div className="flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />
-                      Last activity:{" "}
-                      {new Date(user.LastActivityDate).toLocaleDateString()}
-                    </div>
-                  )}
-                  {user.LastLoginDate && (
-                    <div className="flex items-center">
-                      <Activity className="w-3 h-3 mr-1" />
-                      Last login:{" "}
-                      {new Date(user.LastLoginDate).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -944,32 +1023,49 @@ export default function Jellyfin() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2">
-            {sessions.map((session) => (
-              <div
-                key={session.Id}
-                className="flex justify-between items-center p-3 border rounded"
-              >
-                <div>
-                  <p className="font-medium">{session.UserName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {session.DeviceName} ({session.Client}{" "}
-                    {session.ApplicationVersion})
-                  </p>
+          {loading && sessions.length === 0 ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex justify-between items-center p-3 border rounded">
+                  <div>
+                    <Skeleton className="h-4 w-32 mb-1" />
+                    <Skeleton className="h-3 w-40" />
+                  </div>
+                  <div className="text-right">
+                    <Skeleton className="h-5 w-16 rounded" />
+                    <Skeleton className="h-3 w-24 mt-1" />
+                  </div>
                 </div>
-                <div className="text-right">
-                  <Badge className={session.IsActive ? "bg-[hsl(var(--success))]" : "bg-muted-foreground"}>
-                    {session.IsActive ? "Active" : "Inactive"}
-                  </Badge>
-                  {session.NowPlayingItem && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Playing: {session.NowPlayingItem.Name}
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map((session) => (
+                <div
+                  key={session.Id}
+                  className="flex justify-between items-center p-3 border rounded"
+                >
+                  <div>
+                    <p className="font-medium">{session.UserName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {session.DeviceName} ({session.Client}{" "}
+                      {session.ApplicationVersion})
                     </p>
-                  )}
+                  </div>
+                  <div className="text-right">
+                    <Badge className={session.IsActive ? "bg-[hsl(var(--success))]" : "bg-muted-foreground"}>
+                      {session.IsActive ? "Active" : "Inactive"}
+                    </Badge>
+                    {session.NowPlayingItem && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Playing: {session.NowPlayingItem.Name}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

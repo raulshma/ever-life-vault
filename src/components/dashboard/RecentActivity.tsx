@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle2, BookOpen, FileText, Package2, Loader2 } from 'lucide-react';
+import { CheckCircle2, BookOpen, FileText, Package2 } from 'lucide-react';
+import ListSkeleton from '@/components/skeletons/ListSkeleton'
 import { useTasks } from '@/hooks/useTasks';
 import { useNotes } from '@/hooks/useNotes';
 import { useDocuments } from '@/hooks/useDocuments';
@@ -84,10 +85,7 @@ export default function RecentActivity() {
         <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6">Recent Activity</h2>
         <Card className="glass shadow-card">
           <CardContent className="p-6">
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-muted-foreground">Loading activity...</span>
-            </div>
+            <ListSkeleton rows={5} withAvatar withMeta />
           </CardContent>
         </Card>
       </div>

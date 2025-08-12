@@ -12,13 +12,13 @@ import {
   Package,
   Home,
   Car,
-  Loader2,
   Eye,
   Edit3,
   Filter,
   Building,
   Warehouse
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'
 import { useInventory } from '@/hooks/useInventory';
 import { InventoryDialog } from '@/components/InventoryDialog';
 import { LocationDialog } from '@/components/LocationDialog';
@@ -117,10 +117,64 @@ export default function Inventory() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading inventory...</p>
+      <div className="min-h-screen bg-gradient-subtle">
+        <PageHeader
+          title="Inventory Tracker"
+          description="Track physical items and their locations"
+          icon={Package2}
+        />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="bg-gradient-card shadow-card rounded-lg p-6 text-center">
+                <Skeleton className="w-8 h-8 rounded-lg mx-auto mb-2" />
+                <Skeleton className="h-6 w-12 mx-auto mb-1" />
+                <Skeleton className="h-4 w-24 mx-auto" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 sm:gap-8">
+            <div className="lg:col-span-1">
+              <div className="bg-gradient-card shadow-card rounded-lg p-6">
+                <Skeleton className="h-5 w-32 mb-4" />
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 bg-card rounded-lg border">
+                      <div className="flex items-center gap-3 flex-1">
+                        <Skeleton className="w-4 h-4 rounded" />
+                        <div className="flex-1 min-w-0">
+                          <Skeleton className="h-4 w-3/5 mb-1" />
+                          <Skeleton className="h-3 w-2/5" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-6 w-12" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="lg:col-span-3">
+              <div className="bg-gradient-card shadow-card rounded-lg p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="p-3 sm:p-4 bg-card rounded-lg border">
+                      <div className="flex items-start gap-3 sm:gap-4">
+                        <Skeleton className="w-14 h-14 rounded-lg shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <Skeleton className="h-4 w-1/2 mb-2" />
+                          <Skeleton className="h-3 w-1/3 mb-2" />
+                          <Skeleton className="h-3 w-2/3" />
+                        </div>
+                        <div className="shrink-0">
+                          <Skeleton className="h-5 w-16" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );

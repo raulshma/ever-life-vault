@@ -172,46 +172,7 @@ export function registerBuiltInWidgets() {
       component: React.lazy(() => import('./widgets/KarakeepWidget')),
     })
   } catch {}
-  try {
-    widgetRegistry.register({
-      id: 'servers',
-      title: 'Servers',
-      category: 'helpers',
-      version: '1.0.0',
-      defaultConfig: { max: 5 },
-      component: React.lazy(() => import('./widgets/ServersWidget')),
-    })
-  } catch {}
-  try {
-    widgetRegistry.register({
-      id: 'monitoring',
-      title: 'Monitoring',
-      category: 'analytics',
-      version: '1.0.0',
-      defaultConfig: {},
-      component: React.lazy(() => import('./widgets/MonitoringWidget')),
-    })
-  } catch {}
-  try {
-    widgetRegistry.register({
-      id: 'network',
-      title: 'Network',
-      category: 'helpers',
-      version: '1.0.0',
-      defaultConfig: {},
-      component: React.lazy(() => import('./widgets/NetworkWidget')),
-    })
-  } catch {}
-  try {
-    widgetRegistry.register({
-      id: 'storage',
-      title: 'Storage',
-      category: 'helpers',
-      version: '1.0.0',
-      defaultConfig: {},
-      component: React.lazy(() => import('./widgets/StorageWidget')),
-    })
-  } catch {}
+  // homelab-static widgets removed: servers, monitoring, network, storage
 }
 
 

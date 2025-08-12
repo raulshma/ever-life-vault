@@ -4,6 +4,7 @@ import type { WidgetProps } from '../types'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import { useJellyseerr, type JellyseerrConfig, type MediaRequest } from '@/hooks/useJellyseerr'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function JellyseerrWidget(_props: WidgetProps<{}>) {
   const { itemsByType } = useEncryptedVault()
@@ -32,10 +33,16 @@ export default function JellyseerrWidget(_props: WidgetProps<{}>) {
             <Button size="sm" variant="outline" onClick={load}>Refresh</Button>
           </div>
           <ul className="space-y-1">
-            {requests.slice(0, 8).map((r) => (
-              <li key={r.id} className="truncate">{r.media?.title || '(item)'} — {r.status}</li>
-            ))}
-            {requests.length === 0 && <li className="text-muted-foreground">No requests found.</li>}
+            {js.loading && requests.length === 0 ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <li key={i} className="truncate"><Skeleton className="h-4 w-56" /></li>
+              ))
+            ) : (
+              requests.slice(0, 8).map((r) => (
+                <li key={r.id} className="truncate">{r.media?.title || '(item)'} — {r.status}</li>
+              ))
+            )}
+            {!js.loading && requests.length === 0 && <li className="text-muted-foreground">No requests found.</li>}
           </ul>
         </div>
       )}

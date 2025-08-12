@@ -43,6 +43,7 @@ import { EncryptedVaultDialog } from "@/components/EncryptedVaultDialog";
 import { VaultItem } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
 import PageHeader from "@/components/PageHeader";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Quick Add Credentials Component
 function QuickAddCredentials({
@@ -283,10 +284,39 @@ export default function Vault() {
   // Show setup screen if no vault exists
   if (sessionLoading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading vault...</p>
+      <div className="min-h-screen bg-gradient-subtle">
+        <PageHeader
+          title="Vault"
+          description="Secure encrypted storage for secrets and API keys"
+          icon={Shield}
+        />
+        <div className="container py-6 sm:py-10">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3">
+              <div className="bg-card rounded-lg border p-4">
+                <Skeleton className="h-10 w-full mb-4" />
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-card rounded-lg border mb-2">
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <Skeleton className="w-10 h-10 rounded-lg" />
+                      <div className="flex-1 min-w-0">
+                        <Skeleton className="h-4 w-1/2 mb-2" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-8 w-24" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="bg-card rounded-lg border p-4">
+                <Skeleton className="h-5 w-32 mb-3" />
+                <Skeleton className="h-9 w-full mb-2" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -549,9 +579,30 @@ export default function Vault() {
 
         {/* Vault Categories */}
         {vaultLoading ? (
-          <div className="text-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Decrypting vault items...</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Card key={i} className="bg-gradient-card shadow-card">
+                <CardHeader>
+                  <Skeleton className="h-5 w-40" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {Array.from({ length: 3 }).map((__, j) => (
+                    <div key={j} className="p-3 bg-card rounded-lg border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <Skeleton className="h-4 w-1/2 mb-2" />
+                          <Skeleton className="h-3 w-1/3" />
+                        </div>
+                        <div className="flex gap-1">
+                          <Skeleton className="h-6 w-6 rounded" />
+                          <Skeleton className="h-6 w-6 rounded" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

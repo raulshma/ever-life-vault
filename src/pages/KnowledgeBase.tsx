@@ -12,9 +12,9 @@ import {
   Tag,
   Clock,
   Star,
-  Edit3,
-  Loader2
+  Edit3
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'
 import { useNotes } from '@/hooks/useNotes';
 import PageHeader from '@/components/PageHeader';
 
@@ -60,10 +60,53 @@ export default function KnowledgeBase() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading notes...</p>
+      <div className="min-h-screen bg-gradient-subtle pb-20 md:pb-8">
+        <PageHeader
+          title="Knowledge Base"
+          description="Store and organize your research and notes"
+          icon={BookOpen}
+        />
+        <div className="max-w-7xl mx-auto px-6 py-6 sm:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+              <Card className="bg-gradient-card shadow-card">
+                <CardContent className="p-4">
+                  <Skeleton className="h-10 w-full" />
+                </CardContent>
+              </Card>
+              <Card className="bg-gradient-card shadow-card">
+                <CardHeader className="pb-3">
+                  <Skeleton className="h-5 w-20" />
+                </CardHeader>
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <Skeleton key={i} className="h-6 w-16 rounded-md" />
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-4 space-y-2">
+                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-3 w-3/4" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+            <div className="lg:col-span-2">
+              <Card className="bg-gradient-card shadow-card">
+                <CardContent className="p-6 space-y-4">
+                  <Skeleton className="h-6 w-48" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-40 w-full" />
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         </div>
       </div>
     );

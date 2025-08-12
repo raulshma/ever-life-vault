@@ -53,7 +53,7 @@ function DashboardMosaicInner() {
       </div>
       <div className="pb-mobile-tabbar overflow-visible min-w-0 no-page-h-scroll">
         {isEditing ? (
-          <React.Suspense fallback={<div className="glass rounded-xl p-4">Loading editor…</div>}>
+          <React.Suspense fallback={<div className="glass rounded-xl p-4"><div className="space-y-2"><div className="h-5 w-1/4 bg-muted rounded" /><div className="h-4 w-2/3 bg-muted rounded" /></div></div>}>
             <EditingStackView />
           </React.Suspense>
         ) : (

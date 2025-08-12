@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { CheckCircle, BookOpen, FileText, TrendingUp, Loader2 } from 'lucide-react';
+import { CheckCircle, BookOpen, FileText, TrendingUp } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -75,8 +76,11 @@ export default function QuickStats() {
         {[1, 2, 3, 4].map((index) => (
           <Card key={index} className="glass shadow-card">
             <CardContent className="p-6 text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3" />
-              <div className="text-sm text-muted-foreground">Loading...</div>
+              <div className="flex items-center justify-center">
+                <Skeleton className="w-12 h-12 rounded-lg mx-auto mb-3" />
+              </div>
+              <Skeleton className="h-6 w-20 mx-auto mb-2" />
+              <Skeleton className="h-4 w-24 mx-auto" />
             </CardContent>
           </Card>
         ))}

@@ -23,10 +23,7 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
       { test: (p) => p.startsWith('/vault'), load: () => import('@/pages/Vault') },
       { test: (p) => p.startsWith('/documents'), load: () => import('@/pages/Documents') },
       { test: (p) => p.startsWith('/inventory'), load: () => import('@/pages/Inventory') },
-      { test: (p) => p.startsWith('/homelab/servers'), load: () => import('@/pages/homelab/Servers') },
-      { test: (p) => p.startsWith('/homelab/monitoring'), load: () => import('@/pages/homelab/Monitoring') },
-      { test: (p) => p.startsWith('/homelab/network'), load: () => import('@/pages/homelab/Network') },
-      { test: (p) => p.startsWith('/homelab/storage'), load: () => import('@/pages/homelab/Storage') },
+      // homelab static pages removed
       { test: (p) => p.startsWith('/homelab/jellyfin'), load: () => import('@/pages/homelab/Jellyfin') },
       { test: (p) => p.startsWith('/homelab/karakeep'), load: () => import('@/pages/homelab/Karakeep') },
     ];

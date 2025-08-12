@@ -495,7 +495,10 @@ export function InventoryDialog({ item, mode, trigger, open, onOpenChange }: Inv
               disabled={loading || uploading}
             >
               {loading ? (
-                <>Loading...</>
+                <>
+                  <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                  Saving…
+                </>
               ) : mode === 'add' ? (
                 <>
                   <Package className="w-4 h-4 mr-2" />

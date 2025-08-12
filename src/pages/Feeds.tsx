@@ -56,7 +56,9 @@ export default function Feeds() {
         description="Aggregated social, RSS, and email updates"
         icon={Earth}
       >
-        <Button variant="outline" onClick={() => refreshAll()} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</Button>
+        <Button variant="outline" onClick={() => refreshAll()} disabled={loading}>
+          {loading ? <span className="inline-flex items-center"><span className="w-3.5 h-3.5 mr-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />Refreshing</span> : 'Refresh'}
+        </Button>
       </PageHeader>
 
       <Tabs defaultValue="all" className="w-full">

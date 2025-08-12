@@ -2,6 +2,7 @@ import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
 import type { WidgetProps } from '../types'
 import { useTasks } from '@/hooks/useTasks'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -10,7 +11,7 @@ import { Link } from 'react-router-dom'
 type TasksConfig = { max?: number }
 
 export default function TasksWidget({ config }: WidgetProps<TasksConfig>) {
-  const { tasks, addTask, updateTask } = useTasks()
+  const { tasks, loading, addTask, updateTask } = useTasks()
   const [title, setTitle] = React.useState('')
   const max = typeof config?.max === 'number' ? config.max : 6
   const top = tasks.slice(0, max)
@@ -33,7 +34,14 @@ export default function TasksWidget({ config }: WidgetProps<TasksConfig>) {
           <Button onClick={onAdd}>Add</Button>
         </div>
         <div className="space-y-2">
-          {top.length === 0 ? (
+          {loading ? (
+            Array.from({ length: max }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+            ))
+          ) : top.length === 0 ? (
             <div className="text-sm text-muted-foreground">No tasks yet.</div>
           ) : (
             top.map((t) => (

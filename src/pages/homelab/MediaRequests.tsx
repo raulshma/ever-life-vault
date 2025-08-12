@@ -470,15 +470,29 @@ export default function MediaRequests() {
 
 
       {/* Requests List */}
-  {isLoadingRequests ? (
-        <Card>
-          <CardContent className="pt-6">
-             <div className="text-center py-8">
-              <RefreshCw className="w-8 h-8 text-muted-foreground mx-auto mb-4 animate-spin" />
-              <p className="text-muted-foreground">Loading requests...</p>
-            </div>
-          </CardContent>
-        </Card>
+      {isLoadingRequests ? (
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start space-x-4">
+                    <div className="w-16 h-24 bg-muted rounded" />
+                    <div>
+                      <div className="h-5 w-48 bg-muted rounded mb-2" />
+                      <div className="h-4 w-64 bg-muted rounded mb-1" />
+                      <div className="h-4 w-40 bg-muted rounded" />
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <div className="h-6 w-16 bg-muted rounded" />
+                    <div className="h-9 w-20 bg-muted rounded" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : (
         <div className="space-y-4">
           {requests.map((request) => (

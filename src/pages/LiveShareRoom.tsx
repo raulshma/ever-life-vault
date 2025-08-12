@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { arrayBufferToBase64, deriveKey, importAesKeyFromBase64, generateAesKey, exportAesKeyToBase64 } from "@/lib/crypto";
 import { useP2PShare } from "@/hooks/useP2PShare";
 import { supabase } from "@/integrations/supabase/client";
+import { Separator } from "@/components/ui/separator";
 
 export default function LiveShareRoom() {
   const { toast } = useToast();
@@ -22,6 +23,10 @@ export default function LiveShareRoom() {
   const [serverSalt, setServerSalt] = useState<string | null>(null);
   const [serverProof, setServerProof] = useState<string | null>(null);
   const [ephemeralKeyPresent, setEphemeralKeyPresent] = useState<boolean>(false);
+  const [createdInviteCode, setCreatedInviteCode] = useState<string>("");
+  const [pendingParticipants, setPendingParticipants] = useState<any[]>([]);
+  const [participantId, setParticipantId] = useState<string | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<'idle' | 'pending' | 'approved' | 'banned'>("idle");
 
   const maxPeers = Math.min(8, Math.max(2, Number(params.get("max")) || 2));
   // Sensitive data are passed via URL fragment to avoid referrer leakage
@@ -35,6 +40,7 @@ export default function LiveShareRoom() {
   }, []);
   const proof = fragment.get("proof") || params.get("proof") || undefined;
   const keyB64 = fragment.get("k") || params.get("k") || undefined;
+  const inviteCodeParam = params.get("code") || undefined;
 
   useEffect(() => {
     // Load server-side room config to determine if password-protected
@@ -100,7 +106,9 @@ export default function LiveShareRoom() {
     }
   };
 
-  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ shareId: id!, maxPeers, encryptionKey: key, debug: true, enabled: verified });
+  const isGuest = Boolean(inviteCodeParam);
+  const shouldEnable = verified && (!isGuest || approvalStatus === 'approved');
+  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ shareId: id!, maxPeers, encryptionKey: key, debug: true, enabled: shouldEnable });
   const [chatInput, setChatInput] = useState("");
   const [diag, setDiag] = useState<any[]>([]);
   const editorRef = useRef<HTMLDivElement | null>(null);
@@ -126,6 +134,62 @@ export default function LiveShareRoom() {
       leave();
     };
   }, [leave]);
+
+  // Guest: redeem invite code and wait for approval
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!id || !inviteCodeParam) return;
+        // Avoid re-redeeming
+        if (participantId) return;
+        let displayName = 'Guest';
+        try {
+          const { data } = await supabase.auth.getSession();
+          const email = data?.session?.user?.email ?? undefined;
+          displayName = (data?.session?.user?.user_metadata?.full_name as string | undefined) ?? email ?? 'Guest';
+        } catch {}
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess?.session?.access_token;
+        const res = await fetch(`/live-share/join`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+          body: JSON.stringify({ code: inviteCodeParam, displayName }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.error || 'Failed to join');
+        const pid = json?.participantId as string | undefined;
+        if (pid) {
+          setParticipantId(pid);
+          setApprovalStatus('pending');
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error(e);
+      }
+    };
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, inviteCodeParam]);
+
+  // Poll my participant status if pending
+  useEffect(() => {
+    if (!participantId || approvalStatus !== 'pending') return;
+    let timer: number | null = null;
+    const run = async () => {
+      try {
+        const client: any = supabase;
+        const { data, error } = await client.rpc('get_live_share_participant_status', { _id: participantId });
+        if (!error && typeof data === 'string') {
+          const st = data as string;
+          if (st === 'approved') setApprovalStatus('approved');
+          if (st === 'banned') setApprovalStatus('banned');
+        }
+      } catch {}
+    };
+    run();
+    timer = window.setInterval(run, 2500);
+    return () => { if (timer) window.clearInterval(timer); };
+  }, [participantId, approvalStatus]);
 
   const roomFull = state.isRoomFull && state.participants >= state.effectiveMaxPeers && !state.connectedPeerIds.length;
 
@@ -157,6 +221,26 @@ export default function LiveShareRoom() {
     }
   }, [state.ended, state.isHost, navigate, toast]);
 
+  // Host lobby: poll pending participants list
+  useEffect(() => {
+    let timer: number | null = null;
+    const run = async () => {
+      try {
+        if (!state.isHost || !id) return;
+        const { data, error } = await supabase
+          .from("live_share_participants" as any)
+          .select("id, display_name, status, joined_at")
+          .eq("room_id", id)
+          .in("status", ["pending", "banned"])
+          .order("joined_at", { ascending: true });
+        if (!error) setPendingParticipants(data || []);
+      } catch {}
+    };
+    run();
+    timer = window.setInterval(run, 3000);
+    return () => { if (timer) window.clearInterval(timer); };
+  }, [id, state.isHost]);
+
   const showRoomUI = !(roomFull || (state.blockedByLock && !state.isHost) || state.kicked);
 
   return (
@@ -182,10 +266,36 @@ export default function LiveShareRoom() {
               </Button>
               <Button size="sm" variant="outline" className="ml-2" onClick={() => rotateKey()}>Rotate key</Button>
               <Button size="sm" variant="ghost" className="ml-2" onClick={async () => { await leave(); navigate("/share/new", { replace: true }); }}>End & leave</Button>
+              <Button size="sm" variant="secondary" className="ml-2" onClick={async () => {
+                try {
+                  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+                  const { data: sess } = await supabase.auth.getSession();
+                  const token = sess?.session?.access_token;
+                  const res = await fetch(`/live-share/rooms/${id}/invites`, {
+                    method: 'POST',
+                    headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                    body: JSON.stringify({ expiresAt, maxUses: 5 }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data?.error || 'Failed');
+                  setCreatedInviteCode(data.code);
+                } catch (e: any) {
+                  toast({ title: 'Failed to create invite', description: e?.message ?? String(e), variant: 'destructive' });
+                }
+              }}>Create invite</Button>
             </div>
           )}
         </CardHeader>
         <CardContent className="space-y-4">
+          {createdInviteCode && (
+            <div className="p-2 rounded border text-sm flex items-center gap-2">
+              <span>Invite code:</span>
+              <code className="px-1 py-0.5 rounded bg-muted">{createdInviteCode}</code>
+              <Button size="sm" variant="outline" onClick={async () => {
+                try { await navigator.clipboard.writeText(createdInviteCode); toast({ title: 'Copied', description: 'Invite code copied.' }); } catch {}
+              }}>Copy</Button>
+            </div>
+          )}
           {roomFull && (
             <div className="p-3 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
               Room is full. Try again later or ask the host to increase the limit.
@@ -194,6 +304,16 @@ export default function LiveShareRoom() {
           {state.blockedByLock && !state.isHost && (
             <div className="p-3 rounded-md bg-slate-50 text-slate-900 border border-slate-200">
               The room is locked by the host. You cannot join right now.
+            </div>
+          )}
+          {isGuest && approvalStatus === 'pending' && (
+            <div className="p-3 rounded-md bg-yellow-50 text-yellow-900 border border-yellow-200">
+              Waiting for host approval...
+            </div>
+          )}
+          {isGuest && approvalStatus === 'banned' && (
+            <div className="p-3 rounded-md bg-red-50 text-red-900 border border-red-200">
+              Access denied by host.
             </div>
           )}
           {!verified && needsPassword && (
@@ -215,7 +335,7 @@ export default function LiveShareRoom() {
               The room is locked. New peers cannot join until unlocked by the host.
             </div>
           )}
-          {!roomFull && !(state.blockedByLock && !state.isHost) ? (
+          {!roomFull && !(state.blockedByLock && !state.isHost) && !(isGuest && approvalStatus !== 'approved') ? (
             <div
               ref={editorRef}
               className="relative"
@@ -244,9 +364,9 @@ export default function LiveShareRoom() {
               <Textarea
                 value={state.text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder={needsPassword && !key ? "Enter the password to start editing..." : "Start typing..."}
+                placeholder={needsPassword && !key ? "Enter the password to start editing..." : (isGuest && approvalStatus !== 'approved') ? "Waiting for host approval..." : "Start typing..."}
                 className="min-h-[50vh]"
-                disabled={needsPassword && !key}
+                disabled={(needsPassword && !key) || (isGuest && approvalStatus !== 'approved')}
               />
               {/* Cursor overlay */}
               {state.remoteCursors?.length ? (
@@ -275,6 +395,11 @@ export default function LiveShareRoom() {
           {showRoomUI && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
+              {isGuest && approvalStatus === 'pending' && (
+                <div className="p-2 rounded border bg-yellow-50 text-yellow-900 text-sm mb-2">
+                  Waiting for host approval...
+                </div>
+              )}
               <div className="text-sm font-medium mb-1">Chat</div>
               <div className="border rounded p-2 h-40 overflow-auto bg-background">
                 {state.chatMessages?.length ? (
@@ -348,6 +473,48 @@ export default function LiveShareRoom() {
                   </div>
                 ))}
               </div>
+              {state.isHost && (
+                <div className="pt-3">
+                  <Separator className="my-2" />
+                  <div className="text-sm font-medium mb-2">Lobby</div>
+                  {pendingParticipants.length === 0 ? (
+                    <div className="text-xs text-muted-foreground">No pending requests.</div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {pendingParticipants.map((p) => (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <span className="text-xs">{p.display_name}</span>
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{p.status}</span>
+                          <Button size="sm" variant="outline" onClick={async () => {
+                            try {
+                              const { data: sess } = await supabase.auth.getSession();
+                              const token = sess?.session?.access_token;
+                              const res = await fetch(`/live-share/rooms/${id}/approve`, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ participantId: p.id }) });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data?.error || 'Failed');
+                              setPendingParticipants((list) => list.filter((x) => x.id !== p.id));
+                            } catch (e: any) {
+                              toast({ title: 'Failed to approve', description: e?.message ?? String(e), variant: 'destructive' });
+                            }
+                          }}>Approve</Button>
+                          <Button size="sm" variant="destructive" onClick={async () => {
+                            try {
+                              const { data: sess } = await supabase.auth.getSession();
+                              const token = sess?.session?.access_token;
+                              const res = await fetch(`/live-share/rooms/${id}/ban`, { method: 'POST', headers: { 'content-type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify({ participantId: p.id }) });
+                              const data = await res.json();
+                              if (!res.ok) throw new Error(data?.error || 'Failed');
+                              setPendingParticipants((list) => list.filter((x) => x.id !== p.id));
+                            } catch (e: any) {
+                              toast({ title: 'Failed to ban', description: e?.message ?? String(e), variant: 'destructive' });
+                            }
+                          }}>Ban</Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="pt-2">
                 <Button size="sm" variant="outline" onClick={async () => {
                   const d = await getDiagnostics();

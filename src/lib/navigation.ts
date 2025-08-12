@@ -44,10 +44,7 @@ export const moduleCategories: NavGroups = {
     { name: "Live Share", path: "/share/new", icon: Share2 },
   ],
   homelab: [
-    { name: "Servers", path: "/homelab/servers", icon: Server },
-    { name: "Monitoring", path: "/homelab/monitoring", icon: Monitor },
-    { name: "Network", path: "/homelab/network", icon: Network },
-    { name: "Storage", path: "/homelab/storage", icon: Database },
+    // homelab static pages removed
     { name: "Jellyfin", path: "/homelab/jellyfin", icon: Play },
     { name: "Media Requests", path: "/homelab/media-requests", icon: Film },
     { name: "Karakeep", path: "/homelab/karakeep", icon: Bookmark },

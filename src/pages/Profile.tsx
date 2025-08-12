@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { AlertCircle, User as UserIcon, Image as ImageIcon, Shield } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast';
 
 export default function Profile() {
@@ -128,14 +129,22 @@ export default function Profile() {
               <Label htmlFor="displayName">Display Name</Label>
               <div className="relative">
                 <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="pl-10" />
+                {user && displayName === '' && loading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="pl-10" />
+                )}
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="avatarUrl">Avatar URL</Label>
               <div className="relative">
                 <ImageIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input id="avatarUrl" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="pl-10" />
+                {user && avatarUrl === '' && loading ? (
+                  <Skeleton className="h-10 w-full" />
+                ) : (
+                  <Input id="avatarUrl" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="pl-10" />
+                )}
               </div>
             </div>
             <Button type="submit" disabled={loading}>Save</Button>

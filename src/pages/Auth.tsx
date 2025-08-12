@@ -272,7 +272,9 @@ export default function Auth() {
               disabled={loading}
               size="lg"
             >
-              {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
+              {loading ? (
+                <span className="inline-flex items-center"><span className="w-3.5 h-3.5 mr-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />Please wait</span>
+              ) : (isLogin ? 'Sign In' : 'Create Account')}
             </Button>
             </form>
           ) : (
@@ -316,7 +318,9 @@ export default function Auth() {
                 </div>
               </div>
               <Button type="submit" className="w-full" disabled={loading} size="lg">
-                {loading ? 'Updating...' : 'Update Password'}
+                {loading ? (
+                  <span className="inline-flex items-center"><span className="w-3.5 h-3.5 mr-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />Updating</span>
+                ) : 'Update Password'}
               </Button>
             </form>
           )}

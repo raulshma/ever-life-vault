@@ -470,7 +470,10 @@ export function DocumentDialog({ document, mode, trigger, open, onOpenChange }: 
               disabled={loading || uploading}
             >
               {loading ? (
-                <>Loading...</>
+                <>
+                  <div className="w-4 h-4 border-2 border-foreground border-t-transparent rounded-full animate-spin mr-2" />
+                  Saving…
+                </>
               ) : mode === 'add' ? (
                 <>
                   <Upload className="w-4 h-4 mr-2" />

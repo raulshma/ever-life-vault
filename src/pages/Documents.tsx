@@ -11,12 +11,13 @@ import {
   Folder,
   Search,
   Plus,
-  Loader2,
   Eye,
   Edit3,
   Download,
   Filter
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton'
+import ListSkeleton from '@/components/skeletons/ListSkeleton'
 import { useDocuments } from '@/hooks/useDocuments';
 import { DocumentDialog } from '@/components/DocumentDialog';
 import PageHeader from '@/components/PageHeader';
@@ -78,10 +79,53 @@ export default function Documents() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-subtle flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading documents...</p>
+      <div className="min-h-screen bg-gradient-subtle">
+        <PageHeader
+          title="Document Hub"
+          description="Securely manage your important personal documents"
+          icon={FileText}
+        />
+        <div className="max-w-7xl mx-auto px-6 py-6 sm:py-8">
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex-1">
+              <Skeleton className="h-10 w-full" />
+            </div>
+            <Skeleton className="h-10 w-40" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="p-4 bg-card rounded-lg border">
+                <Skeleton className="h-6 w-10 mb-2" />
+                <Skeleton className="h-4 w-24" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2">
+              <div className="bg-gradient-card shadow-card rounded-lg border p-6">
+                <ListSkeleton rows={4} withAvatar withMeta />
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-gradient-card shadow-card rounded-lg border p-6">
+                <Skeleton className="h-5 w-32 mb-4" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="mb-3">
+                    <Skeleton className="h-4 w-48 mb-2" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                ))}
+              </div>
+              <div className="bg-gradient-card shadow-card rounded-lg border p-6">
+                <Skeleton className="h-5 w-28 mb-4" />
+                <div className="space-y-3">
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                  <Skeleton className="h-9 w-full" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
