@@ -53,9 +53,11 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       if (!p) throw new UnsupportedProviderError(provider)
       const url = p.buildAuthorizationUrl(state)
       handoffs.put(`state:${state}`, { userId: user.id, provider })
+      server.log.info({ event: 'oauth_start', provider, userId: user.id }, 'OAuth start')
       return reply.send({ url })
     } catch (err) {
       const { status, body } = toHttpError(err)
+      server.log.error({ event: 'oauth_start_error', provider, err }, 'OAuth start error')
       return reply.code(status).send(body)
     }
   })
@@ -75,11 +77,13 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       const tokenResult = await p.exchangeCodeForTokens(code)
       const handoffId = `handoff:${crypto.randomUUID()}`
       handoffs.put(handoffId, { provider, tokens: tokenResult })
+      server.log.info({ event: 'oauth_callback', provider, userId: stateInfo.userId, handoffId }, 'OAuth callback success')
       const redirectUrl = `${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?handoff=${encodeURIComponent(handoffId)}&provider=${encodeURIComponent(provider)}`
       return reply.redirect(redirectUrl)
     } catch (err) {
       server.log.error(err as any)
       const reason = (err as any)?.code || 'exception'
+      server.log.error({ event: 'oauth_callback_error', provider, reason, err }, 'OAuth callback error')
       return reply.redirect(`${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?oauth=error&provider=${encodeURIComponent(provider)}&reason=${encodeURIComponent(reason)}`)
     }
   })
@@ -103,9 +107,11 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       const p = registry.get(provider)
       if (!p) throw new UnsupportedProviderError(provider)
       const tokenResult = await p.refreshTokens(refresh_token)
+      server.log.info({ event: 'oauth_refresh_success', provider, userId: user.id }, 'OAuth refresh success')
       return reply.send({ provider, tokens: tokenResult })
     } catch (err) {
       const { status, body } = toHttpError(err)
+      server.log.error({ event: 'oauth_refresh_error', provider, userId: user.id, err }, 'OAuth refresh error')
       return reply.code(status).send(body)
     }
   })
@@ -123,12 +129,41 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString(), 'User-Agent': 'ever-life-vault/1.0' }
     const subsRes = await fetch('https://oauth.reddit.com/subreddits/mine/subscriber', { headers })
+    try {
+      const rateRemaining = (subsRes as any).headers?.get?.('x-ratelimit-remaining')
+      const rateUsed = (subsRes as any).headers?.get?.('x-ratelimit-used')
+      const rateReset = (subsRes as any).headers?.get?.('x-ratelimit-reset')
+      server.log.info({
+        event: 'aggregation_upstream',
+        provider: 'reddit',
+        step: 'subreddits',
+        status: (subsRes as any).status,
+        ratelimit_remaining: rateRemaining,
+        ratelimit_used: rateUsed,
+        ratelimit_reset: rateReset,
+      }, 'Upstream request')
+    } catch {}
     if (!subsRes.ok) return reply.code(200).send({ items: [] })
     const subsJson = (await subsRes.json()) as any
     const subNames: string[] = (subsJson?.data?.children || []).map((c: any) => c?.data?.display_name).filter(Boolean)
     const out: any[] = []
     for (const sub of subNames.slice(0, subLimit)) {
       const res = await fetch(`https://oauth.reddit.com/r/${encodeURIComponent(sub)}/top?t=day&limit=${postsPerSub}`, { headers })
+      try {
+        const rateRemaining = (res as any).headers?.get?.('x-ratelimit-remaining')
+        const rateUsed = (res as any).headers?.get?.('x-ratelimit-used')
+        const rateReset = (res as any).headers?.get?.('x-ratelimit-reset')
+        server.log.info({
+          event: 'aggregation_upstream',
+          provider: 'reddit',
+          step: 'sub_top',
+          subreddit: sub,
+          status: (res as any).status,
+          ratelimit_remaining: rateRemaining,
+          ratelimit_used: rateUsed,
+          ratelimit_reset: rateReset,
+        }, 'Upstream request')
+      } catch {}
       if (!res.ok) continue
       const json = (await res.json()) as any
       for (const child of json?.data?.children || []) {
@@ -145,6 +180,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
         })
       }
     }
+    server.log.info({ event: 'aggregation_result', provider: 'reddit', userId: user.id, count: out.length, subLimit, postsPerSub }, 'Aggregation result')
     return reply.send({ items: out })
   })
 
@@ -295,6 +331,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     const headers: Record<string, string> = { Authorization: token.toString() }
     // Fetch latest uploads from subscriptions
     const subsRes = await fetch('https://www.googleapis.com/youtube/v3/subscriptions?part=snippet&mine=true&maxResults=50', { headers: { ...headers, Accept: 'application/json' } })
+    server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'subscriptions', status: (subsRes as any).status }, 'Upstream request')
     if (!subsRes.ok) return reply.send({ items: [] })
     const subsJson = (await subsRes.json()) as any
     const channelIds: string[] = (subsJson?.items || []).map((it: any) => it?.snippet?.resourceId?.channelId).filter(Boolean)
@@ -303,6 +340,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     for (const channelId of channelIds.slice(0, 25)) {
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${encodeURIComponent(channelId)}&order=date&maxResults=5`
       const res = await fetch(url, { headers: { ...headers, Accept: 'application/json' } })
+      server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'search', channelId, status: (res as any).status }, 'Upstream request')
       if (!res.ok) continue
       const json = (await res.json()) as any
       for (const it of json?.items || []) {
@@ -321,6 +359,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       if (out.length >= max) break
     }
     out.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    server.log.info({ event: 'aggregation_result', provider: 'youtube', userId: user.id, count: out.length, limit: max }, 'Aggregation result')
     return reply.send({ items: out.slice(0, max) })
   })
 
@@ -335,6 +374,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     const headers: Record<string, string> = { Authorization: token.toString() }
     // YouTube Music doesn't have a distinct public API; use YouTube Data API liked videos as proxy for music activity
     const res = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&myRating=like&maxResults=50', { headers: { ...headers, Accept: 'application/json' } })
+    server.log.info({ event: 'aggregation_upstream', provider: 'youtubemusic', step: 'liked_videos', status: (res as any).status }, 'Upstream request')
     if (!res.ok) return reply.send({ items: [] })
     const json = (await res.json()) as any
     const out: any[] = []
@@ -351,6 +391,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       })
     }
     out.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    server.log.info({ event: 'aggregation_result', provider: 'youtubemusic', userId: user.id, count: out.length, limit: max }, 'Aggregation result')
     return reply.send({ items: out.slice(0, max) })
   })
 
