@@ -276,6 +276,9 @@ All colors MUST be HSL.
   .shadow-elegant {
     box-shadow: var(--shadow-elegant);
   }
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
 
   /* Aurora background helpers for hero sections */
   .aurora {
@@ -512,6 +515,27 @@ html.steam-vt::view-transition-new(root) {
 @keyframes steam-in {
   0% { filter: saturate(1.6) brightness(1.1) hue-rotate(-10deg) blur(8px); transform: scale(1.04); clip-path: inset(15% 15% 15% 15% round 24px); }
   70% { filter: saturate(1.2) brightness(1.05) blur(2px); transform: scale(1.005); clip-path: inset(1% 1% 1% 1% round 18px); }
+  100% { filter: saturate(1) brightness(1) blur(0px); transform: scale(1); clip-path: inset(0% 0% 0% 0%); }
+}
+
+/* Anime hub view-transition */
+html.anime-vt::view-transition-old(root) {
+  animation: anime-out 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: clip;
+}
+html.anime-vt::view-transition-new(root) {
+  animation: anime-in 520ms 80ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  overflow: clip;
+}
+
+@keyframes anime-out {
+  0% { filter: saturate(1) brightness(1); transform: scale(1); clip-path: inset(0% 0% 0% 0%); }
+  60% { filter: saturate(1.4) brightness(1.05) hue-rotate(10deg); transform: scale(1.02); }
+  100% { filter: saturate(0.7) brightness(0.9) blur(2px); transform: scale(0.985); clip-path: inset(2% 2% 2% 2% round 16px); }
+}
+@keyframes anime-in {
+  0% { filter: saturate(1.6) brightness(1.1) hue-rotate(-8deg) blur(8px); transform: scale(1.035); clip-path: inset(12% 12% 12% 12% round 22px); }
+  70% { filter: saturate(1.2) brightness(1.05) blur(2px); transform: scale(1.003); clip-path: inset(1% 1% 1% 1% round 16px); }
   100% { filter: saturate(1) brightness(1) blur(0px); transform: scale(1); clip-path: inset(0% 0% 0% 0%); }
 }
 

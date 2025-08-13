@@ -25,6 +25,7 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
       { test: (p) => p.startsWith('/documents'), load: () => import('@/pages/Documents') },
       { test: (p) => p.startsWith('/inventory'), load: () => import('@/pages/Inventory') },
       { test: (p) => p.startsWith('/steam'), load: () => import('@/pages/steam/SteamStandalone') },
+      { test: (p) => p.startsWith('/anime'), load: () => import('@/pages/mal/MALStandalone') },
       // homelab static pages removed
       { test: (p) => p.startsWith('/homelab/jellyfin'), load: () => import('@/pages/homelab/Jellyfin') },
       { test: (p) => p.startsWith('/homelab/karakeep'), load: () => import('@/pages/homelab/Karakeep') },
@@ -42,22 +43,24 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const isSteamTarget = typeof to === 'string' && (to as string).startsWith('/steam');
     const isFromSteam = location.pathname.startsWith('/steam');
-    const shouldUseVT = (viewTransitionsEnabled || isSteamTarget || isFromSteam) && ('startViewTransition' in document);
+    const isAnimeTarget = typeof to === 'string' && (to as string).startsWith('/anime');
+    const isFromAnime = location.pathname.startsWith('/anime');
+    const forceVt = isSteamTarget || isFromSteam || isAnimeTarget || isFromAnime;
+    const shouldUseVT = (viewTransitionsEnabled || forceVt) && ('startViewTransition' in document);
     if (!shouldUseVT) {
       return; // Let the default Link behavior handle navigation
     }
 
     e.preventDefault();
 
-    if (isSteamTarget || isFromSteam) {
-      document.documentElement.classList.add('steam-vt');
-    }
+    const vtClass = isSteamTarget || isFromSteam ? 'steam-vt' : (isAnimeTarget || isFromAnime ? 'anime-vt' : '');
+    if (vtClass) document.documentElement.classList.add(vtClass);
     const transition = (document as any).startViewTransition(() => {
       startTransition(() => navigate(to as string));
     });
     // Always cleanup the flag, whether success or error
     Promise.resolve(transition?.finished).finally(() => {
-      document.documentElement.classList.remove('steam-vt');
+      if (vtClass) document.documentElement.classList.remove(vtClass);
     });
   };
 

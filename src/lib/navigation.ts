@@ -41,6 +41,7 @@ export const moduleCategories: NavGroups = {
     { name: "Documents", path: "/documents", icon: FileText },
     { name: "Inventory", path: "/inventory", icon: Package2 },
     { name: "Steam Games", path: "/steam", icon: Gamepad2 },
+    { name: "MyAnimeList", path: "/anime", icon: Bookmark },
   ],
   share: [
     { name: "Live Share", path: "/share/new", icon: Share2 },

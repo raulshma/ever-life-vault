@@ -22,6 +22,7 @@ const Vault = lazy(() => import("./pages/Vault"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Inventory = lazy(() => import("./pages/Inventory"));
   const SteamStandalone = lazy(() => import("./pages/steam/SteamStandalone"));
+  const MALStandalone = lazy(() => import("./pages/mal/MALStandalone"));
 const HomelabMediaRequests = lazy(() => import("./pages/homelab/MediaRequests"));
 const HomelabJellyfin = lazy(() => import("./pages/homelab/Jellyfin"));
 const HomelabKarakeep = lazy(() => import("./pages/homelab/Karakeep"));
@@ -83,6 +84,15 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <SteamStandalone />
+            </ProtectedRoute>
+          }
+        />
+        {/* MyAnimeList hub with immersive layout */}
+        <Route
+          path="/anime/*"
+          element={
+            <ProtectedRoute>
+              <MALStandalone />
             </ProtectedRoute>
           }
         />

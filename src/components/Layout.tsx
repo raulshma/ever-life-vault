@@ -213,6 +213,30 @@ const SidebarNavigation: React.FC<{
                             <span>{item.name}</span>
                           </span>
                         </SidebarMenuButton>
+                      ) : item.path === "/anime" ? (
+                        <SidebarMenuButton
+                          isActive={isActive}
+                          tooltip={item.name}
+                          onClick={(e) => {
+                            if ("startViewTransition" in document) {
+                              e.preventDefault();
+                              document.documentElement.classList.add("anime-vt");
+                              const t: any = (document as any).startViewTransition(() => {
+                                navigate("/anime");
+                              });
+                              Promise.resolve(t?.finished).finally(() => {
+                                document.documentElement.classList.remove("anime-vt");
+                              });
+                            } else {
+                              navigate("/anime");
+                            }
+                          }}
+                        >
+                          <span className={cn("flex items-center gap-2", isActive && "font-medium") }>
+                            <Icon className="h-4 w-4" />
+                            <span>{item.name}</span>
+                          </span>
+                        </SidebarMenuButton>
                       ) : (
                         <SidebarMenuButton
                           asChild
