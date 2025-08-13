@@ -9,6 +9,7 @@ interface MALRouteConfig {
   requireSupabaseUser: RequireUser
   SUPABASE_URL?: string
   SUPABASE_ANON_KEY?: string
+  SUPABASE_SERVICE_ROLE_KEY?: string
   OAUTH_REDIRECT_BASE_URL?: string
   OAUTH_REDIRECT_PATH?: string
   MAL_CLIENT_ID?: string
@@ -22,6 +23,13 @@ function makeSupabaseForRequest(cfg: MALRouteConfig, req: FastifyRequest): Supab
   return createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+  })
+}
+
+function makeAdminSupabase(cfg: MALRouteConfig): SupabaseClient | null {
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_SERVICE_ROLE_KEY) return null
+  return createClient(cfg.SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
   })
 }
 
@@ -212,6 +220,8 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     if (!cfg.MAL_CLIENT_ID) return reply.code(500).send({ error: 'server_not_configured' })
     const supabase = makeSupabaseForRequest(cfg, request)
     if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
+    const admin = makeAdminSupabase(cfg)
+    if (!admin) return reply.code(500).send({ error: 'server_not_configured' })
 
     // Throttle: allow at most once per 30 minutes
     {
@@ -267,7 +277,7 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     // Optionally upsert anime titles that we have
     const animeRows = items.map((it) => ({ mal_id: it.mal_id, title: it.title || `Anime #${it.mal_id}`, updated_at: new Date().toISOString() }))
     if (animeRows.length > 0) {
-      await supabase.from('mal_anime').upsert(animeRows, { onConflict: 'mal_id' })
+      await admin.from('mal_anime').upsert(animeRows, { onConflict: 'mal_id' })
     }
 
     // Touch synced_at
@@ -324,6 +334,8 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     if (!cfg.MAL_CLIENT_ID) return reply.code(500).send({ error: 'server_not_configured' })
     const supabase = makeSupabaseForRequest(cfg, request)
     if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
+    const admin = makeAdminSupabase(cfg)
+    if (!admin) return reply.code(500).send({ error: 'server_not_configured' })
     const now = new Date()
     const m = now.getUTCMonth() + 1
     const year = now.getUTCFullYear()
@@ -342,7 +354,7 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     }
     if (items.length > 0) {
       const rows = items.map((a) => ({ mal_id: a.mal_id, title: a.title, main_picture: a.main_picture || null, updated_at: new Date().toISOString() }))
-      await supabase.from('mal_anime').upsert(rows, { onConflict: 'mal_id' })
+      await admin.from('mal_anime').upsert(rows, { onConflict: 'mal_id' })
     }
     return reply.send({ items })
   })

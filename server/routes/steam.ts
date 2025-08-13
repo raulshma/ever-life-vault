@@ -10,6 +10,7 @@ interface SteamRouteConfig {
   requireSupabaseUser: RequireUser
   SUPABASE_URL?: string
   SUPABASE_ANON_KEY?: string
+  SUPABASE_SERVICE_ROLE_KEY?: string
   STEAM_WEB_API_KEY?: string
   OAUTH_REDIRECT_BASE_URL?: string
   OAUTH_REDIRECT_PATH?: string
@@ -21,6 +22,13 @@ function makeSupabaseForRequest(cfg: SteamRouteConfig, req: FastifyRequest): Sup
   return createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
+  })
+}
+
+function makeAdminSupabase(cfg: SteamRouteConfig): SupabaseClient | null {
+  if (!cfg.SUPABASE_URL || !cfg.SUPABASE_SERVICE_ROLE_KEY) return null
+  return createClient(cfg.SUPABASE_URL, cfg.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
   })
 }
 
@@ -97,11 +105,12 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const steamid = parseSteamIdFromClaimedId(params['openid.claimed_id'])
     if (!steamid) return reply.code(400).send({ error: 'invalid_claimed_id' })
 
-    const supabase = makeSupabaseForRequest(cfg, request)
-    if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
+    // Use admin client to bypass RLS for linking
+    const admin = makeAdminSupabase(cfg)
+    if (!admin) return reply.code(500).send({ error: 'server_not_configured' })
 
-    // Upsert steam_accounts
-    const { error } = await supabase
+    // Upsert steam_accounts (RLS-bypassed)
+    const { error } = await admin
       .from('steam_accounts')
       .upsert({ user_id: stateInfo.userId, steamid64: steamid, linked_at: new Date().toISOString() }, { onConflict: 'user_id' })
     if (error) return reply.code(400).send({ error: error.message })
@@ -120,6 +129,8 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
 
     const supabase = makeSupabaseForRequest(cfg, request)
     if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
+    const admin = makeAdminSupabase(cfg)
+    if (!admin) return reply.code(500).send({ error: 'server_not_configured' })
 
     const { data: acct } = await supabase
       .from('steam_accounts')
@@ -194,7 +205,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     }
 
     if (gameRows.length > 0) {
-      await supabase.from('steam_games').upsert(gameRows, { onConflict: 'appid' })
+      await admin.from('steam_games').upsert(gameRows, { onConflict: 'appid' })
     }
     if (ownershipRows.length > 0) {
       await supabase.from('steam_ownership').upsert(ownershipRows, { onConflict: 'user_id,appid' })
