@@ -494,6 +494,27 @@ All colors MUST be HSL.
   }
 }
 
+/* Gaming view-transition for Steam page */
+html.steam-vt::view-transition-old(root) {
+  animation: steam-out 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: clip;
+}
+html.steam-vt::view-transition-new(root) {
+  animation: steam-in 560ms 90ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  overflow: clip;
+}
+
+@keyframes steam-out {
+  0% { filter: saturate(1) brightness(1); transform: scale(1); clip-path: inset(0% 0% 0% 0%); }
+  60% { filter: saturate(1.4) brightness(1.05) hue-rotate(15deg); transform: scale(1.02); }
+  100% { filter: saturate(0.6) brightness(0.9) blur(2px); transform: scale(0.98); clip-path: inset(2% 2% 2% 2% round 16px); }
+}
+@keyframes steam-in {
+  0% { filter: saturate(1.6) brightness(1.1) hue-rotate(-10deg) blur(8px); transform: scale(1.04); clip-path: inset(15% 15% 15% 15% round 24px); }
+  70% { filter: saturate(1.2) brightness(1.05) blur(2px); transform: scale(1.005); clip-path: inset(1% 1% 1% 1% round 18px); }
+  100% { filter: saturate(1) brightness(1) blur(0px); transform: scale(1); clip-path: inset(0% 0% 0% 0%); }
+}
+
 /* Mobile-specific optimizations */
 @media (max-width: 479px) {
   /* Ensure minimum touch target sizes */
