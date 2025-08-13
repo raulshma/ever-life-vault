@@ -140,9 +140,9 @@ create policy "own stats" on steam_game_stats for all using (user_id = auth.uid(
 ---
 
 ### Server Endpoints (proposed)
-- [x] **POST** `/api/integrations/steam/link/start` → initiate OpenID login.
-- [x] **GET** `/api/integrations/steam/link/callback` → finalize link, store `steamid64`.
-- [x] **POST** `/api/integrations/steam/sync` → sync profile + library now; returns `{ ok, count }`.
+- [x] **POST** `/api/steam/link/start` → initiate OpenID login.
+- [x] **GET** `/api/steam/link/callback` → finalize link, store `steamid64`.
+- [x] **POST** `/api/steam/sync` → sync profile + library now; returns `{ ok, count }`.
 - [x] **GET** `/api/steam/profile` → profile from DB.
 - [x] **GET** `/api/steam/library` → paginated owned games, sortable/filterable.
 - [x] **GET** `/api/steam/recent` → recently played from DB.

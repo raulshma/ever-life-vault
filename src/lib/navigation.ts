@@ -15,6 +15,7 @@ import {
   Play,
   Film,
   User,
+  Gamepad2,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -39,6 +40,7 @@ export const moduleCategories: NavGroups = {
     { name: "Vault", path: "/vault", icon: Shield },
     { name: "Documents", path: "/documents", icon: FileText },
     { name: "Inventory", path: "/inventory", icon: Package2 },
+    { name: "Steam Games", path: "/steam", icon: Gamepad2 },
   ],
   share: [
     { name: "Live Share", path: "/share/new", icon: Share2 },

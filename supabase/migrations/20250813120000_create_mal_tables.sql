@@ -80,18 +80,73 @@ create table if not exists public.mal_recommendations (
 
 -- RLS
 alter table public.mal_accounts enable row level security;
-create policy if not exists mal_accounts_own on public.mal_accounts for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'mal_accounts'
+          and policyname = 'mal_accounts_own'
+    ) then
+        execute 'create policy mal_accounts_own on public.mal_accounts for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.mal_user_list_entries enable row level security;
-create policy if not exists mal_entries_own on public.mal_user_list_entries for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'mal_user_list_entries'
+          and policyname = 'mal_entries_own'
+    ) then
+        execute 'create policy mal_entries_own on public.mal_user_list_entries for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.mal_watch_history enable row level security;
-create policy if not exists mal_history_own on public.mal_watch_history for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'mal_watch_history'
+          and policyname = 'mal_history_own'
+    ) then
+        execute 'create policy mal_history_own on public.mal_watch_history for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.mal_recommendations enable row level security;
-create policy if not exists mal_recs_own on public.mal_recommendations for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'mal_recommendations'
+          and policyname = 'mal_recs_own'
+    ) then
+        execute 'create policy mal_recs_own on public.mal_recommendations for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.mal_tokens enable row level security;
-create policy if not exists mal_tokens_own on public.mal_tokens for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'mal_tokens'
+          and policyname = 'mal_tokens_own'
+    ) then
+        execute 'create policy mal_tokens_own on public.mal_tokens for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 

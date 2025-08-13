@@ -21,6 +21,7 @@ const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const Vault = lazy(() => import("./pages/Vault"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Inventory = lazy(() => import("./pages/Inventory"));
+  const Steam = lazy(() => import("./pages/Steam"));
 const HomelabMediaRequests = lazy(() => import("./pages/homelab/MediaRequests"));
 const HomelabJellyfin = lazy(() => import("./pages/homelab/Jellyfin"));
 const HomelabKarakeep = lazy(() => import("./pages/homelab/Karakeep"));
@@ -94,6 +95,7 @@ function AppRoutes() {
           <Route path="vault" element={<Vault />} />
           <Route path="documents" element={<Documents />} />
           <Route path="inventory" element={<Inventory />} />
+          <Route path="steam" element={<Steam />} />
           {/* homelab pages removed */}
           <Route path="homelab/jellyfin" element={<HomelabJellyfin />} />
           <Route path="homelab/karakeep" element={<HomelabKarakeep />} />

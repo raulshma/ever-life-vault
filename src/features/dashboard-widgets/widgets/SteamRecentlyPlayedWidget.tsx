@@ -8,7 +8,7 @@ type SteamRecentConfig = { max?: number }
 
 export default function SteamRecentlyPlayedWidget({ config }: WidgetProps<SteamRecentConfig>) {
   const { getRecent, sync, loading } = useSteam()
-  const [items, setItems] = React.useState<Array<{ appid: number; playtime_2weeks_minutes: number; last_played_at?: string | null }>>([])
+  const [items, setItems] = React.useState<Array<{ appid: number; name?: string; playtime_2weeks_minutes: number; last_played_at?: string | null }>>([])
   const [busy, setBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -33,7 +33,7 @@ export default function SteamRecentlyPlayedWidget({ config }: WidgetProps<SteamR
         <ul className="space-y-2 text-sm">
           {items.slice(0, config?.max || 10).map((it) => (
             <li key={it.appid} className="flex items-center justify-between gap-3">
-              <span>App {it.appid}</span>
+              <span className="truncate" title={it.name || String(it.appid)}>{it.name || `App ${it.appid}`}</span>
               <span className="text-muted-foreground tabular-nums">{it.playtime_2weeks_minutes} min</span>
             </li>
           ))}

@@ -1,9 +1,9 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import crypto from 'node:crypto'
 import { HandoffStore } from '../integrations/handoffStore.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-type RequireUser = (request: any, reply: any) => Promise<any | null>
+type RequireUser = (request: FastifyRequest, reply: FastifyReply) => Promise<any | null>
 
 interface MALRouteConfig {
   requireSupabaseUser: RequireUser
@@ -16,16 +16,16 @@ interface MALRouteConfig {
   MAL_TOKENS_SECRET?: string
 }
 
-function makeSupabaseForRequest(cfg: MALRouteConfig, req: any): SupabaseClient | null {
+function makeSupabaseForRequest(cfg: MALRouteConfig, req: FastifyRequest): SupabaseClient | null {
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return null
-  const token = (req.headers?.authorization || req.headers?.Authorization)?.toString()?.replace(/^Bearer\s+/i, '') || undefined
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
   return createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
   })
 }
 
-function buildServerBaseUrl(request: any): string {
+function buildServerBaseUrl(request: FastifyRequest): string {
   const proto = ((request.headers['x-forwarded-proto'] as string) || '').split(',')[0]?.trim() || 'http'
   const host = (request.headers['x-forwarded-host'] as string) || (request.headers['host'] as string) || 'localhost:8787'
   return `${proto}://${host}`
@@ -97,8 +97,10 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     const u = new URL('https://myanimelist.net/v1/oauth2/authorize')
     u.searchParams.set('response_type', 'code')
     u.searchParams.set('client_id', cfg.MAL_CLIENT_ID)
-    u.searchParams.set('code_challenge', codeVerifier)
-    u.searchParams.set('code_challenge_method', 'plain')
+    // RFC 7636 recommends S256 over plain
+    const challenge = base64url(crypto.createHash('sha256').update(codeVerifier).digest())
+    u.searchParams.set('code_challenge', challenge)
+    u.searchParams.set('code_challenge_method', 'S256')
     u.searchParams.set('state', state)
     u.searchParams.set('redirect_uri', cfg.MAL_REDIRECT_URI)
     // MAL scopes: default read access. Leave empty or 'read'. We'll be explicit.

@@ -1,10 +1,10 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import crypto from 'node:crypto'
 import { z } from 'zod'
 import { HandoffStore } from '../integrations/handoffStore.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-type RequireUser = (request: any, reply: any) => Promise<any | null>
+type RequireUser = (request: FastifyRequest, reply: FastifyReply) => Promise<any | null>
 
 interface SteamRouteConfig {
   requireSupabaseUser: RequireUser
@@ -15,16 +15,16 @@ interface SteamRouteConfig {
   OAUTH_REDIRECT_PATH?: string
 }
 
-function makeSupabaseForRequest(cfg: SteamRouteConfig, req: any): SupabaseClient | null {
+function makeSupabaseForRequest(cfg: SteamRouteConfig, req: FastifyRequest): SupabaseClient | null {
   if (!cfg.SUPABASE_URL || !cfg.SUPABASE_ANON_KEY) return null
-  const token = (req.headers?.authorization || req.headers?.Authorization)?.toString()?.replace(/^Bearer\s+/i, '') || undefined
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '')
   return createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     global: token ? { headers: { Authorization: `Bearer ${token}` } } : undefined,
   })
 }
 
-function buildServerBaseUrl(request: any): string {
+function buildServerBaseUrl(request: FastifyRequest): string {
   const proto = ((request.headers['x-forwarded-proto'] as string) || '').split(',')[0]?.trim() || 'http'
   const host = (request.headers['x-forwarded-host'] as string) || (request.headers['host'] as string) || 'localhost:8787'
   return `${proto}://${host}`
@@ -57,14 +57,14 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   const handoffs = new HandoffStore<{ userId: string }>()
 
   // Start OpenID link flow
-  server.post('/api/integrations/steam/link/start', async (request, reply) => {
+  server.post('/api/steam/link/start', async (request, reply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const state = crypto.randomUUID()
     handoffs.put(`state:${state}`, { userId: user.id })
 
     const base = buildServerBaseUrl(request)
-    const returnTo = `${base}/api/integrations/steam/link/callback?state=${encodeURIComponent(state)}`
+    const returnTo = `${base}/api/steam/link/callback?state=${encodeURIComponent(state)}`
     const realm = base
 
     const u = new URL('https://steamcommunity.com/openid/login')
@@ -79,7 +79,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // OpenID callback
-  server.get('/api/integrations/steam/link/callback', async (request, reply) => {
+  server.get('/api/steam/link/callback', async (request, reply) => {
     const q = (request as any).query || {}
     const state = q?.state as string | undefined
     if (!state) return reply.code(400).send({ error: 'missing_state' })
@@ -107,13 +107,13 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     if (error) return reply.code(400).send({ error: error.message })
 
     const redirectBase = cfg.OAUTH_REDIRECT_BASE_URL || 'http://localhost:8080'
-    const redirectPath = cfg.OAUTH_REDIRECT_PATH || '/feeds'
+    const redirectPath = cfg.OAUTH_REDIRECT_PATH || '/steam'
     const url = `${redirectBase}${redirectPath}?steam_linked=1`
     return reply.redirect(url)
   })
 
   // Trigger sync
-  server.post('/api/integrations/steam/sync', async (request, reply) => {
+  server.post('/api/steam/sync', async (request, reply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     if (!cfg.STEAM_WEB_API_KEY) return reply.code(500).send({ error: 'missing_steam_api_key' })
@@ -215,7 +215,9 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
           if (recRows.length > 0) await supabase.from('steam_ownership').upsert(recRows, { onConflict: 'user_id,appid' })
         }
       }
-    } catch {}
+    } catch (err) {
+      server.log.error({ event: 'steam_recent_enrich_failed', err }, 'Failed to enrich with recently played games')
+    }
 
     return reply.send({ ok: true, count: ownershipRows.length })
   })
@@ -235,7 +237,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     return reply.send(data || null)
   })
 
-  // Get library with pagination/sort
+  // Get library with pagination/sort (DB-side)
   server.get('/api/steam/library', async (request, reply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
@@ -247,60 +249,57 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const pageSize = Math.min(200, Math.max(1, Number(q.pageSize) || 50))
     const sort = (q.sort as string) || 'name'
     const order: 'asc' | 'desc' = (String(q.order || 'asc').toLowerCase() === 'desc' ? 'desc' : 'asc')
+    const from = (page - 1) * pageSize
+    const to = from + pageSize - 1
 
-    // We do two queries to avoid complex joins if relation isn't inferred
-    const { data: ownership, error: ownErr } = await supabase
+    // Join ownership with games and order at DB level
+    let query = supabase
       .from('steam_ownership')
-      .select('appid, playtime_forever_minutes, playtime_2weeks_minutes, last_played_at')
+      .select('appid, playtime_forever_minutes, playtime_2weeks_minutes, last_played_at, steam_games(name, header_image, genres, metascore, is_free)', { count: 'exact' })
       .eq('user_id', user.id)
-    if (ownErr) return reply.code(400).send({ error: ownErr.message })
 
-    const appIds = (ownership || []).map((o: any) => o.appid)
-    const { data: games, error: gamesErr } = await supabase
-      .from('steam_games')
-      .select('appid, name, header_image, genres, metascore, is_free')
-      .in('appid', appIds.length ? appIds : [-1])
-    if (gamesErr) return reply.code(400).send({ error: gamesErr.message })
+    if (sort === 'playtime') {
+      query = query.order('playtime_forever_minutes', { ascending: order === 'asc' })
+    } else if (sort === 'last_played') {
+      query = query.order('last_played_at', { ascending: order === 'asc', nullsFirst: order === 'asc' })
+    } else {
+      // sort by game name via foreign table
+      query = query.order('name', { ascending: order === 'asc', foreignTable: 'steam_games' })
+    }
 
-    const byApp: Record<number, any> = Object.fromEntries((games || []).map((g: any) => [g.appid, g]))
-    const items = (ownership || []).map((o: any) => ({
-      appid: o.appid,
-      name: byApp[o.appid]?.name || String(o.appid),
-      header_image: byApp[o.appid]?.header_image || null,
-      genres: byApp[o.appid]?.genres || null,
-      metascore: byApp[o.appid]?.metascore || null,
-      is_free: byApp[o.appid]?.is_free ?? null,
-      playtime_forever_minutes: o.playtime_forever_minutes || 0,
-      playtime_2weeks_minutes: o.playtime_2weeks_minutes || 0,
-      last_played_at: o.last_played_at || null,
+    const { data, error, count } = await query.range(from, to)
+    if (error) return reply.code(400).send({ error: error.message })
+
+    const items = (data || []).map((row: any) => ({
+      appid: row.appid,
+      name: row.steam_games?.name || String(row.appid),
+      header_image: row.steam_games?.header_image || null,
+      genres: row.steam_games?.genres || null,
+      metascore: row.steam_games?.metascore ?? null,
+      is_free: row.steam_games?.is_free ?? null,
+      playtime_forever_minutes: row.playtime_forever_minutes || 0,
+      playtime_2weeks_minutes: row.playtime_2weeks_minutes || 0,
+      last_played_at: row.last_played_at || null,
     }))
 
-    items.sort((a: any, b: any) => {
-      const dir = order === 'asc' ? 1 : -1
-      if (sort === 'playtime') return dir * ((a.playtime_forever_minutes || 0) - (b.playtime_forever_minutes || 0))
-      if (sort === 'last_played') return dir * (((a.last_played_at ? Date.parse(a.last_played_at) : 0) - (b.last_played_at ? Date.parse(b.last_played_at) : 0)))
-      // default name
-      return dir * String(a.name || '').localeCompare(String(b.name || ''))
-    })
-
-    const total = items.length
-    const start = (page - 1) * pageSize
-    const paged = items.slice(start, start + pageSize)
-    return reply.send({ items: paged, page, pageSize, total })
+    return reply.send({ items, page, pageSize, total: count || 0 })
   })
 
-  // Recently played
+  // Recently played (with names)
   server.get('/api/steam/recent', async (request, reply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const supabase = makeSupabaseForRequest(cfg, request)
     if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
-    const { data: own, error } = await supabase
+    const { data, error } = await supabase
       .from('steam_ownership')
-      .select('appid, playtime_2weeks_minutes, last_played_at')
+      .select('appid, playtime_2weeks_minutes, last_played_at, steam_games(name)')
       .eq('user_id', user.id)
+      .order('playtime_2weeks_minutes', { ascending: false })
     if (error) return reply.code(400).send({ error: error.message })
-    const recent = (own || []).filter((o: any) => (o.playtime_2weeks_minutes || 0) > 0)
+    const recent = (data || [])
+      .filter((o: any) => (o.playtime_2weeks_minutes || 0) > 0)
+      .map((o: any) => ({ appid: o.appid, name: o.steam_games?.name || String(o.appid), playtime_2weeks_minutes: o.playtime_2weeks_minutes, last_played_at: o.last_played_at || null }))
     return reply.send({ items: recent })
   })
 
@@ -320,7 +319,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     return reply.send({ game: game || null, ownership: own || null })
   })
 
-  // Suggestions v0
+  // Suggestions v0 (include names)
   server.get('/api/steam/suggestions', async (request, reply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
@@ -346,7 +345,14 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       return { appid: o.appid, score }
     })
     const top = items.filter((i) => i.score > 0).sort((a, b) => b.score - a.score).slice(0, 10)
-    return reply.send({ items: top })
+    const ids = top.map((t) => t.appid)
+    const { data: games } = await supabase
+      .from('steam_games')
+      .select('appid, name')
+      .in('appid', ids.length ? ids : [-1])
+    const nameById = Object.fromEntries((games || []).map((g: any) => [g.appid, g.name]))
+    const withNames = top.map((t) => ({ ...t, name: nameById[t.appid] || String(t.appid) }))
+    return reply.send({ items: withNames })
   })
 }
 

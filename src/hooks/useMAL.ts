@@ -36,21 +36,36 @@ export function useMAL() {
   }, [])
 
   const getProfile = useCallback(async (): Promise<any | null> => {
-    const res = await fetchWithAuth('/api/mal/profile')
-    if (!res.ok) return null
-    return res.json()
+    try {
+      const res = await fetchWithAuth('/api/mal/profile')
+      if (!res.ok) return null
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return null
+    }
   }, [])
 
   const getRecent = useCallback(async (): Promise<{ items: MALRecentItem[] }> => {
-    const res = await fetchWithAuth('/api/mal/recent')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.json()
+    try {
+      const res = await fetchWithAuth('/api/mal/recent')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return { items: [] }
+    }
   }, [])
 
   const getSeasonal = useCallback(async (): Promise<{ items: Array<{ mal_id: number; title: string; main_picture?: any }> }> => {
-    const res = await fetchWithAuth('/api/mal/seasonal')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.json()
+    try {
+      const res = await fetchWithAuth('/api/mal/seasonal')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return { items: [] }
+    }
   }, [])
 
   return useMemo(

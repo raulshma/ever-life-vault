@@ -55,15 +55,59 @@ create table if not exists public.steam_game_stats (
 );
 
 alter table public.steam_accounts enable row level security;
-create policy if not exists steam_accounts_own on public.steam_accounts for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'steam_accounts'
+          and policyname = 'steam_accounts_own'
+    ) then
+        execute 'create policy steam_accounts_own on public.steam_accounts for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.steam_ownership enable row level security;
-create policy if not exists steam_ownership_own on public.steam_ownership for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'steam_ownership'
+          and policyname = 'steam_ownership_own'
+    ) then
+        execute 'create policy steam_ownership_own on public.steam_ownership for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.steam_achievements enable row level security;
-create policy if not exists steam_achievements_own on public.steam_achievements for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'steam_achievements'
+          and policyname = 'steam_achievements_own'
+    ) then
+        execute 'create policy steam_achievements_own on public.steam_achievements for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 alter table public.steam_game_stats enable row level security;
-create policy if not exists steam_game_stats_own on public.steam_game_stats for all using (user_id = auth.uid());
+do $$
+begin
+    if not exists (
+        select 1 from pg_policies
+        where schemaname = 'public'
+          and tablename = 'steam_game_stats'
+          and policyname = 'steam_game_stats_own'
+    ) then
+        execute 'create policy steam_game_stats_own on public.steam_game_stats for all using (user_id = (SELECT auth.uid()))';
+    end if;
+end
+$$ language plpgsql;
 
 

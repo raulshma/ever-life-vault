@@ -18,7 +18,7 @@ export function useSteam() {
   const [error, setError] = useState<string | null>(null)
 
   const startLink = useCallback(async (): Promise<string> => {
-    const res = await fetchWithAuth('/api/integrations/steam/link/start', { method: 'POST' })
+    const res = await fetchWithAuth('/api/steam/link/start', { method: 'POST' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const json = (await res.json()) as { url: string }
     return json.url
@@ -28,7 +28,7 @@ export function useSteam() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetchWithAuth('/api/integrations/steam/sync', { method: 'POST' })
+      const res = await fetchWithAuth('/api/steam/sync', { method: 'POST' })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       return (await res.json()) as any
     } catch (e) {
@@ -40,9 +40,14 @@ export function useSteam() {
   }, [])
 
   const getProfile = useCallback(async (): Promise<any | null> => {
-    const res = await fetchWithAuth('/api/steam/profile')
-    if (!res.ok) return null
-    return res.json()
+    try {
+      const res = await fetchWithAuth('/api/steam/profile')
+      if (!res.ok) return null
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return null
+    }
   }, [])
 
   const getLibrary = useCallback(
@@ -52,29 +57,49 @@ export function useSteam() {
       if (opts?.pageSize) p.set('pageSize', String(opts.pageSize))
       if (opts?.sort) p.set('sort', opts.sort)
       if (opts?.order) p.set('order', opts.order)
-      const res = await fetchWithAuth(`/api/steam/library${p.toString() ? `?${p.toString()}` : ''}`)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      return (await res.json()) as { items: SteamLibraryItem[]; page: number; pageSize: number; total: number }
+      try {
+        const res = await fetchWithAuth(`/api/steam/library${p.toString() ? `?${p.toString()}` : ''}`)
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        return (await res.json()) as { items: SteamLibraryItem[]; page: number; pageSize: number; total: number }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        return { items: [], page: opts?.page || 1, pageSize: opts?.pageSize || 50, total: 0 }
+      }
     },
     []
   )
 
   const getRecent = useCallback(async () => {
-    const res = await fetchWithAuth('/api/steam/recent')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.json()
+    try {
+      const res = await fetchWithAuth('/api/steam/recent')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return { items: [] }
+    }
   }, [])
 
   const getGame = useCallback(async (appid: number) => {
-    const res = await fetchWithAuth(`/api/steam/game/${appid}`)
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.json()
+    try {
+      const res = await fetchWithAuth(`/api/steam/game/${appid}`)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return null
+    }
   }, [])
 
   const getSuggestions = useCallback(async () => {
-    const res = await fetchWithAuth('/api/steam/suggestions')
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    return res.json()
+    try {
+      const res = await fetchWithAuth('/api/steam/suggestions')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      return res.json()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+      return { items: [] }
+    }
   }, [])
 
   return useMemo(

@@ -8,7 +8,7 @@ type SteamBacklogConfig = { max?: number }
 
 export default function SteamBacklogWidget({ config }: WidgetProps<SteamBacklogConfig>) {
   const { getSuggestions, sync, loading } = useSteam()
-  const [items, setItems] = React.useState<Array<{ appid: number; score: number }>>([])
+  const [items, setItems] = React.useState<Array<{ appid: number; name?: string; score: number }>>([])
   const [busy, setBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -33,7 +33,7 @@ export default function SteamBacklogWidget({ config }: WidgetProps<SteamBacklogC
         <ul className="space-y-2 text-sm">
           {items.slice(0, config?.max || 10).map((it) => (
             <li key={it.appid} className="flex items-center justify-between gap-3">
-              <span>App {it.appid}</span>
+              <span className="truncate" title={it.name || String(it.appid)}>{it.name || `App ${it.appid}`}</span>
               <span className="text-muted-foreground tabular-nums">{(it.score * 100).toFixed(0)}%</span>
             </li>
           ))}
