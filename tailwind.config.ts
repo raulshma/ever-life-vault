@@ -28,7 +28,7 @@ export default {
 				'2xl': '1400px'
 			}
 		},
-		extend: {
+			extend: {
 			screens: {
 				xs: '480px'
 			},
@@ -105,11 +105,15 @@ export default {
 				'smooth': 'var(--transition-smooth)',
 				'spring': 'var(--transition-spring)'
 			},
-			borderRadius: {
-				lg: 'var(--radius)',
-				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
-			},
+				borderRadius: {
+					DEFAULT: 'var(--radius)',
+					lg: 'var(--radius)',
+					md: 'var(--radius)',
+					sm: 'var(--radius)',
+					xl: 'var(--radius)',
+					'2xl': 'var(--radius)',
+					'3xl': 'var(--radius)'
+				},
 			keyframes: {
 				'accordion-down': {
 					from: {
