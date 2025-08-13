@@ -1,5 +1,5 @@
 import React, { startTransition } from 'react';
-import { Link, LinkProps, useNavigate } from 'react-router-dom';
+import { Link, LinkProps, useNavigate, useLocation } from 'react-router-dom';
 import { useSettings } from '@/hooks/useSettings';
 
 interface ViewTransitionLinkProps extends LinkProps {
@@ -8,6 +8,7 @@ interface ViewTransitionLinkProps extends LinkProps {
 
 export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, children, ...props }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { viewTransitionsEnabled } = useSettings();
 
   const handleMouseEnter = () => {
@@ -40,14 +41,15 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     const isSteamTarget = typeof to === 'string' && (to as string).startsWith('/steam');
-    const shouldUseVT = (viewTransitionsEnabled || isSteamTarget) && ('startViewTransition' in document);
+    const isFromSteam = location.pathname.startsWith('/steam');
+    const shouldUseVT = (viewTransitionsEnabled || isSteamTarget || isFromSteam) && ('startViewTransition' in document);
     if (!shouldUseVT) {
       return; // Let the default Link behavior handle navigation
     }
 
     e.preventDefault();
 
-    if (isSteamTarget) {
+    if (isSteamTarget || isFromSteam) {
       document.documentElement.classList.add('steam-vt');
     }
     const transition = (document as any).startViewTransition(() => {
