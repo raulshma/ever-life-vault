@@ -61,6 +61,10 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:8787",
         changeOrigin: true,
       },
+      "/clips": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
     },
     headers: {
       // Enforce frame-ancestors via server header (meta tag can't enforce it)

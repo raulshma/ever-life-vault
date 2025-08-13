@@ -12,6 +12,7 @@ import { registerIntegrationRoutes } from './routes/integrations.js'
 import { registerLiveShareRoutes } from './routes/live-share.js'
 import { registerSteamRoutes } from './routes/steam.js'
 import { registerMALRoutes } from './routes/mal.js'
+import { registerClipRoutes } from './routes/clips.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -116,6 +117,9 @@ export async function buildServer(): Promise<FastifyInstance> {
     MAL_REDIRECT_URI: env.MAL_REDIRECT_URI,
     MAL_TOKENS_SECRET: env.MAL_TOKENS_SECRET,
   })
+
+  // Clips (cl1p-like) routes (minimal helper; primary operations via Supabase RPCs)
+  registerClipRoutes(server)
 
   server.get('/', async () => ({
     ok: true,

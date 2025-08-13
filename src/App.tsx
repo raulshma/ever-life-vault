@@ -28,8 +28,10 @@ const HomelabJellyfin = lazy(() => import("./pages/homelab/Jellyfin"));
 const HomelabKarakeep = lazy(() => import("./pages/homelab/Karakeep"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Focus = lazy(() => import("./pages/Focus"));
-const LiveShareNew = lazy(() => import("./pages/LiveShareNew"));
-const LiveShareRoom = lazy(() => import("./pages/LiveShareRoom"));
+  const LiveShareNew = lazy(() => import("./pages/LiveShareNew"));
+  const LiveShareRoom = lazy(() => import("./pages/LiveShareRoom"));
+  const ClipNew = lazy(() => import("./pages/ClipNew"));
+  const ClipPage = lazy(() => import("./pages/ClipPage"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Feeds = lazy(() => import("./pages/Feeds"));
 
@@ -78,6 +80,9 @@ function AppRoutes() {
         <Route path="/auth" element={<Auth />} />
         {/* Public share routes - accessible without auth */}
         <Route path="/share/:id" element={<LiveShareRoom />} />
+        {/* Public cl1p-like routes */}
+        <Route path="/cl1p/new" element={<ClipNew />} />
+        <Route path="/cl1p/:id" element={<ClipPage />} />
         {/* Steam Hub uses its own layout, not the site layout */}
         <Route
           path="/steam/*"
@@ -110,6 +115,7 @@ function AppRoutes() {
           <Route path="focus" element={<Focus />} />
           <Route path="feeds" element={<Feeds />} />
           <Route path="share/new" element={<LiveShareNew />} />
+          <Route path="cl1p/new" element={<ClipNew />} />
           <Route path="profile" element={<Profile />} />
           <Route path="vault" element={<Vault />} />
           <Route path="documents" element={<Documents />} />
