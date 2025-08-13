@@ -9,6 +9,8 @@ import { registerDynRoute } from './routes/dyn.js'
 import { registerAgpRoute } from './routes/agp.js'
 import { registerIntegrationRoutes } from './routes/integrations.js'
 import { registerLiveShareRoutes } from './routes/live-share.js'
+import { registerSteamRoutes } from './routes/steam.js'
+import { registerMALRoutes } from './routes/mal.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -66,6 +68,28 @@ export async function buildServer(): Promise<FastifyInstance> {
     requireSupabaseUser,
     SUPABASE_URL: env.SUPABASE_URL,
     SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+  })
+
+  // Steam integration routes
+  registerSteamRoutes(server, {
+    requireSupabaseUser,
+    SUPABASE_URL: env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+    STEAM_WEB_API_KEY: env.STEAM_WEB_API_KEY,
+    OAUTH_REDIRECT_BASE_URL: env.OAUTH_REDIRECT_BASE_URL,
+    OAUTH_REDIRECT_PATH: env.OAUTH_REDIRECT_PATH,
+  })
+
+  // MyAnimeList integration routes (v0)
+  registerMALRoutes(server, {
+    requireSupabaseUser,
+    SUPABASE_URL: env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+    OAUTH_REDIRECT_BASE_URL: env.OAUTH_REDIRECT_BASE_URL,
+    OAUTH_REDIRECT_PATH: env.OAUTH_REDIRECT_PATH,
+    MAL_CLIENT_ID: env.MAL_CLIENT_ID,
+    MAL_REDIRECT_URI: env.MAL_REDIRECT_URI,
+    MAL_TOKENS_SECRET: env.MAL_TOKENS_SECRET,
   })
 
   server.get('/', async () => ({

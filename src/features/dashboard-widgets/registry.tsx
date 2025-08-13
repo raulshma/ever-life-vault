@@ -142,6 +142,47 @@ export function registerBuiltInWidgets() {
       component: React.lazy(() => import('./widgets/FeedsWidget')),
     })
   } catch {}
+  // Steam widgets
+  try {
+    widgetRegistry.register({
+      id: 'steam-profile',
+      title: 'Steam Profile',
+      category: 'helpers',
+      version: '0.1.0',
+      defaultConfig: {},
+      component: React.lazy(() => import('./widgets/SteamProfileWidget')),
+    })
+  } catch {}
+  try {
+    widgetRegistry.register({
+      id: 'steam-recent',
+      title: 'Steam Recently Played',
+      category: 'analytics',
+      version: '0.1.0',
+      defaultConfig: { max: 10 },
+      component: React.lazy(() => import('./widgets/SteamRecentlyPlayedWidget')),
+    })
+  } catch {}
+  try {
+    widgetRegistry.register({
+      id: 'steam-backlog',
+      title: 'Steam Backlog',
+      category: 'analytics',
+      version: '0.1.0',
+      defaultConfig: { max: 10 },
+      component: React.lazy(() => import('./widgets/SteamBacklogWidget')),
+    })
+  } catch {}
+  try {
+    widgetRegistry.register({
+      id: 'steam-game',
+      title: 'Steam Game Detail',
+      category: 'helpers',
+      version: '0.1.0',
+      defaultConfig: { appid: undefined },
+      component: React.lazy(() => import('./widgets/SteamGameDetailWidget')),
+    })
+  } catch {}
   try {
     widgetRegistry.register({
       id: 'jellyfin',

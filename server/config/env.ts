@@ -47,6 +47,13 @@ export const env = {
   SPOTIFY_CLIENT_ID: process.env.SPOTIFY_CLIENT_ID,
   SPOTIFY_CLIENT_SECRET: process.env.SPOTIFY_CLIENT_SECRET,
   SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI,
+  // Steam
+  STEAM_WEB_API_KEY: process.env.STEAM_WEB_API_KEY,
+  // MyAnimeList
+  MAL_CLIENT_ID: process.env.MAL_CLIENT_ID,
+  MAL_CLIENT_SECRET: process.env.MAL_CLIENT_SECRET,
+  MAL_REDIRECT_URI: process.env.MAL_REDIRECT_URI,
+  MAL_TOKENS_SECRET: process.env.MAL_TOKENS_SECRET,
 } as const
 
 export type Env = typeof env
