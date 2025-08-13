@@ -50,6 +50,23 @@ export default function Steam() {
 
   React.useEffect(() => { void loadAll() }, [loadAll])
 
+  // If redirected from link callback, trigger an initial sync then reload
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('steam_linked') === '1') {
+      void (async () => {
+        const res = await sync()
+        if (res && !(res as any).error) {
+          toast({ description: `Synced ${res.count} games` })
+          await loadAll()
+        }
+        params.delete('steam_linked')
+        const url = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}`
+        window.history.replaceState({}, '', url)
+      })()
+    }
+  }, [sync, loadAll, toast])
+
   const onConnect = async () => {
     try {
       const url = await startLink()

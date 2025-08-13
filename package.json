@@ -82,7 +82,8 @@
     "xlsx": "^0.18.5",
     "y-protocols": "^1.0.6",
     "yjs": "^13.6.18",
-    "zod": "^3.23.8"
+    "zod": "^3.23.8",
+    "@miketako3/cloki": "^0.1.16"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.0",

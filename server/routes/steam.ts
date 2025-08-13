@@ -63,6 +63,7 @@ async function verifyOpenIdResponse(params: Record<string, string>): Promise<boo
 
 export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConfig) {
   const handoffs = new HandoffStore<{ userId: string }>()
+  const loki = (server as any).loki as { info?: Function; error?: Function } | null
 
   // Start OpenID link flow
   server.post('/api/steam/link/start', async (request, reply) => {
@@ -83,7 +84,10 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     u.searchParams.set('openid.claimed_id', 'http://specs.openid.net/auth/2.0/identifier_select')
     u.searchParams.set('openid.identity', 'http://specs.openid.net/auth/2.0/identifier_select')
 
-    return reply.send({ url: u.toString() })
+    const url = u.toString()
+    server.log.info({ event: 'steam_link_start', userId: user.id })
+    try { loki && loki.info && loki.info({ message: 'steam_link_start', userId: user.id }) } catch {}
+    return reply.send({ url })
   })
 
   // OpenID callback
@@ -118,6 +122,8 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const redirectBase = cfg.OAUTH_REDIRECT_BASE_URL || 'http://localhost:8080'
     const redirectPath = cfg.OAUTH_REDIRECT_PATH || '/steam'
     const url = `${redirectBase}${redirectPath}?steam_linked=1`
+    server.log.info({ event: 'steam_link_callback_ok', userId: stateInfo.userId, steamid })
+    try { loki && loki.info && loki.info({ message: 'steam_link_callback_ok', userId: stateInfo.userId, steamid }) } catch {}
     return reply.redirect(url)
   })
 
@@ -139,6 +145,8 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       .maybeSingle()
     const steamid: string | undefined = (acct as any)?.steamid64
     if (!steamid) return reply.code(400).send({ error: 'not_linked' })
+    server.log.info({ event: 'steam_sync_start', userId: user.id })
+    try { loki && loki.info && loki.info({ message: 'steam_sync_start', userId: user.id }) } catch {}
 
     const key = cfg.STEAM_WEB_API_KEY
 
@@ -162,7 +170,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const player = (sumJson?.response?.players || [])[0] || {}
 
     // Update profile fields
-    await supabase
+    await (admin)
       .from('steam_accounts')
       .update({
         persona_name: player?.personaname || null,
@@ -208,7 +216,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       await admin.from('steam_games').upsert(gameRows, { onConflict: 'appid' })
     }
     if (ownershipRows.length > 0) {
-      await supabase.from('steam_ownership').upsert(ownershipRows, { onConflict: 'user_id,appid' })
+      await admin.from('steam_ownership').upsert(ownershipRows, { onConflict: 'user_id,appid' })
     }
 
     // Optionally enrich recent with GetRecentlyPlayedGames
@@ -223,13 +231,16 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
             appid: Number(g?.appid),
             playtime_2weeks_minutes: typeof g?.playtime_2weeks === 'number' ? g.playtime_2weeks : 0,
           })).filter((r: any) => Number.isFinite(r.appid))
-          if (recRows.length > 0) await supabase.from('steam_ownership').upsert(recRows, { onConflict: 'user_id,appid' })
+          if (recRows.length > 0) await admin.from('steam_ownership').upsert(recRows, { onConflict: 'user_id,appid' })
         }
       }
     } catch (err) {
       server.log.error({ event: 'steam_recent_enrich_failed', err }, 'Failed to enrich with recently played games')
+      try { loki && loki.error && loki.error({ message: 'steam_recent_enrich_failed', userId: user.id, error: String(err) }) } catch {}
     }
 
+    server.log.info({ event: 'steam_sync_ok', userId: user.id, count: ownershipRows.length })
+    try { loki && loki.info && loki.info({ message: 'steam_sync_ok', userId: user.id, count: ownershipRows.length }) } catch {}
     return reply.send({ ok: true, count: ownershipRows.length })
   })
 
@@ -245,6 +256,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       .eq('user_id', user.id)
       .maybeSingle()
     if (error) return reply.code(400).send({ error: error.message })
+    try { loki && loki.info && loki.info({ message: 'steam_profile_fetch', userId: user.id, found: !!data }) } catch {}
     return reply.send(data || null)
   })
 
@@ -293,6 +305,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       last_played_at: row.last_played_at || null,
     }))
 
+    try { loki && loki.info && loki.info({ message: 'steam_library_fetch', userId: user.id, page, pageSize, total: count || 0 }) } catch {}
     return reply.send({ items, page, pageSize, total: count || 0 })
   })
 
@@ -311,6 +324,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const recent = (data || [])
       .filter((o: any) => (o.playtime_2weeks_minutes || 0) > 0)
       .map((o: any) => ({ appid: o.appid, name: o.steam_games?.name || String(o.appid), playtime_2weeks_minutes: o.playtime_2weeks_minutes, last_played_at: o.last_played_at || null }))
+    try { loki && loki.info && loki.info({ message: 'steam_recent_fetch', userId: user.id, count: recent.length }) } catch {}
     return reply.send({ items: recent })
   })
 
@@ -327,6 +341,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       supabase.from('steam_games').select('*').eq('appid', id).maybeSingle(),
       supabase.from('steam_ownership').select('*').eq('user_id', user.id).eq('appid', id).maybeSingle(),
     ])
+    try { loki && loki.info && loki.info({ message: 'steam_game_detail_fetch', userId: user.id, appid: id, found: !!game }) } catch {}
     return reply.send({ game: game || null, ownership: own || null })
   })
 
@@ -363,6 +378,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       .in('appid', ids.length ? ids : [-1])
     const nameById = Object.fromEntries((games || []).map((g: any) => [g.appid, g.name]))
     const withNames = top.map((t) => ({ ...t, name: nameById[t.appid] || String(t.appid) }))
+    try { loki && loki.info && loki.info({ message: 'steam_suggestions_fetch', userId: user.id, count: withNames.length }) } catch {}
     return reply.send({ items: withNames })
   })
 }

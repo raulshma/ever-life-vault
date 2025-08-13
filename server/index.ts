@@ -1,4 +1,5 @@
 import Fastify, { FastifyInstance } from 'fastify'
+import ClokiDefault from '@miketako3/cloki'
 import { env } from './config/env.js'
 import { registerCors } from './plugins/cors.js'
 import { registerServiceProxies } from './plugins/proxies.js'
@@ -14,6 +15,28 @@ import { registerMALRoutes } from './routes/mal.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
+
+  // Configure Grafana Loki logger (non-blocking). Falls back silently if not configured.
+  let loki: any | null = null
+  try {
+    if (env.GRAFANA_LOKI_ENABLED && env.GRAFANA_ACCESS_POLICY_TOKEN && env.GRAFANA_LOKI_HOST && env.GRAFANA_LOKI_USER) {
+      // The package exports default in v0.1.x
+      const Cloki = (ClokiDefault as any)?.default || ClokiDefault
+      loki = new Cloki({
+        lokiHost: env.GRAFANA_LOKI_HOST,
+        lokiUser: env.GRAFANA_LOKI_USER,
+        lokiToken: env.GRAFANA_ACCESS_POLICY_TOKEN,
+        defaultLabels: { app: 'ever-life-vault', service: 'server', env: process.env.NODE_ENV || 'development' },
+      } as any)
+      // Test a startup log
+      void loki.info({ message: 'server_start', port: env.PORT, host: env.HOST })
+    }
+  } catch (e) {
+    server.log.warn({ err: e }, 'Failed to initialize Grafana Loki logging')
+  }
+
+  // Attach a tiny helper to server instance for route handlers
+  ;(server as any).loki = loki
 
   await registerCors(server, env.ALLOWED_ORIGINS)
   await registerPerfPlugins(server)

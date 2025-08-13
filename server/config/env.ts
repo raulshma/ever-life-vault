@@ -29,7 +29,7 @@ export const env = {
   SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
   OAUTH_REDIRECT_BASE_URL: process.env.OAUTH_REDIRECT_BASE_URL || 'http://localhost:8080',
-  OAUTH_REDIRECT_PATH: process.env.OAUTH_REDIRECT_PATH || '/feeds',
+  OAUTH_REDIRECT_PATH: process.env.OAUTH_REDIRECT_PATH || '/steam',
   REDDIT_CLIENT_ID: process.env.REDDIT_CLIENT_ID,
   REDDIT_CLIENT_SECRET: process.env.REDDIT_CLIENT_SECRET,
   REDDIT_REDIRECT_URI: process.env.REDDIT_REDIRECT_URI,
@@ -50,6 +50,11 @@ export const env = {
   SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI,
   // Steam
   STEAM_WEB_API_KEY: process.env.STEAM_WEB_API_KEY,
+  // Observability (Grafana Loki)
+  GRAFANA_LOKI_ENABLED: ['1', 'true', 'yes'].includes(String(process.env.GRAFANA_LOKI_ENABLED || '').toLowerCase()),
+  GRAFANA_ACCESS_POLICY_TOKEN: process.env.GRAFANA_ACCESS_POLICY_TOKEN,
+  GRAFANA_LOKI_HOST: process.env.GRAFANA_LOKI_HOST,
+  GRAFANA_LOKI_USER: process.env.GRAFANA_LOKI_USER,
   // MyAnimeList
   MAL_CLIENT_ID: process.env.MAL_CLIENT_ID,
   MAL_CLIENT_SECRET: process.env.MAL_CLIENT_SECRET,
