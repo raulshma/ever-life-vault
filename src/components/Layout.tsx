@@ -1,5 +1,5 @@
 import React from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -92,6 +92,7 @@ const SidebarNavigation: React.FC<{
   onOpenQuickAdd: () => void;
   onOpenCustomize: () => void;
 }> = ({ location, onOpenSearch, onOpenQuickAdd, onOpenCustomize }) => {
+  const navigate = useNavigate();
   const { sidebarOrder } = useSettings();
   const groupMap = {
     Daily: "daily",
@@ -187,22 +188,49 @@ const SidebarNavigation: React.FC<{
                   const isActive = location.pathname === item.path;
                   return (
                     <SidebarMenuItem key={item.path}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={isActive}
-                        tooltip={item.name}
-                      >
-                        <ViewTransitionLink
-                          to={item.path}
-                          className={cn(
-                            "flex items-center gap-2",
-                            isActive && "font-medium"
-                          )}
+                      {item.path === "/steam" ? (
+                        <SidebarMenuButton
+                          isActive={isActive}
+                          tooltip={item.name}
+                          onClick={(e) => {
+                            // Force Steam view transition regardless of global toggle
+                            if ("startViewTransition" in document) {
+                              e.preventDefault();
+                              document.documentElement.classList.add("steam-vt");
+                              const t: any = (document as any).startViewTransition(() => {
+                                navigate("/steam");
+                              });
+                              Promise.resolve(t?.finished).finally(() => {
+                                document.documentElement.classList.remove("steam-vt");
+                              });
+                            } else {
+                              navigate("/steam");
+                            }
+                          }}
                         >
-                          <Icon className="h-4 w-4" />
-                          <span>{item.name}</span>
-                        </ViewTransitionLink>
-                      </SidebarMenuButton>
+                          <span className={cn("flex items-center gap-2", isActive && "font-medium") }>
+                            <Icon className="h-4 w-4" />
+                            <span>{item.name}</span>
+                          </span>
+                        </SidebarMenuButton>
+                      ) : (
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.name}
+                        >
+                          <ViewTransitionLink
+                            to={item.path}
+                            className={cn(
+                              "flex items-center gap-2",
+                              isActive && "font-medium"
+                            )}
+                          >
+                            <Icon className="h-4 w-4" />
+                            <span>{item.name}</span>
+                          </ViewTransitionLink>
+                        </SidebarMenuButton>
+                      )}
                     </SidebarMenuItem>
                   );
                 })}

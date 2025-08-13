@@ -23,63 +23,8 @@ const SteamLayout: React.FC<SteamLayoutProps> = ({ children }) => {
       </div>
 
       <div className="relative mx-auto max-w-[1400px] px-4 sm:px-6 py-4 grid grid-cols-12 gap-4">
-        {/* Left rail */}
-        <aside className="hidden md:flex md:col-span-2 lg:col-span-2 xl:col-span-2 flex-col gap-3">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 via-sky-500 to-emerald-500 grid place-items-center shadow-glow">
-              <Gamepad2 className="w-5 h-5 text-white" />
-            </div>
-            <div className="leading-tight">
-              <div className="font-semibold">Steam Hub</div>
-              <div className="text-xs text-white/60">Games Library</div>
-            </div>
-          </div>
-
-          <nav className="space-y-1">
-            {[
-              { to: '/steam', label: 'Home', icon: Home },
-              { to: '/steam/library', label: 'Library', icon: LibraryBig },
-              { to: '/steam/community', label: 'Community', icon: Users },
-              { to: '/steam/wishlist', label: 'Wishlist', icon: Heart },
-              { to: '/steam/downloads', label: 'Downloads', icon: Download },
-            ].map((item) => (
-              <ViewTransitionLink
-                key={item.to}
-                to={item.to}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/85 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                <item.icon className="w-4 h-4" />
-                <span>{item.label}</span>
-              </ViewTransitionLink>
-            ))}
-          </nav>
-
-          <div className="mt-6 p-3 rounded-xl bg-gradient-to-br from-rose-500 to-orange-400 text-rose-50 shadow-elegant">
-            <div className="text-xs uppercase tracking-wider opacity-90">50% discount</div>
-            <div className="text-sm mt-1 leading-tight">on selected games for a limited time</div>
-            <Button asChild size="sm" variant="secondary" className="mt-2 h-8">
-              <a href="#">Go to library</a>
-            </Button>
-          </div>
-
-          <div className="mt-auto pt-2 border-t border-white/10 space-y-1">
-            <ViewTransitionLink to="/" className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5">
-              <Bookmark className="w-4 h-4" />
-              <span>Back to Life OS</span>
-            </ViewTransitionLink>
-            <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5">
-              <Settings className="w-4 h-4" />
-              <span>Settings</span>
-            </button>
-            <button className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5">
-              <HelpCircle className="w-4 h-4" />
-              <span>Help</span>
-            </button>
-          </div>
-        </aside>
-
-        {/* Content with header */}
-        <main className="col-span-12 md:col-span-10 lg:col-span-10 xl:col-span-10">
+        {/* Content with header (no internal sidebar) */}
+        <main className="col-span-12">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="relative w-full max-w-xl">
               <Search className="absolute left-3 top-2.5 w-4 h-4 text-white/50" />
