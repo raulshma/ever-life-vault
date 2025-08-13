@@ -6,10 +6,13 @@ import { Heart, Link2, RefreshCw, Sparkles, Timer, TrendingUp } from 'lucide-rea
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
+import PrereqGuard from '@/components/PrereqGuard'
+import { useAuth } from '@/hooks/useAuth'
 
 const SteamPage: React.FC = () => {
   const { startLink, sync, getProfile, getLibrary, getRecent, getSuggestions, loading } = useSteam()
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const [profile, setProfile] = React.useState<any | null>(null)
   const [library, setLibrary] = React.useState<SteamLibraryItem[]>([])
@@ -63,8 +66,13 @@ const SteamPage: React.FC = () => {
   const heroCandidates =
     recent.length > 0 ? recent.slice(0, 6).map(r => r.appid) : library.slice(0, 6).map(g => g.appid)
 
+  const prereqs = [
+    { ok: Boolean(user), label: 'Sign in to link your Steam account', actionLabel: 'Sign in', onAction: () => (window.location.href = '/auth') },
+  ]
+
   return (
     <div className="p-3 sm:p-4">
+      <PrereqGuard title="Steam setup required" checks={prereqs}>
       {/* Hero area */}
       <section className="relative rounded-2xl overflow-hidden border border-white/10 bg-[radial-gradient(60%_60%_at_20%_20%,hsl(265_85%_60%/.15),transparent),radial-gradient(40%_40%_at_80%_0%,hsl(190_70%_55%/.12),transparent)]">
         <div className="p-4 sm:p-6 md:p-8">
@@ -175,6 +183,7 @@ const SteamPage: React.FC = () => {
           </div>
         </aside>
       </div>
+      </PrereqGuard>
     </div>
   )
 }

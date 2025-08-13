@@ -6,6 +6,8 @@ import { useJellyfin, type JellyfinConfig, type JellyfinSession, type JellyfinSy
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { RefreshCw } from 'lucide-react'
+import PrereqGuard from '@/components/PrereqGuard'
+import { useVaultSession } from '@/hooks/useVaultSession'
 import { Skeleton } from '@/components/ui/skeleton'
 
 export default function JellyfinWidget(_props: WidgetProps<{}>) {
@@ -13,6 +15,7 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
   const jellyfinItem = [...itemsByType.api].find((i) => i.name.toLowerCase() === 'jellyfin')
   const config: JellyfinConfig = { serverUrl: jellyfinItem?.data?.serverUrl || '', apiKey: jellyfinItem?.data?.apiKey || '' }
   const jf = useJellyfin(config)
+  const { isUnlocked } = useVaultSession()
   const [info, setInfo] = useState<JellyfinSystemInfo | null>(null)
   const [sessions, setSessions] = useState<JellyfinSession[]>([])
 
@@ -29,9 +32,13 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
 
   return (
     <WidgetShell title="Jellyfin">
-      {!config.serverUrl || !config.apiKey ? (
-        <div className="text-sm text-muted-foreground">Add a Vault API item named 'jellyfin' with serverUrl and apiKey to show data.</div>
-      ) : (
+      <PrereqGuard
+        title="Jellyfin prerequisites"
+        checks={[
+          { ok: isUnlocked, label: 'Unlock your secure vault', actionLabel: 'Open Vault', onAction: () => (window.location.href = '/vault') },
+          { ok: Boolean(config.serverUrl && config.apiKey), label: "Add a Vault API item named 'jellyfin' with serverUrl and apiKey" },
+        ]}
+      >
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -74,7 +81,7 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
             {info && sessions.length === 0 && <li className="text-muted-foreground">No active sessions.</li>}
           </ul>
         </div>
-      )}
+      </PrereqGuard>
     </WidgetShell>
   )
 }

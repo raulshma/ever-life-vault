@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
+import { useVaultSession } from '@/hooks/useVaultSession'
 
 type PasswordGenConfig = {
   length?: number
@@ -47,6 +48,7 @@ export default function PasswordGeneratorWidget({ config, onConfigChange }: Widg
   }
   const [password, setPassword] = React.useState('')
   const { addItem } = useEncryptedVault()
+  const { isUnlocked } = useVaultSession()
 
   const regen = React.useCallback(() => {
     setPassword(generatePassword(defaults))
@@ -94,11 +96,11 @@ export default function PasswordGeneratorWidget({ config, onConfigChange }: Widg
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="ghost" aria-label="Save" onClick={saveToVault}>
+              <Button size="icon" variant="ghost" aria-label="Save" onClick={saveToVault} disabled={!isUnlocked}>
                 <Save className="h-4 w-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Save</TooltipContent>
+            <TooltipContent>{isUnlocked ? 'Save' : 'Unlock vault to save'}</TooltipContent>
           </Tooltip>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 items-center text-sm">
@@ -113,6 +115,9 @@ export default function PasswordGeneratorWidget({ config, onConfigChange }: Widg
           <div className="flex items-center gap-2"><Switch id="symbols" checked={defaults.useSymbols} onCheckedChange={(v) => updateConfig({ useSymbols: v })} /><Label htmlFor="symbols">Symbols</Label></div>
         </div>
         <div className="text-xs text-muted-foreground">Secrets are generated locally. Saving uses your encrypted vault.</div>
+        {!isUnlocked && (
+          <div className="text-xs text-amber-600">Unlock your vault to save generated passwords.</div>
+        )}
       </div>
     </WidgetShell>
   )

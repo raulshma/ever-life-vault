@@ -24,6 +24,7 @@ import {
 import { useJellyseerr, type MediaRequest, type SearchResult } from '@/hooks/useJellyseerr';
 import { useServiceApiConfig } from '@/hooks/useServiceApiConfig';
 import { useVaultSession } from '@/hooks/useVaultSession';
+import PrereqGuard from '@/components/PrereqGuard';
 
 export default function MediaRequests() {
   const { toast } = useToast();
@@ -211,6 +212,11 @@ export default function MediaRequests() {
     </Card>
   );
 
+  const prereqs = [
+    { ok: isUnlocked, label: 'Unlock your secure vault', actionLabel: 'Open Vault', onAction: () => (window.location.href = '/vault'), helperText: 'Jellyseerr credentials are stored in your encrypted vault.' },
+    { ok: !!serviceConfig.isConfigured, label: 'Configure Jellyseerr server URL and API key', actionLabel: 'Configure', onAction: () => setShowConfig(true), helperText: 'Set server URL and API key or link a saved credential.' },
+  ]
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -239,7 +245,7 @@ export default function MediaRequests() {
         </div>
       </div>
 
-      {vaultLockedBanner}
+      <PrereqGuard title="Jellyseerr prerequisites" checks={prereqs}>
 
       {/* Connection Status */}
   <Card>
@@ -610,6 +616,7 @@ export default function MediaRequests() {
           </CardContent>
         </Card>
       )}
+      </PrereqGuard>
     </div>
   );
 }

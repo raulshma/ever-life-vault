@@ -6,9 +6,12 @@ import useKarakeep, { type KarakeepConfig, type KarakeepItem } from '@/hooks/use
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { RefreshCw } from 'lucide-react'
+import PrereqGuard from '@/components/PrereqGuard'
+import { useVaultSession } from '@/hooks/useVaultSession'
 
 export default function KarakeepWidget(_props: WidgetProps<{}>) {
   const { itemsByType } = useEncryptedVault()
+  const { isUnlocked } = useVaultSession()
   const kItem = [...itemsByType.api].find((i) => i.name.toLowerCase() === 'karakeep')
   const cfg: KarakeepConfig = { serverUrl: kItem?.data?.serverUrl || '', apiKey: kItem?.data?.apiKey || '' }
   const kk = useKarakeep(cfg)
@@ -25,9 +28,13 @@ export default function KarakeepWidget(_props: WidgetProps<{}>) {
 
   return (
     <WidgetShell title="Karakeep">
-      {!cfg.serverUrl || !cfg.apiKey ? (
-        <div className="text-sm text-muted-foreground">Add a Vault API item named 'karakeep' with serverUrl and apiKey to show bookmarks.</div>
-      ) : (
+      <PrereqGuard
+        title="Karakeep prerequisites"
+        checks={[
+          { ok: isUnlocked, label: 'Unlock your secure vault', actionLabel: 'Open Vault', onAction: () => (window.location.href = '/vault') },
+          { ok: Boolean(cfg.serverUrl && cfg.apiKey), label: "Add a Vault API item named 'karakeep' with serverUrl and apiKey" },
+        ]}
+      >
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
             <div>Recent items</div>
@@ -47,7 +54,7 @@ export default function KarakeepWidget(_props: WidgetProps<{}>) {
             {items.length === 0 && <li className="text-muted-foreground">No items found.</li>}
           </ul>
         </div>
-      )}
+      </PrereqGuard>
     </WidgetShell>
   )
 }

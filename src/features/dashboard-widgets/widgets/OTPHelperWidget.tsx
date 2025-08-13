@@ -7,6 +7,7 @@ import { Plus, Copy, Save, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
+import { useVaultSession } from '@/hooks/useVaultSession'
 
 type OTPAccount = {
   label: string
@@ -67,6 +68,7 @@ async function totp(secretB32: string, nowMs: number, period: number, digits: nu
 export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<OTPConfig>) {
   const accounts = Array.isArray(config?.accounts) ? config.accounts : []
   const { addItem } = useEncryptedVault()
+  const { isUnlocked } = useVaultSession()
   const [now, setNow] = React.useState(() => Date.now())
   const [label, setLabel] = React.useState('')
   const [secret, setSecret] = React.useState('')
@@ -148,6 +150,9 @@ export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<
           {accounts.length === 0 && <li className="text-muted-foreground">No accounts yet.</li>}
         </ul>
         <div className="text-xs text-muted-foreground">Secrets are kept only in your config/vault and never transmitted.</div>
+        {!isUnlocked && (
+          <div className="text-xs text-amber-600">Unlock your vault to save accounts securely.</div>
+        )}
       </div>
     </WidgetShell>
   )
@@ -156,6 +161,7 @@ export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<
 function OTPRow({ acc, now, onCopy, onSave, onRemove }: { acc: OTPAccount; now: number; onCopy: (code: string) => void; onSave: () => void; onRemove: () => void }) {
   const [code, setCode] = React.useState<string>('------')
   const [remaining, setRemaining] = React.useState<number>(0)
+  const { isUnlocked } = useVaultSession()
   React.useEffect(() => {
     let cancelled = false
     const run = async () => {
@@ -188,11 +194,11 @@ function OTPRow({ acc, now, onCopy, onSave, onRemove }: { acc: OTPAccount; now: 
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button size="icon" variant="ghost" aria-label="Save" onClick={onSave}>
+          <Button size="icon" variant="ghost" aria-label="Save" onClick={onSave} disabled={!isUnlocked}>
             <Save className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Save</TooltipContent>
+        <TooltipContent>{isUnlocked ? 'Save' : 'Unlock vault to save'}</TooltipContent>
       </Tooltip>
       <Tooltip>
         <TooltipTrigger asChild>

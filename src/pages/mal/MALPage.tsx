@@ -6,10 +6,13 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { useToast } from '@/components/ui/use-toast'
 import { CalendarDays, Link2, RefreshCw, Sparkles, Star, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import PrereqGuard from '@/components/PrereqGuard'
+import { useAuth } from '@/hooks/useAuth'
 
 const MALPage: React.FC = () => {
   const { startLink, sync, getProfile, getRecent, getSeasonal, loading } = useMAL()
   const { toast } = useToast()
+  const { user } = useAuth()
 
   const [profile, setProfile] = React.useState<any | null>(null)
   const [recent, setRecent] = React.useState<any[]>([])
@@ -61,6 +64,13 @@ const MALPage: React.FC = () => {
 
   return (
     <div className="p-3 sm:p-4">
+      <PrereqGuard
+        title="MyAnimeList setup required"
+        checks={[
+          { ok: Boolean(user), label: 'Sign in to connect MyAnimeList', actionLabel: 'Sign in', onAction: () => (window.location.href = '/auth') },
+          { ok: Boolean(profile), label: 'Connect your MyAnimeList account', actionLabel: 'Connect', onAction: onConnect },
+        ]}
+      >
       {/* Hero area */}
       <section className="relative rounded-2xl overflow-hidden border border-white/10 bg-[radial-gradient(60%_60%_at_20%_20%,hsl(265_85%_60%/.15),transparent),radial-gradient(40%_40%_at_80%_0%,hsl(190_70%_55%/.12),transparent)]">
         <div className="p-4 sm:p-6 md:p-8">
@@ -149,6 +159,7 @@ const MALPage: React.FC = () => {
           </div>
         </aside>
       </div>
+      </PrereqGuard>
     </div>
   )
 }

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { RefreshCw } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import PrereqGuard from '@/components/PrereqGuard'
+import { useVaultSession } from '@/hooks/useVaultSession'
 
 export default function JellyseerrWidget(_props: WidgetProps<{}>) {
   const { itemsByType } = useEncryptedVault()
@@ -14,6 +16,7 @@ export default function JellyseerrWidget(_props: WidgetProps<{}>) {
   const cfg: JellyseerrConfig = { serverUrl: jItem?.data?.serverUrl || '', apiKey: jItem?.data?.apiKey || '' }
   const js = useJellyseerr(cfg)
   const [requests, setRequests] = useState<MediaRequest[]>([])
+  const { isUnlocked } = useVaultSession()
 
   const load = useCallback(async () => {
     try {
@@ -26,9 +29,13 @@ export default function JellyseerrWidget(_props: WidgetProps<{}>) {
 
   return (
     <WidgetShell title="Jellyseerr">
-      {!cfg.serverUrl || !cfg.apiKey ? (
-        <div className="text-sm text-muted-foreground">Add a Vault API item named 'jellyseerr' with serverUrl and apiKey to show requests.</div>
-      ) : (
+      <PrereqGuard
+        title="Jellyseerr prerequisites"
+        checks={[
+          { ok: isUnlocked, label: 'Unlock your secure vault', actionLabel: 'Open Vault', onAction: () => (window.location.href = '/vault') },
+          { ok: Boolean(cfg.serverUrl && cfg.apiKey), label: "Add a Vault API item named 'jellyseerr' with serverUrl and apiKey" },
+        ]}
+      >
         <div className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
             <div>Recent requests</div>
@@ -54,7 +61,7 @@ export default function JellyseerrWidget(_props: WidgetProps<{}>) {
             {!js.loading && requests.length === 0 && <li className="text-muted-foreground">No requests found.</li>}
           </ul>
         </div>
-      )}
+      </PrereqGuard>
     </WidgetShell>
   )
 }

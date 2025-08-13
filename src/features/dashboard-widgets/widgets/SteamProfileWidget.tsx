@@ -3,6 +3,8 @@ import type { WidgetProps } from '../types'
 import { WidgetShell } from '../components/WidgetShell'
 import { Button } from '@/components/ui/button'
 import { useSteam } from '@/hooks/useSteam'
+import { useAuth } from '@/hooks/useAuth'
+import PrereqGuard from '@/components/PrereqGuard'
 
 type SteamProfileConfig = {}
 
@@ -10,6 +12,7 @@ export default function SteamProfileWidget(_props: WidgetProps<SteamProfileConfi
   const { startLink, sync, getProfile, loading } = useSteam()
   const [profile, setProfile] = React.useState<any | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const { user } = useAuth()
 
   const load = React.useCallback(async () => {
     setBusy(true)
@@ -33,6 +36,10 @@ export default function SteamProfileWidget(_props: WidgetProps<SteamProfileConfi
     await load()
   }
 
+  const prereqs = [
+    { ok: Boolean(user), label: 'Sign in to manage Steam', actionLabel: 'Sign in', onAction: () => (window.location.href = '/auth') },
+  ]
+
   return (
     <WidgetShell
       title="Steam Profile"
@@ -43,19 +50,21 @@ export default function SteamProfileWidget(_props: WidgetProps<SteamProfileConfi
         </div>
       }
     >
-      {!profile ? (
-        <p className="text-sm text-muted-foreground">Not linked yet or no data. Link and sync to load your Steam profile.</p>
-      ) : (
-        <div className="flex items-center gap-3">
-          {profile.avatar_url && (
-            <img src={profile.avatar_url} alt="avatar" className="w-14 h-14 rounded" />
-          )}
-          <div className="min-w-0">
-            <div className="font-semibold truncate">{profile.persona_name || profile.steamid64}</div>
-            <div className="text-xs text-muted-foreground">{profile.country || '—'}</div>
+      <PrereqGuard title="Steam requires sign in" checks={prereqs}>
+        {!profile ? (
+          <p className="text-sm text-muted-foreground">Not linked yet or no data. Link and sync to load your Steam profile.</p>
+        ) : (
+          <div className="flex items-center gap-3">
+            {profile.avatar_url && (
+              <img src={profile.avatar_url} alt="avatar" className="w-14 h-14 rounded" />
+            )}
+            <div className="min-w-0">
+              <div className="font-semibold truncate">{profile.persona_name || profile.steamid64}</div>
+              <div className="text-xs text-muted-foreground">{profile.country || '—'}</div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </PrereqGuard>
     </WidgetShell>
   )
 }

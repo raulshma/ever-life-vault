@@ -25,6 +25,7 @@ import { useVaultSession } from '@/hooks/useVaultSession';
 import { useKarakeep, type KarakeepItem, type KarakeepItemType } from '@/hooks/useKarakeep';
 import { useToast } from '@/hooks/use-toast';
 import KarakeepItemCard from '@/components/KarakeepItemCard';
+import PrereqGuard from '@/components/PrereqGuard';
 
 export default function Karakeep() {
   const { isUnlocked } = useVaultSession();
@@ -204,6 +205,11 @@ export default function Karakeep() {
     return sorted;
   }, [items, activeType, tagFilter, sortBy]);
 
+  const prereqs = [
+    { ok: isUnlocked, label: 'Unlock your secure vault', actionLabel: 'Open Vault', onAction: () => (window.location.href = '/vault'), helperText: 'Karakeep credentials are stored in your encrypted vault.' },
+    { ok: !!serviceConfig.isConfigured, label: 'Configure Karakeep server URL and API key', actionLabel: 'Configure', onAction: () => setShowConfig(true), helperText: 'Set server URL and API key or link a saved credential.' },
+  ]
+
   return (
     <div className="max-w-7xl mx-auto px-2 sm:px-4">
       <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -284,6 +290,7 @@ export default function Karakeep() {
         </Card>
       )}
 
+      <PrereqGuard title="Karakeep prerequisites" checks={prereqs}>
       {/* Quick Add composer */}
       <Card className="mb-4 bg-gradient-card">
         <CardHeader>
@@ -470,6 +477,7 @@ export default function Karakeep() {
           </div>
         </CardContent>
       </Card>
+      </PrereqGuard>
     </div>
   );
 }
