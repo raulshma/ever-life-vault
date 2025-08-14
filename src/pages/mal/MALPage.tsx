@@ -97,17 +97,17 @@ const MALPage: React.FC = () => {
             <Carousel className="w-full">
               <CarouselContent>
                 <CarouselItem>
-                  <HeroCard title="Continue watching" subtitle="Your latest episodes" icon={<CalendarDays className="h-5 w-5" />} gradient="from-indigo-500 via-sky-500 to-emerald-500">
+                  <HeroCard title="Continue watching" subtitle="Your latest episodes" icon={<CalendarDays className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
                     <RecentScroller items={heroItems} />
                   </HeroCard>
                 </CarouselItem>
                 <CarouselItem>
-                  <HeroCard title="Seasonal highlights" subtitle="What’s airing now" icon={<TrendingUp className="h-5 w-5" />} gradient="from-fuchsia-500 via-pink-500 to-rose-500">
+                  <HeroCard title="Seasonal highlights" subtitle="What’s airing now" icon={<TrendingUp className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
                     <SeasonalScroller items={seasonal.slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>
                 <CarouselItem>
-                  <HeroCard title="Favorite picks" subtitle="Top-rated classics" icon={<Star className="h-5 w-5" />} gradient="from-amber-500 via-orange-500 to-red-500">
+                  <HeroCard title="Favorite picks" subtitle="Top-rated classics" icon={<Star className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
                     <ClassicPicks />
                   </HeroCard>
                 </CarouselItem>

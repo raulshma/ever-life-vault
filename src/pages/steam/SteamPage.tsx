@@ -99,17 +99,17 @@ const SteamPage: React.FC = () => {
             <Carousel className="w-full">
               <CarouselContent>
                 <CarouselItem>
-                  <HeroCard title="Jump back in" subtitle="Continue your recent adventures" icon={<Timer className="h-5 w-5" />} gradient="from-indigo-500 via-sky-500 to-emerald-500">
+                  <HeroCard title="Jump back in" subtitle="Continue your recent adventures" icon={<Timer className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
                     <HeroScroller appIds={heroCandidates.slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>
                 <CarouselItem>
-                  <HeroCard title="What to play next" subtitle="Curated from your backlog" icon={<Sparkles className="h-5 w-5" />} gradient="from-fuchsia-500 via-pink-500 to-rose-500">
+                  <HeroCard title="What to play next" subtitle="Curated from your backlog" icon={<Sparkles className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
                     <SuggestionScroller items={suggestions.slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>
                 <CarouselItem>
-                  <HeroCard title="All-time favorites" subtitle="Most played in your library" icon={<TrendingUp className="h-5 w-5" />} gradient="from-amber-500 via-orange-500 to-red-500">
+                  <HeroCard title="All-time favorites" subtitle="Most played in your library" icon={<TrendingUp className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
                     <TopPlaytimeScroller items={[...library].sort((a, b) => (b.playtime_forever_minutes || 0) - (a.playtime_forever_minutes || 0)).slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>

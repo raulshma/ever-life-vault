@@ -263,9 +263,9 @@ export default function Jellyfin() {
       <div className="p-6 space-y-6">
         <h1 className="text-3xl font-bold">Jellyfin Media Server</h1>
         {!isUnlocked && (
-          <Card className="border-amber-200 bg-amber-50">
+          <Card className="border-[hsl(var(--warning)/0.35)] bg-[hsl(var(--warning)/0.12)]">
             <CardContent className="pt-6">
-              <p className="text-amber-700 text-sm font-medium">
+              <p className="text-[hsl(var(--warning))] text-sm font-medium">
                 Unlock the secure vault to configure Jellyfin.
               </p>
             </CardContent>

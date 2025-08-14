@@ -129,7 +129,7 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   const createdByUserIdRef = useRef<string | null>(null);
   const myUserIdRef = useRef<string | null>(null);
   const myDisplayNameRef = useRef<string>("Guest");
-  const myColorRef = useRef<string>("#6b7280");
+  const myColorRef = useRef<string>("hsl(var(--muted-foreground))");
   const participantsRef = useRef<number>(0);
   const encryptionKeyRef = useRef<CryptoKey | null>(encryptionKey ?? null);
   const allowedActionsRef = useRef<Set<string>>(new Set());
@@ -154,7 +154,12 @@ export function useP2PShare({ shareId, maxPeers, encryptionKey, debug, enabled =
   // Utility: pick stable color from id
   const pickColorFromId = useCallback((id: string): string => {
     const palette = [
-      '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#22c55e', '#06b6d4'
+      'hsl(var(--destructive))',
+      'hsl(var(--warning))',
+      'hsl(var(--success))',
+      'hsl(var(--info))',
+      'hsl(var(--accent))',
+      'hsl(var(--primary))',
     ];
     let hash = 0;
     for (let i = 0; i < id.length; i++) hash = ((hash << 5) - hash) + id.charCodeAt(i) | 0;

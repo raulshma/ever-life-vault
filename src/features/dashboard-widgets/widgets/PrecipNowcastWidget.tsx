@@ -114,7 +114,7 @@ export default function PrecipNowcastWidget({ config, onConfigChange }: WidgetPr
         <div className="h-16 w-full rounded-md border p-2 grid grid-cols-60 gap-[1px] bg-muted/40">
           {points.slice(0, 60).map((p, i) => {
             const h = Math.min(1, p.mm / 2) // scale bars; 2mm/h = full height
-            return <div key={i} className="bg-blue-500/70" style={{ height: `${h * 100}%`, alignSelf: 'end' }} />
+            return <div key={i} className="bg-[hsl(var(--info)/0.7)]" style={{ height: `${h * 100}%`, alignSelf: 'end' }} />
           })}
         </div>
         <div className="text-xs text-muted-foreground">Data via Open-Meteo (proxied). Coordinates are stored only in this widget's settings.</div>
