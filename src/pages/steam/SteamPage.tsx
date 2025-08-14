@@ -219,7 +219,7 @@ function HeroCard({ title, subtitle, gradient, icon, children }: { title: string
         {children}
       </div>
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <div className="absolute -inset-[20%] bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_40%),radial-gradient(circle_at_80%_0%,rgba(255,255,255,0.1),transparent_35%),radial-gradient(circle_at_60%_80%,rgba(255,255,255,0.08),transparent_45%)]" />
+        <div className="absolute -inset-[20%] bg-[radial-gradient(circle_at_20%_20%,hsl(var(--foreground)/0.15),transparent_40%),radial-gradient(circle_at_80%_0%,hsl(var(--foreground)/0.1),transparent_35%),radial-gradient(circle_at_60%_80%,hsl(var(--foreground)/0.08),transparent_45%)]" />
       </div>
     </div>
   )

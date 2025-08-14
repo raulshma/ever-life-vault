@@ -438,7 +438,7 @@ export default function LiveShareRoom() {
                       <div className="flex items-center gap-1 -translate-y-3 translate-x-2">
                           <span
                             className="inline-block w-2.5 h-2.5 rounded-full shadow"
-                            style={{ backgroundColor: c.color || 'hsl(240 4.9% 83.9%)', boxShadow: `0 0 0 2px hsl(var(--card))` }}
+                            style={{ backgroundColor: c.color || 'hsl(var(--muted))', boxShadow: `0 0 0 2px hsl(var(--card))` }}
                           />
                           <span className="text-[10px] px-1 py-0.5 rounded bg-card text-foreground shadow border">
                           {(c.name || c.peerId.slice(0,6))}

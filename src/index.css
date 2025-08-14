@@ -401,7 +401,7 @@ All colors MUST be HSL.
   .glass-dark {
     @apply backdrop-blur-xl;
     background: hsl(var(--background) / 0.35);
-    border: 1px solid hsl(0 0% 100% / 0.08);
+    border: 1px solid hsl(var(--foreground) / 0.08);
   }
 
   .gradient-sheen {

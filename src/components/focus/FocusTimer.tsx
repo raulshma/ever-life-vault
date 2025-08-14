@@ -52,7 +52,7 @@ export const FocusTimer: React.FC<Props> = ({ taskId = null, taskTitle, classNam
         <div
           className="absolute inset-2 rounded-full"
           style={{
-            background: 'radial-gradient(100% 100% at 50% 0%, rgba(255,255,255,0.05), rgba(0,0,0,0) 50%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.08))',
+            background: 'radial-gradient(100% 100% at 50% 0%, hsl(var(--foreground)/0.05), transparent 50%), linear-gradient(180deg, hsl(var(--foreground)/0.04), hsl(var(--foreground)/0.08))',
             backdropFilter: 'blur(6px)'
           }}
         />

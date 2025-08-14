@@ -137,7 +137,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <BrowserRouter
         future={{
           v7_startTransition: true,
@@ -145,6 +144,7 @@ const App = () => (
         }}
       >
         <SettingsProvider>
+          <Sonner />
           <AuthProvider>
             <VaultSessionProvider>
               <FocusTimerProvider>
