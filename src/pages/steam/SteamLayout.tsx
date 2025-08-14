@@ -15,7 +15,7 @@ interface SteamLayoutProps {
  */
 const SteamLayout: React.FC<SteamLayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen w-full relative bg-gradient-to-br from-[#0b1020] via-[#0a0f1a] to-[#0f182e] text-zinc-100">
+    <div className="min-h-screen w-full relative bg-gradient-hero text-foreground">
       {/* Aurora blobs for subtle gaming vibes */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="aurora-blob aurora-blob--accent float-slow w-[40rem] h-[40rem] -top-40 -left-32 opacity-30" />
@@ -27,20 +27,20 @@ const SteamLayout: React.FC<SteamLayoutProps> = ({ children }) => {
         <main className="col-span-12">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="relative w-full max-w-xl">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-white/50" />
-              <Input className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-white/50" placeholder="Search games" />
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Input className="pl-9 h-10" placeholder="Search games" />
             </div>
             <div className="hidden sm:flex items-center gap-2">
               <Button variant="secondary" className="h-10">
                 <ShoppingBag className="w-4 h-4 mr-2" /> Store
               </Button>
-              <Button asChild variant="outline" className="h-10 border-white/20 text-white hover:bg-white/10">
+              <Button asChild variant="outline" className="h-10">
                 <ViewTransitionLink to="/">Back</ViewTransitionLink>
               </Button>
             </div>
           </div>
 
-          <div className={cn('rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md')}> 
+          <div className={cn('rounded-2xl border border-border bg-card/50 backdrop-blur-md')}> 
             {children}
           </div>
         </main>

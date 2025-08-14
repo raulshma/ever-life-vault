@@ -116,7 +116,7 @@ export default function PasswordGeneratorWidget({ config, onConfigChange }: Widg
         </div>
         <div className="text-xs text-muted-foreground">Secrets are generated locally. Saving uses your encrypted vault.</div>
         {!isUnlocked && (
-          <div className="text-xs text-amber-600">Unlock your vault to save generated passwords.</div>
+          <div className="text-xs text-warning">Unlock your vault to save generated passwords.</div>
         )}
       </div>
     </WidgetShell>

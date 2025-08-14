@@ -255,16 +255,16 @@ function FeedList({ items, emptyLabel }: { items: ReturnType<typeof Array.protot
 
 function ProviderBadge({ provider }: { provider: string }) {
   const map: Record<string, React.ReactNode> = {
-    reddit: <span className="px-2 py-0.5 rounded bg-orange-500/15 text-orange-500 text-[11px]">Reddit</span>,
-    twitter: <span className="px-2 py-0.5 rounded bg-sky-500/15 text-sky-500 text-[11px]">Twitter</span>,
-    facebook: <span className="px-2 py-0.5 rounded bg-blue-600/15 text-blue-600 text-[11px]">Facebook</span>,
-    instagram: <span className="px-2 py-0.5 rounded bg-fuchsia-500/15 text-fuchsia-500 text-[11px]">Instagram</span>,
-    rss: <span className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-600 text-[11px]">RSS</span>,
-    gmail: <span className="px-2 py-0.5 rounded bg-red-500/15 text-red-500 text-[11px]">Gmail</span>,
-    outlook: <span className="px-2 py-0.5 rounded bg-indigo-500/15 text-indigo-500 text-[11px]">Outlook</span>,
-    youtube: <span className="px-2 py-0.5 rounded bg-red-600/15 text-red-600 text-[11px]">YouTube</span>,
-    youtubemusic: <span className="px-2 py-0.5 rounded bg-rose-600/15 text-rose-600 text-[11px]">YT Music</span>,
-    spotify: <span className="px-2 py-0.5 rounded bg-emerald-600/15 text-emerald-600 text-[11px]">Spotify</span>,
+    reddit: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Reddit</span>,
+    twitter: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Twitter</span>,
+    facebook: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Facebook</span>,
+    instagram: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Instagram</span>,
+    rss: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">RSS</span>,
+    gmail: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Gmail</span>,
+    outlook: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Outlook</span>,
+    youtube: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">YouTube</span>,
+    youtubemusic: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">YT Music</span>,
+    spotify: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Spotify</span>,
   }
   return <>{map[provider] || <span className="px-2 py-0.5 rounded bg-muted text-foreground/60 text-[11px]">{provider}</span>}</>
 }

@@ -159,7 +159,7 @@ export default function ClipPage() {
             <Button onClick={save} disabled={saving || loading}>{saving ? "Saving..." : "Save"}</Button>
             <Button variant="outline" onClick={() => load().catch(() => {})}>Refresh</Button>
             <Button variant="outline" onClick={() => navigator.clipboard.writeText(content)}>Copy</Button>
-            <Button variant="ghost" onClick={() => navigate("/cl1p/new")}>New</Button>
+            <Button variant="ghost" onClick={() => navigate("/clip/new")}>New</Button>
           </div>
         </CardContent>
       </Card>

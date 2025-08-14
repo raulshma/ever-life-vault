@@ -74,22 +74,22 @@ const SteamPage: React.FC = () => {
     <div className="p-3 sm:p-4">
       <PrereqGuard title="Steam setup required" checks={prereqs}>
       {/* Hero area */}
-      <section className="relative rounded-2xl overflow-hidden border border-white/10 bg-[radial-gradient(60%_60%_at_20%_20%,hsl(265_85%_60%/.15),transparent),radial-gradient(40%_40%_at_80%_0%,hsl(190_70%_55%/.12),transparent)]">
+      <section className="relative rounded-2xl overflow-hidden border border-border bg-gradient-card">
         <div className="p-4 sm:p-6 md:p-8">
           <div className="flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 text-white/90">
+              <div className="inline-flex items-center gap-2 text-foreground/90">
                 <Sparkles className="h-5 w-5" />
                 <span className="text-xs uppercase tracking-wider">Featured</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-semibold mt-1">Welcome back{profile?.persona_name ? `, ${profile.persona_name}` : ''}</h2>
-              <p className="text-white/80 text-sm mt-1">Jump back into your recent adventures or discover a perfect match</p>
+              <p className="text-muted-foreground text-sm mt-1">Jump back into your recent adventures or discover a perfect match</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={onSync} variant="secondary" disabled={loading || busy} className="border-white/20 text-white">
+              <Button onClick={onSync} variant="secondary" disabled={loading || busy}>
                 <RefreshCw className={cn('h-4 w-4 mr-2', (loading || busy) && 'animate-spin')} /> Sync
               </Button>
-              <Button onClick={onConnect} variant="default" className="bg-indigo-500 hover:bg-indigo-400">
+              <Button onClick={onConnect} variant="default">
                 <Link2 className="h-4 w-4 mr-2" /> Connect
               </Button>
             </div>
@@ -124,14 +124,14 @@ const SteamPage: React.FC = () => {
       {/* Main content grid (center + right rail) */}
       <div className="grid grid-cols-12 gap-4 mt-4">
         <div className="col-span-12 lg:col-span-8 xl:col-span-9">
-          <h3 className="text-white/90 font-semibold mb-2">Actual games</h3>
+           <h3 className="text-foreground/90 font-semibold mb-2">Actual games</h3>
           <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
             {library.slice(0, 25).map((g) => (
-              <div key={g.appid} className="shine-card rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:bg-white/[0.07] transition-colors">
+              <div key={g.appid} className="shine-card rounded-xl overflow-hidden border border-border bg-card/50 hover:bg-card transition-colors">
                 <GameHeaderImage appid={g.appid} className="h-40" />
                 <div className="p-2">
                   <div className="text-[13px] font-medium truncate" title={g.name}>{g.name}</div>
-                  <div className="flex items-center justify-between text-[11px] text-white/60 mt-0.5">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-0.5">
                     <span>{(g.playtime_forever_minutes || 0).toLocaleString()} min</span>
                     {g.last_played_at && <span>{new Date(g.last_played_at).toLocaleDateString()}</span>}
                   </div>
@@ -143,31 +143,31 @@ const SteamPage: React.FC = () => {
 
         {/* Right rail */}
         <aside className="col-span-12 lg:col-span-4 xl:col-span-3 space-y-4">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="rounded-xl border border-border bg-card/50 p-3">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-sm">Friends online</h4>
-              <span className="text-xs text-white/60">{Math.max(1, Math.round(library.length * 0.02))}</span>
+              <span className="text-xs text-muted-foreground">{Math.max(1, Math.round(library.length * 0.02))}</span>
             </div>
             <div className="mt-2 space-y-2 max-h-[300px] overflow-y-auto scrollbar-hide">
               {fakeFriends().map((f) => (
-                <div key={f.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/5">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-sky-400 grid place-items-center text-xs font-semibold">
+                <div key={f.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/80 to-primary/50 grid place-items-center text-xs font-semibold text-primary-foreground">
                     {f.name.charAt(0)}
                   </div>
                   <div className="min-w-0">
                     <div className="text-sm truncate">{f.name}</div>
-                    <div className="text-xs text-white/60 truncate">{f.status}</div>
+                    <div className="text-xs text-muted-foreground truncate">{f.status}</div>
                   </div>
-                  <Badge variant="secondary" className="ml-auto bg-white/10 border-white/15 text-white">{f.game}</Badge>
+                  <Badge variant="secondary" className="ml-auto">{f.game}</Badge>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="rounded-xl border border-border bg-card/50 p-3">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-sm">Recently played</h4>
-              <span className="text-xs text-white/60">{recent.length}</span>
+              <span className="text-xs text-muted-foreground">{recent.length}</span>
             </div>
             <div className="mt-2 space-y-2">
               {recent.slice(0, 6).map((it) => (
@@ -175,7 +175,7 @@ const SteamPage: React.FC = () => {
                   <GameHeaderImage appid={it.appid} className="h-12 w-20 rounded-md" />
                   <div className="min-w-0">
                     <div className="text-sm truncate">{findName(library, it.appid)}</div>
-                    <div className="text-xs text-white/60">{it.last_played_at ? new Date(it.last_played_at).toLocaleString() : '—'}</div>
+                    <div className="text-xs text-muted-foreground">{it.last_played_at ? new Date(it.last_played_at).toLocaleString() : '—'}</div>
                   </div>
                 </div>
               ))}
@@ -198,20 +198,20 @@ function HeroCard({ title, subtitle, gradient, icon, children }: { title: string
   return (
     <div className={cn(
       'relative overflow-hidden rounded-2xl border p-4 sm:p-6 md:p-8',
-      'bg-gradient-to-br text-white shadow-glow',
+      'bg-gradient-to-br text-foreground shadow-glow',
       `from-30% ${gradient}`,
       'group'
     )}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 text-white/90">
+          <div className="inline-flex items-center gap-2 text-foreground/90">
             {icon}
             <span className="text-xs uppercase tracking-wider">Steam</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-semibold mt-1">{title}</h2>
-          <p className="text-white/80 text-sm mt-1">{subtitle}</p>
+          <p className="text-muted-foreground text-sm mt-1">{subtitle}</p>
         </div>
-        <Button variant="secondary" size="icon" className="rounded-full bg-white/20 border-white/30 text-white hover:bg-white/30">
+        <Button variant="secondary" size="icon" className="rounded-full">
           <Heart className="w-4 h-4" />
         </Button>
       </div>
@@ -226,7 +226,7 @@ function HeroCard({ title, subtitle, gradient, icon, children }: { title: string
 }
 
 function HeroScroller({ appIds }: { appIds: number[] }) {
-  if (!appIds || appIds.length === 0) return <p className="text-white/85 text-sm">No recent games. Try syncing.</p>
+  if (!appIds || appIds.length === 0) return <p className="text-muted-foreground text-sm">No recent games. Try syncing.</p>
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 -mb-2 snap-x scrollbar-hide">
       {appIds.map((appid) => (
@@ -239,14 +239,14 @@ function HeroScroller({ appIds }: { appIds: number[] }) {
 }
 
 function SuggestionScroller({ items }: { items: Array<{ appid: number; score: number }> }) {
-  if (!items || items.length === 0) return <p className="text-white/85 text-sm">No suggestions yet.</p>
+  if (!items || items.length === 0) return <p className="text-muted-foreground text-sm">No suggestions yet.</p>
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 -mb-2 snap-x scrollbar-hide">
       {items.map((it) => (
         <div key={it.appid} className="snap-start shrink-0 w-56">
           <GameHeaderImage appid={it.appid} className="h-28 rounded-lg" />
-          <div className="mt-1 flex items-center gap-2 text-xs text-white/80">
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">{Math.round(it.score * 100)}%</Badge>
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="secondary">{Math.round(it.score * 100)}%</Badge>
             <span>Match</span>
           </div>
         </div>
@@ -256,13 +256,13 @@ function SuggestionScroller({ items }: { items: Array<{ appid: number; score: nu
 }
 
 function TopPlaytimeScroller({ items }: { items: SteamLibraryItem[] }) {
-  if (!items || items.length === 0) return <p className="text-white/85 text-sm">No data yet.</p>
+  if (!items || items.length === 0) return <p className="text-muted-foreground text-sm">No data yet.</p>
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 -mb-2 snap-x scrollbar-hide">
       {items.map((it) => (
         <div key={it.appid} className="snap-start shrink-0 w-56">
           <GameHeaderImage appid={it.appid} className="h-28 rounded-lg" />
-          <div className="mt-1 text-xs text-white/80">{(it.playtime_forever_minutes || 0).toLocaleString()} min</div>
+          <div className="mt-1 text-xs text-muted-foreground">{(it.playtime_forever_minutes || 0).toLocaleString()} min</div>
         </div>
       ))}
     </div>

@@ -215,7 +215,7 @@ export default function SunPhasesWidget({ config, onConfigChange }: WidgetProps<
           <div className="text-xs text-muted-foreground">Coordinates are stored only in this widget's settings.</div>
         </div>
         {(times.polarDay || times.polarNight) && (
-          <div className="text-xs text-amber-600">{times.polarDay ? 'Polar day (no night)' : 'Polar night (no sunrise)'} at this latitude today.</div>
+          <div className="text-xs text-warning">{times.polarDay ? 'Polar day (no night)' : 'Polar night (no sunrise)'} at this latitude today.</div>
         )}
       </div>
     </WidgetShell>

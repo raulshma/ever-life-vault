@@ -80,9 +80,8 @@ function AppRoutes() {
         <Route path="/auth" element={<Auth />} />
         {/* Public share routes - accessible without auth */}
         <Route path="/share/:id" element={<LiveShareRoom />} />
-        {/* Public cl1p-like routes */}
-        <Route path="/cl1p/new" element={<ClipNew />} />
-        <Route path="/cl1p/:id" element={<ClipPage />} />
+        {/* Public clip routes */}
+        <Route path="/clip/:id" element={<ClipPage />} />
         {/* Steam Hub uses its own layout, not the site layout */}
         <Route
           path="/steam/*"
@@ -115,7 +114,7 @@ function AppRoutes() {
           <Route path="focus" element={<Focus />} />
           <Route path="feeds" element={<Feeds />} />
           <Route path="share/new" element={<LiveShareNew />} />
-          <Route path="cl1p/new" element={<ClipNew />} />
+          <Route path="clip/new" element={<ClipNew />} />
           <Route path="profile" element={<Profile />} />
           <Route path="vault" element={<Vault />} />
           <Route path="documents" element={<Documents />} />

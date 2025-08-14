@@ -96,7 +96,7 @@ export default function ClipNew() {
       }
 
       const url = new URL(window.location.origin);
-      url.pathname = `/cl1p/${id}`;
+      url.pathname = `/clip/${id}`;
       if (proof) {
         const hash = new URLSearchParams();
         hash.set("proof", proof);
@@ -126,8 +126,8 @@ export default function ClipNew() {
             <Label htmlFor="slug">ID</Label>
             <div className="flex flex-col gap-1">
               <Input id="slug" value={slug} onChange={(e) => { const v = normalizeSlug(e.target.value); setSlug(v); if (isSlugValid(v)) setSlugError(""); }} placeholder="e.g. team-note" />
-              <div className="text-xs text-muted-foreground">Preview: {`${window.location.origin}/cl1p/${slug || "your-id"}`}</div>
-              {slugError && <div className="text-xs text-red-600">{slugError}</div>}
+              <div className="text-xs text-muted-foreground">Preview: {`${window.location.origin}/clip/${slug || "your-id"}`}</div>
+              {slugError && <div className="text-xs text-destructive">{slugError}</div>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 items-start">

@@ -14,7 +14,7 @@ interface MALLayoutProps {
  */
 const MALLayout: React.FC<MALLayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen w-full relative bg-gradient-to-br from-[#0f0a1a] via-[#120f24] to-[#1a1233] text-zinc-100">
+    <div className="min-h-screen w-full relative bg-gradient-hero text-foreground">
       {/* Aurora blobs for subtle anime vibes */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="aurora-blob aurora-blob--violet float-slow w-[42rem] h-[42rem] -top-36 -left-28 opacity-30" />
@@ -25,17 +25,17 @@ const MALLayout: React.FC<MALLayoutProps> = ({ children }) => {
         <main className="col-span-12">
           <div className="flex items-center justify-between gap-3 mb-3">
             <div className="relative w-full max-w-xl">
-              <Search className="absolute left-3 top-2.5 w-4 h-4 text-white/50" />
-              <Input className="pl-9 h-10 bg-white/5 border-white/10 text-white placeholder:text-white/50" placeholder="Search anime" />
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" />
+              <Input className="pl-9 h-10" placeholder="Search anime" />
             </div>
             <div className="hidden sm:flex items-center gap-2">
-              <Button asChild variant="outline" className="h-10 border-white/20 text-white hover:bg-white/10">
+              <Button asChild variant="outline" className="h-10">
                 <ViewTransitionLink to="/">Back</ViewTransitionLink>
               </Button>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md">
+          <div className="rounded-2xl border border-border bg-card/50 backdrop-blur-md">
             {children}
           </div>
         </main>

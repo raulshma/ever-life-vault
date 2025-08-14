@@ -72,22 +72,22 @@ const MALPage: React.FC = () => {
         ]}
       >
       {/* Hero area */}
-      <section className="relative rounded-2xl overflow-hidden border border-white/10 bg-[radial-gradient(60%_60%_at_20%_20%,hsl(265_85%_60%/.15),transparent),radial-gradient(40%_40%_at_80%_0%,hsl(190_70%_55%/.12),transparent)]">
+      <section className="relative rounded-2xl overflow-hidden border border-border bg-gradient-card">
         <div className="p-4 sm:p-6 md:p-8">
           <div className="flex items-start justify-between">
             <div>
-              <div className="inline-flex items-center gap-2 text-white/90">
+              <div className="inline-flex items-center gap-2 text-foreground/90">
                 <Sparkles className="h-5 w-5" />
                 <span className="text-xs uppercase tracking-wider">MyAnimeList</span>
               </div>
               <h2 className="text-2xl sm:text-3xl font-semibold mt-1">{profile?.display_name ? `${profile.display_name}'s anime hub` : 'Your anime hub'}</h2>
-              <p className="text-white/80 text-sm mt-1">Jump back into what you watched, discover seasonal picks, and explore trends</p>
+              <p className="text-muted-foreground text-sm mt-1">Jump back into what you watched, discover seasonal picks, and explore trends</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button onClick={onSync} variant="secondary" disabled={loading || busy} className="border-white/20 text-white">
+              <Button onClick={onSync} variant="secondary" disabled={loading || busy}>
                 <RefreshCw className={cn('h-4 w-4 mr-2', (loading || busy) && 'animate-spin')} /> Sync
               </Button>
-              <Button onClick={onConnect} variant="default" className="bg-indigo-500 hover:bg-indigo-400">
+              <Button onClick={onConnect} variant="default">
                 <Link2 className="h-4 w-4 mr-2" /> Connect
               </Button>
             </div>
@@ -122,14 +122,14 @@ const MALPage: React.FC = () => {
       {/* Main content grid */}
       <div className="grid grid-cols-12 gap-4 mt-4">
         <div className="col-span-12 lg:col-span-8 xl:col-span-9">
-          <h3 className="text-white/90 font-semibold mb-2">Recent activity</h3>
+          <h3 className="text-foreground/90 font-semibold mb-2">Recent activity</h3>
           <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {recent.slice(0, 9).map((it, idx) => (
-              <div key={`${it.mal_id}-${idx}`} className="shine-card rounded-xl overflow-hidden border border-white/10 bg-white/5 hover:bg-white/[0.07] transition-colors">
+              <div key={`${it.mal_id}-${idx}`} className="shine-card rounded-xl overflow-hidden border border-border bg-card/50 hover:bg-card transition-colors">
                 <AnimeCover malId={it.mal_id} picture={it.main_picture} className="h-44" />
                 <div className="p-3">
                   <div className="text-[13px] font-medium truncate" title={it.title || ''}>{it.title || `Anime ${it.mal_id}`}</div>
-                  <div className="flex items-center justify-between text-[11px] text-white/70 mt-0.5">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground mt-0.5">
                     <span>Ep {it.episode}</span>
                     <span>{it.watched_at ? new Date(it.watched_at).toLocaleString() : '—'}</span>
                   </div>
@@ -140,10 +140,10 @@ const MALPage: React.FC = () => {
         </div>
 
         <aside className="col-span-12 lg:col-span-4 xl:col-span-3 space-y-4">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+          <div className="rounded-xl border border-border bg-card/50 p-3">
             <div className="flex items-center justify-between">
               <h4 className="font-semibold text-sm">Seasonal now</h4>
-              <span className="text-xs text-white/60">{seasonal.length}</span>
+              <span className="text-xs text-muted-foreground">{seasonal.length}</span>
             </div>
             <div className="mt-2 space-y-2 max-h-[360px] overflow-y-auto scrollbar-hide">
               {seasonal.slice(0, 8).map((a) => (
@@ -151,7 +151,7 @@ const MALPage: React.FC = () => {
                   <AnimeCover malId={a.mal_id} picture={a.main_picture} className="h-12 w-20 rounded-md" />
                   <div className="min-w-0">
                     <div className="text-sm truncate">{a.title}</div>
-                    <div className="text-xs text-white/60">Seasonal</div>
+                    <div className="text-xs text-muted-foreground">Seasonal</div>
                   </div>
                 </div>
               ))}
@@ -170,20 +170,20 @@ function HeroCard({ title, subtitle, gradient, icon, children }: { title: string
   return (
     <div className={cn(
       'relative overflow-hidden rounded-2xl border p-4 sm:p-6 md:p-8',
-      'bg-gradient-to-br text-white shadow-glow',
+      'bg-gradient-to-br text-foreground shadow-glow',
       `from-30% ${gradient}`,
       'group'
     )}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 text-white/90">
+          <div className="inline-flex items-center gap-2 text-foreground/90">
             {icon}
             <span className="text-xs uppercase tracking-wider">MAL</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-semibold mt-1">{title}</h2>
-          <p className="text-white/80 text-sm mt-1">{subtitle}</p>
+          <p className="text-muted-foreground text-sm mt-1">{subtitle}</p>
         </div>
-        <Button variant="secondary" size="icon" className="rounded-full bg-white/20 border-white/30 text-white hover:bg-white/30">
+        <Button variant="secondary" size="icon" className="rounded-full">
           <Sparkles className="w-4 h-4" />
         </Button>
       </div>
@@ -198,14 +198,14 @@ function HeroCard({ title, subtitle, gradient, icon, children }: { title: string
 }
 
 function RecentScroller({ items }: { items: Array<{ mal_id: number; title?: string; episode: number; main_picture?: any }> }) {
-  if (!items || items.length === 0) return <p className="text-white/85 text-sm">No recent episodes. Try syncing.</p>
+  if (!items || items.length === 0) return <p className="text-muted-foreground text-sm">No recent episodes. Try syncing.</p>
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 -mb-2 snap-x scrollbar-hide">
       {items.map((it, idx) => (
         <div key={`${it.mal_id}-${idx}`} className="snap-start shrink-0 w-56">
           <AnimeCover malId={it.mal_id} picture={it.main_picture} className="h-28 rounded-lg" />
-          <div className="mt-1 flex items-center gap-2 text-xs text-white/80">
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30">Ep {it.episode}</Badge>
+          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="secondary">Ep {it.episode}</Badge>
             <span className="truncate" title={it.title || ''}>{it.title || `#${it.mal_id}`}</span>
           </div>
         </div>
@@ -215,13 +215,13 @@ function RecentScroller({ items }: { items: Array<{ mal_id: number; title?: stri
 }
 
 function SeasonalScroller({ items }: { items: Array<{ mal_id: number; title: string; main_picture?: any }> }) {
-  if (!items || items.length === 0) return <p className="text-white/85 text-sm">No seasonal titles yet.</p>
+  if (!items || items.length === 0) return <p className="text-muted-foreground text-sm">No seasonal titles yet.</p>
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 -mb-2 snap-x scrollbar-hide">
       {items.map((a) => (
         <div key={a.mal_id} className="snap-start shrink-0 w-56">
           <AnimeCover malId={a.mal_id} picture={a.main_picture} className="h-28 rounded-lg" />
-          <div className="mt-1 text-xs text-white/80 truncate" title={a.title}>{a.title}</div>
+          <div className="mt-1 text-xs text-muted-foreground truncate" title={a.title}>{a.title}</div>
         </div>
       ))}
     </div>

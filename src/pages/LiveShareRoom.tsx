@@ -322,7 +322,7 @@ export default function LiveShareRoom() {
             </div>
             <div className="shrink-0 flex flex-col items-center gap-2">
               {qrDataUrl && (
-                <img src={qrDataUrl} alt="QR" className="h-24 w-24 md:h-28 md:w-28 border rounded bg-white p-1" />
+                <img src={qrDataUrl} alt="QR" className="h-24 w-24 md:h-28 md:w-28 border rounded bg-card p-1" />
               )}
               <Button size="sm" variant="outline" onClick={async () => {
                 try {
@@ -354,28 +354,28 @@ export default function LiveShareRoom() {
               }}>Copy link</Button>
             </div>
           )}
-          {roomFull && (
-            <div className="p-3 rounded-md bg-amber-50 text-amber-900 border border-amber-200">
+            {roomFull && (
+            <div className="p-3 rounded-md bg-muted text-foreground border">
               Room is full. Try again later or ask the host to increase the limit.
             </div>
           )}
           {state.blockedByLock && !state.isHost && (
-            <div className="p-3 rounded-md bg-slate-50 text-slate-900 border border-slate-200">
+            <div className="p-3 rounded-md bg-muted text-foreground border">
               The room is locked by the host. You cannot join right now.
             </div>
           )}
           {isGuest && approvalStatus === 'pending' && (
-            <div className="p-3 rounded-md bg-yellow-50 text-yellow-900 border border-yellow-200">
+            <div className="p-3 rounded-md bg-muted text-foreground border">
               Waiting for host approval...
             </div>
           )}
           {isGuest && approvalStatus === 'banned' && (
-            <div className="p-3 rounded-md bg-red-50 text-red-900 border border-red-200">
+            <div className="p-3 rounded-md bg-muted text-foreground border">
               Access denied by host.
             </div>
           )}
           {!verified && needsPassword && (
-            <div className="p-3 rounded-md bg-blue-50 text-blue-900 border border-blue-200">
+            <div className="p-3 rounded-md bg-muted text-foreground border">
               This room is protected. Enter the password to join.
             </div>
           )}
@@ -389,7 +389,7 @@ export default function LiveShareRoom() {
             </div>
           )}
           {state.roomLocked && (
-            <div className="p-3 rounded-md bg-slate-50 text-slate-900 border border-slate-200">
+            <div className="p-3 rounded-md bg-muted text-foreground border">
               The room is locked. New peers cannot join until unlocked by the host.
             </div>
           )}
@@ -436,11 +436,11 @@ export default function LiveShareRoom() {
                       style={{ left: `${c.x * 100}%`, top: `${c.y * 100}%` }}
                     >
                       <div className="flex items-center gap-1 -translate-y-3 translate-x-2">
-                        <span
-                          className="inline-block w-2.5 h-2.5 rounded-full shadow"
-                          style={{ backgroundColor: c.color || '#6366f1', boxShadow: `0 0 0 2px white` }}
-                        />
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-white/90 text-slate-700 shadow border">
+                          <span
+                            className="inline-block w-2.5 h-2.5 rounded-full shadow"
+                            style={{ backgroundColor: c.color || 'hsl(240 4.9% 83.9%)', boxShadow: `0 0 0 2px hsl(var(--card))` }}
+                          />
+                          <span className="text-[10px] px-1 py-0.5 rounded bg-card text-foreground shadow border">
                           {(c.name || c.peerId.slice(0,6))}
                         </span>
                       </div>
@@ -454,7 +454,7 @@ export default function LiveShareRoom() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
               {isGuest && approvalStatus === 'pending' && (
-                <div className="p-2 rounded border bg-yellow-50 text-yellow-900 text-sm mb-2">
+                <div className="p-2 rounded border bg-muted text-foreground text-sm mb-2">
                   Waiting for host approval...
                 </div>
               )}
@@ -465,17 +465,17 @@ export default function LiveShareRoom() {
                 )}
               </div>
               <div className="border rounded p-2 h-40 overflow-auto bg-background">
-                {state.chatMessages?.length ? (
-                  state.chatMessages.slice(-100).map((m) => (
-                    <div key={m.id} className="text-sm">
-                      <span className="text-muted-foreground mr-1">[{new Date(m.ts).toLocaleTimeString()}]</span>
-                      <code className="mr-1">{m.from.slice(0, 6)}</code>
-                      <span>{m.text}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-muted-foreground">No messages yet.</div>
-                )}
+                  {state.chatMessages?.length ? (
+                    state.chatMessages.slice(-100).map((m) => (
+                      <div key={m.id} className="text-sm">
+                        <span className="text-muted-foreground mr-1">[{new Date(m.ts).toLocaleTimeString()}]</span>
+                        <code className="mr-1 bg-muted rounded px-1 py-0.5 text-xs">{m.from.slice(0, 6)}</code>
+                        <span>{m.text}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-muted-foreground">No messages yet.</div>
+                  )}
               </div>
               <div className="mt-2 flex gap-2">
                 <Input value={chatInput} disabled={state.allowedActions && !state.allowedActions.includes('chat')} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message and press Enter" onKeyDown={async (e) => {
@@ -546,10 +546,10 @@ export default function LiveShareRoom() {
                     <div className="text-xs text-muted-foreground">No pending requests.</div>
                   ) : (
                     <div className="flex flex-col gap-2">
-                      {pendingParticipants.map((p) => (
+                  {pendingParticipants.map((p) => (
                         <div key={p.id} className="flex items-center gap-2">
                           <span className="text-xs">{p.display_name}</span>
-                          <span className="text-[10px] px-1 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200">{p.status}</span>
+                      <span className="text-[10px] px-1 py-0.5 rounded bg-muted border">{p.status}</span>
                           <Button size="sm" variant="outline" onClick={async () => {
                             try {
                               const { data: sess } = await supabase.auth.getSession();

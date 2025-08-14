@@ -224,7 +224,7 @@ export default function LiveShareNew() {
               <div className="text-xs text-muted-foreground">
                 Preview: {`${window.location.origin}/share/${slug || "your-slug"}`}
               </div>
-              {slugError && <div className="text-xs text-red-600">{slugError}</div>}
+              {slugError && <div className="text-xs text-destructive">{slugError}</div>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4 items-center">
@@ -295,7 +295,7 @@ export default function LiveShareNew() {
               <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
               {qrDataUrl && (
                 <div className="pt-2">
-                  <img src={qrDataUrl} alt="QR code" className="h-40 w-40 border rounded bg-white p-1" />
+                  <img src={qrDataUrl} alt="QR code" className="h-40 w-40 border rounded bg-card p-1" />
                 </div>
               )}
             </div>
@@ -336,7 +336,7 @@ export default function LiveShareNew() {
                   <code className="px-1 py-0.5 rounded bg-muted text-xs">{r.id}</code>
                   <span className="text-xs text-muted-foreground">Max {r.max_peers}</span>
                   {r.locked && <span className="text-xs px-2 py-0.5 rounded bg-muted">Locked</span>}
-                  {expired && <span className="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-900">Expired</span>}
+                  {expired && <span className="text-xs px-2 py-0.5 rounded bg-warning/10 text-warning border border-warning/20">Expired</span>}
                   <span className="ml-auto text-xs text-muted-foreground">
                     {new Date(r.created_at).toLocaleString()} → {r.expires_at ? new Date(r.expires_at).toLocaleString() : "N/A"}
                   </span>

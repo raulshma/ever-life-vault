@@ -223,9 +223,9 @@ export default function Karakeep() {
       </div>
 
       {!isUnlocked && (
-        <Card className="border-amber-200 bg-amber-50 mb-4">
+        <Card className="mb-4">
           <CardContent className="pt-6">
-            <p className="text-amber-700 text-sm font-medium">Unlock your secure vault to access Karakeep integration.</p>
+            <p className="text-warning text-sm font-medium">Unlock your secure vault to access Karakeep integration.</p>
           </CardContent>
         </Card>
       )}

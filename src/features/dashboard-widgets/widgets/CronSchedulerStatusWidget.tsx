@@ -72,7 +72,7 @@ export default function CronSchedulerStatusWidget({ config, onConfigChange }: Wi
         <div className="space-y-2">
           {jobs.map((j) => {
             const st = statuses.find((s) => s.id === j.id)
-            const color = st ? (st.ok ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'
+            const color = st ? (st.ok ? 'text-success' : 'text-destructive') : 'text-muted-foreground'
             return (
               <div key={j.id} className="rounded-md border p-3 space-y-2">
                 <div className="flex items-center gap-2">

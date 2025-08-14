@@ -45,7 +45,7 @@ export const moduleCategories: NavGroups = {
   ],
   share: [
     { name: "Live Share", path: "/share/new", icon: Share2 },
-    { name: "Cl1p", path: "/cl1p/new", icon: FileText },
+    { name: "Clip", path: "/clip/new", icon: FileText },
   ],
   homelab: [
     // homelab static pages removed

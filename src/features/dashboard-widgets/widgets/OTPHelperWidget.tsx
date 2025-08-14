@@ -151,7 +151,7 @@ export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<
         </ul>
         <div className="text-xs text-muted-foreground">Secrets are kept only in your config/vault and never transmitted.</div>
         {!isUnlocked && (
-          <div className="text-xs text-amber-600">Unlock your vault to save accounts securely.</div>
+          <div className="text-xs text-warning">Unlock your vault to save accounts securely.</div>
         )}
       </div>
     </WidgetShell>

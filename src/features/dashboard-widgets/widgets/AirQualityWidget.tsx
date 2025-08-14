@@ -26,12 +26,12 @@ type AQData = {
 
 function categoryUS(aqi?: number): { label: string; className: string } {
   if (typeof aqi !== 'number') return { label: '—', className: 'text-muted-foreground' }
-  if (aqi <= 50) return { label: 'Good', className: 'text-green-600' }
-  if (aqi <= 100) return { label: 'Moderate', className: 'text-yellow-600' }
-  if (aqi <= 150) return { label: 'USG', className: 'text-amber-700' }
-  if (aqi <= 200) return { label: 'Unhealthy', className: 'text-red-600' }
-  if (aqi <= 300) return { label: 'Very Unhealthy', className: 'text-purple-600' }
-  return { label: 'Hazardous', className: 'text-rose-700' }
+  if (aqi <= 50) return { label: 'Good', className: 'text-[hsl(var(--success))]' }
+  if (aqi <= 100) return { label: 'Moderate', className: 'text-[hsl(var(--warning))]' }
+  if (aqi <= 150) return { label: 'USG', className: 'text-[hsl(var(--warning))]' }
+  if (aqi <= 200) return { label: 'Unhealthy', className: 'text-[hsl(var(--destructive))]' }
+  if (aqi <= 300) return { label: 'Very Unhealthy', className: 'text-[hsl(var(--destructive))]' }
+  return { label: 'Hazardous', className: 'text-[hsl(var(--destructive))]' }
 }
 
 async function fetchAQ(lat: number, lon: number): Promise<AQData | null> {

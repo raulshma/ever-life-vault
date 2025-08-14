@@ -137,18 +137,18 @@ export default function KarakeepItemCard({ item }: KarakeepItemCardProps) {
         className="relative aspect-[16/9] w-full bg-cover bg-center"
         style={{ backgroundImage: `url(${bg})` }}
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
         <div className="absolute left-2 top-2 flex items-center gap-2">
-          <Badge variant="secondary" className="bg-white/10 backdrop-blur text-[10px] uppercase">
+          <Badge variant="secondary" className="text-[10px] uppercase">
             {content.type}
           </Badge>
           {host && (
-            <span className="hidden sm:inline-block rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-white backdrop-blur">
+            <span className="hidden sm:inline-block rounded bg-muted px-1.5 py-0.5 text-[10px] text-foreground">
               {host}
             </span>
           )}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 p-3 text-white">
+        <div className="absolute bottom-0 left-0 right-0 p-3 text-foreground">
           <div className="line-clamp-2 text-sm sm:text-base font-semibold drop-shadow">
             {title}
           </div>
@@ -170,7 +170,7 @@ export default function KarakeepItemCard({ item }: KarakeepItemCardProps) {
                 return (
                   <span
                     key={key}
-                    className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] leading-none text-white/95 backdrop-blur"
+                    className="rounded bg-muted px-1.5 py-0.5 text-[10px] leading-none text-foreground/95"
                   >
                     #{label}
                   </span>
