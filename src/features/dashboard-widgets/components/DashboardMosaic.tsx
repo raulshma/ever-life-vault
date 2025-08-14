@@ -7,7 +7,7 @@ import { useDashboardRuntime } from '../runtime'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
- 
+
 
 const EditingStackView = React.lazy(() => import('./EditingStackView'))
 
@@ -39,7 +39,7 @@ function DashboardMosaicInner() {
                 aria-label="Export layout"
                 onClick={() => {
                   const data = exportLayout()
-                  navigator.clipboard.writeText(data).catch(() => {})
+                  navigator.clipboard.writeText(data).catch(() => { })
                 }}
               >
                 <Download className="h-4 w-4" />
@@ -70,7 +70,9 @@ function DashboardMosaicInner() {
             <Label htmlFor="edit-layout" className="text-xs hidden sm:inline">Edit layout</Label>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Switch id="edit-layout" aria-label="Edit layout" checked={isEditing} onCheckedChange={setIsEditing} />
+                <div>
+                  <Switch id="edit-layout" aria-label="Edit layout" checked={isEditing} onCheckedChange={setIsEditing} />
+                </div>
               </TooltipTrigger>
               <TooltipContent>Edit layout</TooltipContent>
             </Tooltip>
@@ -114,6 +116,6 @@ function DashboardMosaicInner() {
   )
 }
 
- 
+
 
 
