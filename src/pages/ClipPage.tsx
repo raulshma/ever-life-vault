@@ -28,6 +28,8 @@ export default function ClipPage() {
   const [password, setPassword] = useState<string>("");
   const [saltB64, setSaltB64] = useState<string | null>(null);
   const [proofFromHash, setProofFromHash] = useState<string | null>(null);
+  const [oneTimeView, setOneTimeView] = useState<boolean>(false);
+  const [viewCount, setViewCount] = useState<number>(0);
 
   // Read proof from URL hash if present
   useEffect(() => {
@@ -60,16 +62,25 @@ export default function ClipPage() {
         proof = await sha256Base64(`${id}:${password}:${metaSalt}`);
       }
 
-      const { data, error } = await (supabase as any).rpc("get_clip", { _id: id, _proof: proof });
+      // Use the one-time view function to handle view counting and deletion
+      const { data, error } = await (supabase as any).rpc("get_clip_one_time", { _id: id, _proof: proof });
       if (error) throw error;
       if (!data || !Array.isArray(data) || data.length === 0) {
         setContent("");
+        // Check if this was a one-time clip that was just deleted
+        if (oneTimeView && viewCount > 0) {
+          toast({ title: "Clip viewed", description: "This one-time clip has been viewed and deleted.", variant: "default" });
+          navigate("/clip/new");
+          return;
+        }
       } else {
         const row = data[0];
         setContent(row.content ?? "");
         setHasPassword(Boolean(row.has_password));
         setExpiresAt(row.expires_at ?? null);
         setUpdatedAt(row.updated_at ?? null);
+        setOneTimeView(Boolean(row.one_time_view));
+        setViewCount(row.view_count ?? 0);
       }
     } catch (e: any) {
       toast({ title: "Failed to load", description: e?.message ?? String(e), variant: "destructive" });
@@ -85,6 +96,13 @@ export default function ClipPage() {
 
   const save = async () => {
     if (!id) return;
+    
+    // Prevent saving one-time clips after they've been viewed
+    if (oneTimeView && viewCount > 0) {
+      toast({ title: "Cannot save", description: "One-time clips cannot be edited after viewing.", variant: "destructive" });
+      return;
+    }
+    
     try {
       setSaving(true);
       let proof: string | null = proofFromHash ?? null;
@@ -100,6 +118,7 @@ export default function ClipPage() {
         _content: content,
         _expires_at: expiresAt,
         _proof: proof,
+        _one_time_view: oneTimeView,
       });
       if (error) throw error;
       if (data !== true) throw new Error("Upsert returned false");
@@ -140,6 +159,7 @@ export default function ClipPage() {
           <CardTitle>Clip: {id}</CardTitle>
           <CardDescription>
             {hasPassword ? "Password protected" : "Public"}
+            {oneTimeView ? " • One-time view only" : ""}
             {expiresAt ? ` • Expires ${new Date(expiresAt).toLocaleString()}` : ""}
             {updatedAt ? ` • Updated ${new Date(updatedAt).toLocaleString()}` : ""}
           </CardDescription>
@@ -154,9 +174,33 @@ export default function ClipPage() {
               </div>
             </div>
           )}
-          <Textarea rows={16} value={content} onChange={(e) => setContent(e.target.value)} placeholder={loading ? "Loading..." : "Type or paste here..."} />
+          {oneTimeView && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+              <p className="text-sm text-yellow-800">
+                ⚠️ This is a one-time view clip. It will be automatically deleted after you view it.
+                {viewCount > 0 && ` This clip has been viewed ${viewCount} time(s) and will be deleted.`}
+              </p>
+            </div>
+          )}
+          <Textarea 
+            rows={16} 
+            value={content} 
+            onChange={(e) => setContent(e.target.value)} 
+            placeholder={loading ? "Loading..." : "Type or paste here..."}
+            readOnly={oneTimeView && viewCount > 0}
+          />
+          {oneTimeView && viewCount === 0 && (
+            <p className="text-xs text-muted-foreground">
+              📝 You can still edit this one-time clip until it's viewed for the first time.
+            </p>
+          )}
           <div className="flex items-center gap-2">
-            <Button onClick={save} disabled={saving || loading}>{saving ? "Saving..." : "Save"}</Button>
+            <Button 
+              onClick={save} 
+              disabled={saving || loading || (oneTimeView && viewCount > 0)}
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
             <Button variant="outline" onClick={() => load().catch(() => {})}>Refresh</Button>
             <Button variant="outline" onClick={() => navigator.clipboard.writeText(content)}>Copy</Button>
             <Button variant="ghost" onClick={() => navigate("/clip/new")}>New</Button>

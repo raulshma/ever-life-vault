@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,13 +33,13 @@ function isSlugValid(s: string): boolean {
 
 export default function ClipNew() {
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [slug, setSlug] = useState<string>(useMemo(() => Math.random().toString(36).slice(2, 10), []));
   const [slugError, setSlugError] = useState<string>("");
   const [content, setContent] = useState<string>("");
   const [passwordEnabled, setPasswordEnabled] = useState<boolean>(false);
   const [password, setPassword] = useState<string>("");
   const [expiryPreset, setExpiryPreset] = useState<string>("24h");
+  const [oneTimeView, setOneTimeView] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [link, setLink] = useState<string>("");
 
@@ -56,6 +55,16 @@ export default function ClipNew() {
       }
       if (!content.trim()) {
         toast({ title: "No content", description: "Type something to save.", variant: "destructive" });
+        return;
+      }
+      
+      // Confirm one-time view creation
+      if (oneTimeView && !window.confirm(
+        "Are you sure you want to create a one-time view clip? " +
+        "This clip will be automatically deleted after the first person views it, and cannot be recovered. " +
+        "This action cannot be undone."
+      )) {
+        setSaving(false);
         return;
       }
 
@@ -88,6 +97,7 @@ export default function ClipNew() {
         _expires_at: expiresAt,
         _set_password_proof: proof,
         _set_password_salt: saltB64,
+        _one_time_view: oneTimeView,
       });
       if (error) throw error;
       if (data !== true) {
@@ -105,8 +115,11 @@ export default function ClipNew() {
       const urlStr = url.toString();
       setLink(urlStr);
       try { await navigator.clipboard.writeText(urlStr); } catch {}
-      toast({ title: "Clip created", description: "Link copied to clipboard." });
-      navigate(`${url.pathname}${url.search}${url.hash}`);
+      const message = oneTimeView 
+        ? "One-time clip created! Link copied to clipboard. It will be deleted after first view."
+        : "Clip created! Link copied to clipboard.";
+      toast({ title: "Clip created", description: message });
+      // Don't navigate to the clip, just show the link
     } catch (e: any) {
       toast({ title: "Error", description: e?.message ?? String(e), variant: "destructive" });
     } finally {
@@ -119,14 +132,17 @@ export default function ClipNew() {
       <Card>
         <CardHeader>
           <CardTitle>New Clip</CardTitle>
-          <CardDescription>Create a simple paste with an optional password and expiry.</CardDescription>
+          <CardDescription>Create a simple paste with optional password protection, expiry, and one-time viewing.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4 items-center">
             <Label htmlFor="slug">ID</Label>
             <div className="flex flex-col gap-1">
               <Input id="slug" value={slug} onChange={(e) => { const v = normalizeSlug(e.target.value); setSlug(v); if (isSlugValid(v)) setSlugError(""); }} placeholder="e.g. team-note" />
-              <div className="text-xs text-muted-foreground">Preview: {`${window.location.origin}/clip/${slug || "your-id"}`}</div>
+              <div className="text-xs text-muted-foreground">
+                Preview: {`${window.location.origin}/clip/${slug || "your-id"}`}
+                {oneTimeView && <span className="text-blue-600 font-medium"> • One-time view</span>}
+              </div>
               {slugError && <div className="text-xs text-destructive">{slugError}</div>}
             </div>
           </div>
@@ -160,6 +176,28 @@ export default function ClipNew() {
               <Input id="pwd" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
           )}
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>One-time view only</Label>
+              <p className="text-xs text-muted-foreground">Clip will be automatically deleted after first view.</p>
+            </div>
+            <Switch checked={oneTimeView} onCheckedChange={setOneTimeView} />
+          </div>
+          {oneTimeView && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm text-blue-800">
+                🔒 This clip will be automatically deleted after the first person views it. 
+                Perfect for sharing sensitive information that should only be seen once.
+              </p>
+            </div>
+          )}
+          {oneTimeView && passwordEnabled && (
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-md">
+              <p className="text-sm text-orange-800">
+                ⚠️ Note: One-time view + password protection means the clip will be deleted after the first successful password unlock.
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4 items-start">
             <Label htmlFor="content">Content</Label>
             <Textarea id="content" rows={12} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Type or paste here..." />
@@ -167,12 +205,49 @@ export default function ClipNew() {
           {link && (
             <div className="space-y-2">
               <Label>Share link</Label>
-              <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+              <div className="flex gap-2">
+                <Input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(link);
+                      toast({ title: "Copied!", description: "Link copied to clipboard" });
+                    } catch (e) {
+                      toast({ title: "Failed to copy", description: "Please copy manually", variant: "destructive" });
+                    }
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+              {oneTimeView && (
+                <p className="text-xs text-blue-600">
+                  🔒 One-time view enabled - this link will be deleted after first use
+                </p>
+              )}
             </div>
           )}
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex gap-2">
           <Button onClick={onCreate} disabled={saving}>{saving ? "Saving..." : "Create"}</Button>
+          {link && (
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setLink("");
+                setSlug(Math.random().toString(36).slice(2, 10));
+                setContent("");
+                setPasswordEnabled(false);
+                setPassword("");
+                setExpiryPreset("24h");
+                setOneTimeView(false);
+              }}
+            >
+              Create Another
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>

@@ -21,9 +21,11 @@ export type Database = {
           created_by: string | null
           expires_at: string | null
           id: string
+          one_time_view: boolean | null
           password_proof: string | null
           password_salt: string | null
           updated_at: string
+          view_count: number | null
         }
         Insert: {
           content?: string | null
@@ -31,9 +33,11 @@ export type Database = {
           created_by?: string | null
           expires_at?: string | null
           id: string
+          one_time_view?: boolean | null
           password_proof?: string | null
           password_salt?: string | null
           updated_at?: string
+          view_count?: number | null
         }
         Update: {
           content?: string | null
@@ -41,9 +45,11 @@ export type Database = {
           created_by?: string | null
           expires_at?: string | null
           id?: string
+          one_time_view?: boolean | null
           password_proof?: string | null
           password_salt?: string | null
           updated_at?: string
+          view_count?: number | null
         }
         Relationships: []
       }
@@ -1225,6 +1231,18 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_clip_one_time: {
+        Args: { _id: string; _proof?: string }
+        Returns: {
+          content: string
+          expires_at: string
+          has_password: boolean
+          id: string
+          one_time_view: boolean
+          updated_at: string
+          view_count: number
+        }[]
+      }
       get_docker_compose_config: {
         Args: { _name: string }
         Returns: {
@@ -1309,14 +1327,24 @@ export type Database = {
         Returns: string
       }
       upsert_clip: {
-        Args: {
-          _content: string
-          _expires_at?: string
-          _id: string
-          _proof?: string
-          _set_password_proof?: string
-          _set_password_salt?: string
-        }
+        Args:
+          | {
+              _content: string
+              _expires_at?: string
+              _id: string
+              _one_time_view?: boolean
+              _proof?: string
+              _set_password_proof?: string
+              _set_password_salt?: string
+            }
+          | {
+              _content: string
+              _expires_at?: string
+              _id: string
+              _proof?: string
+              _set_password_proof?: string
+              _set_password_salt?: string
+            }
         Returns: boolean
       }
       verify_live_share_access: {
