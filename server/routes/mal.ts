@@ -268,20 +268,34 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
       items.push({ mal_id: id, episode: Number.isFinite(episode) && episode > 0 ? episode : 1, watched_at: watchedAt, title: node?.title })
     }
 
-    // Upsert mal_watch_history
+    // Optimized: Batch all database operations
     const historyRows = items.map((it) => ({ user_id: user.id, mal_id: it.mal_id, episode: it.episode, watched_at: it.watched_at }))
-    if (historyRows.length > 0) {
-      await supabase.from('mal_watch_history').upsert(historyRows, { onConflict: 'user_id,mal_id,episode' })
-    }
-
-    // Optionally upsert anime titles that we have
     const animeRows = items.map((it) => ({ mal_id: it.mal_id, title: it.title || `Anime #${it.mal_id}`, updated_at: new Date().toISOString() }))
-    if (animeRows.length > 0) {
-      await admin.from('mal_anime').upsert(animeRows, { onConflict: 'mal_id' })
+    
+    // Execute all database operations in parallel
+    const dbOperations = []
+    
+    if (historyRows.length > 0) {
+      dbOperations.push(
+        supabase.from('mal_watch_history').upsert(historyRows, { onConflict: 'user_id,mal_id,episode' })
+      )
     }
-
-    // Touch synced_at
-    await supabase.from('mal_accounts').update({ synced_at: new Date().toISOString() }).eq('user_id', user.id)
+    
+    if (animeRows.length > 0) {
+      dbOperations.push(
+        admin.from('mal_anime').upsert(animeRows, { onConflict: 'mal_id' })
+      )
+    }
+    
+    // Update synced_at timestamp
+    dbOperations.push(
+      supabase.from('mal_accounts').update({ synced_at: new Date().toISOString() }).eq('user_id', user.id)
+    )
+    
+    // Execute all operations in parallel
+    if (dbOperations.length > 0) {
+      await Promise.all(dbOperations)
+    }
 
     return reply.send({ ok: true, count: historyRows.length })
   })

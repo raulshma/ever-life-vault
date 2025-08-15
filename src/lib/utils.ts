@@ -180,3 +180,196 @@ export function generateSecureRandomString(length: number = 32): string {
   }
   return result;
 }
+
+/**
+ * Utility for batching multiple database operations
+ * This helps reduce the number of database round trips
+ */
+export class BatchDBOperations {
+  private operations: Array<() => Promise<any>> = []
+  private results: any[] = []
+
+  /**
+   * Add a database operation to the batch
+   */
+  add<T>(operation: () => Promise<T>): void {
+    this.operations.push(operation)
+  }
+
+  /**
+   * Execute all operations in parallel
+   */
+  async execute(): Promise<any[]> {
+    if (this.operations.length === 0) {
+      return []
+    }
+
+    try {
+      this.results = await Promise.all(this.operations.map(op => op()))
+      return this.results
+    } catch (error) {
+      console.error('Batch database operations failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Execute operations sequentially (useful when order matters)
+   */
+  async executeSequential(): Promise<any[]> {
+    if (this.operations.length === 0) {
+      return []
+    }
+
+    this.results = []
+    for (const operation of this.operations) {
+      try {
+        const result = await operation()
+        this.results.push(result)
+      } catch (error) {
+        console.error('Sequential database operation failed:', error)
+        throw error
+      }
+    }
+    return this.results
+  }
+
+  /**
+   * Clear all operations
+   */
+  clear(): void {
+    this.operations = []
+    this.results = []
+  }
+
+  /**
+   * Get the number of pending operations
+   */
+  get size(): number {
+    return this.operations.length
+  }
+}
+
+/**
+ * Helper function to create a batch operation
+ */
+export function createBatchDBOperations(): BatchDBOperations {
+  return new BatchDBOperations()
+}
+
+/**
+ * Database connection pool utility for optimizing Supabase connections
+ * This helps reduce connection overhead and improve performance
+ */
+export class DatabaseConnectionPool {
+  private connections: Map<string, { client: any; lastUsed: number; inUse: boolean }> = new Map()
+  private maxConnections: number
+  private connectionTimeout: number
+  private cleanupInterval: NodeJS.Timeout | null = null
+
+  constructor(maxConnections = 5, connectionTimeout = 300000) { // 5 minutes default
+    this.maxConnections = maxConnections
+    this.connectionTimeout = connectionTimeout
+    this.startCleanup()
+  }
+
+  /**
+   * Get or create a database connection for a specific user/context
+   */
+  async getConnection(key: string, createClient: () => any): Promise<any> {
+    const existing = this.connections.get(key)
+    
+    if (existing && !existing.inUse) {
+      existing.lastUsed = Date.now()
+      existing.inUse = true
+      return existing.client
+    }
+
+    // Check if we're at max connections
+    if (this.connections.size >= this.maxConnections) {
+      // Find oldest unused connection to evict
+      const oldestKey = Array.from(this.connections.entries())
+        .filter(([_, conn]) => !conn.inUse)
+        .sort(([_, a], [__, b]) => a.lastUsed - b.lastUsed)[0]?.[0]
+      
+      if (oldestKey) {
+        this.connections.delete(oldestKey)
+      }
+    }
+
+    const client = createClient()
+    this.connections.set(key, {
+      client,
+      lastUsed: Date.now(),
+      inUse: true
+    })
+
+    return client
+  }
+
+  /**
+   * Release a connection back to the pool
+   */
+  releaseConnection(key: string): void {
+    const connection = this.connections.get(key)
+    if (connection) {
+      connection.inUse = false
+      connection.lastUsed = Date.now()
+    }
+  }
+
+  /**
+   * Clean up expired connections
+   */
+  private cleanup(): void {
+    const now = Date.now()
+    for (const [key, connection] of this.connections.entries()) {
+      if (!connection.inUse && (now - connection.lastUsed) > this.connectionTimeout) {
+        this.connections.delete(key)
+      }
+    }
+  }
+
+  /**
+   * Start periodic cleanup
+   */
+  private startCleanup(): void {
+    this.cleanupInterval = setInterval(() => {
+      this.cleanup()
+    }, 60000) // Clean up every minute
+  }
+
+  /**
+   * Stop the connection pool and cleanup
+   */
+  destroy(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval)
+      this.cleanupInterval = null
+    }
+    this.connections.clear()
+  }
+
+  /**
+   * Get pool statistics
+   */
+  getStats(): { total: number; inUse: number; available: number } {
+    let inUse = 0
+    for (const connection of this.connections.values()) {
+      if (connection.inUse) inUse++
+    }
+    
+    return {
+      total: this.connections.size,
+      inUse,
+      available: this.connections.size - inUse
+    }
+  }
+}
+
+/**
+ * Helper function to create a database connection pool
+ */
+export function createDatabaseConnectionPool(maxConnections?: number, connectionTimeout?: number): DatabaseConnectionPool {
+  return new DatabaseConnectionPool(maxConnections, connectionTimeout)
+}

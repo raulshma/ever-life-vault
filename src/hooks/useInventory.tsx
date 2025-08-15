@@ -39,54 +39,40 @@ export function useInventory() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const fetchItems = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('inventory_items')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setItems(data || []);
-    } catch (error) {
-      console.error('Error fetching inventory items:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch inventory items",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const fetchLocations = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('name', { ascending: true });
-
-      if (error) throw error;
-      setLocations(data || []);
-    } catch (error) {
-      console.error('Error fetching locations:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch locations",
-        variant: "destructive",
-      });
-    }
-  };
-
   const fetchInventory = async () => {
+    if (!user) return;
+    
     setLoading(true);
-    await Promise.all([fetchItems(), fetchLocations()]);
-    setLoading(false);
+    try {
+      // Optimized: Fetch both items and locations in parallel
+      const [itemsResult, locationsResult] = await Promise.all([
+        supabase
+          .from('inventory_items')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('locations')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('name', { ascending: true })
+      ]);
+
+      if (itemsResult.error) throw itemsResult.error;
+      if (locationsResult.error) throw locationsResult.error;
+
+      setItems(itemsResult.data || []);
+      setLocations(locationsResult.data || []);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch inventory data",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addItem = async (itemData: Omit<InventoryItem, 'id' | 'created_at' | 'updated_at' | 'user_id'>) => {

@@ -43,8 +43,12 @@ export default function JellyfinWidget({ config, onConfigChange, isEditing, id }
         return
       }
       
-      const i = await jf.getSystemInfo()
-      const s = await jf.getSessions()
+      // Optimized: Execute both API calls in parallel
+      const [i, s] = await Promise.all([
+        jf.getSystemInfo(),
+        jf.getSessions()
+      ])
+      
       setInfo(i)
       setSessions(s)
       

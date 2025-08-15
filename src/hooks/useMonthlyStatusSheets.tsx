@@ -62,16 +62,15 @@ export const useMonthlyStatusSheets = () => {
 
           if (error) throw error;
 
-          // Refresh data to include the new weekend entries
-          const { data: updatedSheets, error: fetchError } = await supabase
-            .from("monthly_status_sheets")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("month_year", monthYear)
-            .order("day_number", { ascending: true });
-
-          if (fetchError) throw fetchError;
-          setData((updatedSheets as unknown as MonthlyStatusEntry[]) || []);
+          // Optimized: Update local state directly instead of refetching from database
+          const newEntries: MonthlyStatusEntry[] = weekendEntries.map((entry, index) => ({
+            ...entry,
+            id: `temp-${Date.now()}-${index}`, // Temporary ID for local state
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }));
+          
+          setData(prevData => [...prevData, ...newEntries].sort((a, b) => a.day_number - b.day_number));
         }
       } catch (error) {
         console.error("Error initializing weekend holidays:", error);

@@ -138,31 +138,27 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const admin = makeAdminSupabase(cfg)
     if (!admin) return reply.code(500).send({ error: 'server_not_configured' })
 
+    // Optimized: Fetch account data and check throttling in one call
     const { data: acct } = await supabase
       .from('steam_accounts')
-      .select('steamid64')
+      .select('steamid64, synced_at')
       .eq('user_id', user.id)
       .maybeSingle()
+    
     const steamid: string | undefined = (acct as any)?.steamid64
     if (!steamid) return reply.code(400).send({ error: 'not_linked' })
+    
+    // Check throttling using the data we already fetched
+    const last = acct?.synced_at ? Date.parse(acct.synced_at as any) : 0
+    const sixHours = 6 * 60 * 60 * 1000
+    if (last && Date.now() - last < sixHours) {
+      return reply.code(429).send({ error: 'too_many_requests', retryAfterSec: Math.ceil((sixHours - (Date.now() - last)) / 1000) })
+    }
+    
     server.log.info({ event: 'steam_sync_start', userId: user.id })
     try { loki && loki.info && loki.info({ message: 'steam_sync_start', userId: user.id }) } catch {}
 
     const key = cfg.STEAM_WEB_API_KEY
-
-    // Throttle: allow at most once per 6 hours
-    {
-      const { data: row } = await supabase
-        .from('steam_accounts')
-        .select('synced_at')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      const last = row?.synced_at ? Date.parse(row.synced_at as any) : 0
-      const sixHours = 6 * 60 * 60 * 1000
-      if (last && Date.now() - last < sixHours) {
-        return reply.code(429).send({ error: 'too_many_requests', retryAfterSec: Math.ceil((sixHours - (Date.now() - last)) / 1000) })
-      }
-    }
 
     // Fetch player summaries
     const sumRes = await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${encodeURIComponent(key!)}&steamids=${encodeURIComponent(steamid)}`)
@@ -212,11 +208,24 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       })
     }
 
+    // Optimized: Batch all database operations
+    const dbOperations = []
+    
     if (gameRows.length > 0) {
-      await admin.from('steam_games').upsert(gameRows, { onConflict: 'appid' })
+      dbOperations.push(
+        admin.from('steam_games').upsert(gameRows, { onConflict: 'appid' })
+      )
     }
+    
     if (ownershipRows.length > 0) {
-      await admin.from('steam_ownership').upsert(ownershipRows, { onConflict: 'user_id,appid' })
+      dbOperations.push(
+        admin.from('steam_ownership').upsert(ownershipRows, { onConflict: 'user_id,appid' })
+      )
+    }
+    
+    // Execute all operations in parallel
+    if (dbOperations.length > 0) {
+      await Promise.all(dbOperations)
     }
 
     // Optionally enrich recent with GetRecentlyPlayedGames

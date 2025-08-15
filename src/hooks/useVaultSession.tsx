@@ -188,9 +188,9 @@ function useVaultSessionInternal() {
     }
   }, [user]);
 
-  // Fetch server_secret for a session
-  const getServerSecretFromDB = useCallback(async (sessionId: string): Promise<string | null> => {
-    if (!user) return null;
+  // Optimized: Get session data and check validity in one call
+  const getSessionDataFromDB = useCallback(async (sessionId: string): Promise<{ serverSecret: string | null; isValid: boolean }> => {
+    if (!user) return { serverSecret: null, isValid: false };
     try {
       const { data, error } = await supabase
         .from('vault_sessions')
@@ -198,37 +198,32 @@ function useVaultSessionInternal() {
         .eq('user_id', user.id)
         .eq('session_id', sessionId)
         .single();
-      if (error || !data) return null;
+      
+      if (error || !data) return { serverSecret: null, isValid: false };
+      
       const expiresAt = new Date(data.expires_at).getTime();
-      if (Date.now() >= expiresAt) return null;
-      return data.server_secret as string;
+      const isValid = Date.now() < expiresAt;
+      return { 
+        serverSecret: isValid ? (data.server_secret as string) : null, 
+        isValid 
+      };
     } catch (e) {
-      console.error('Error fetching server secret:', e);
-      return null;
+      console.error('Error fetching session data:', e);
+      return { serverSecret: null, isValid: false };
     }
   }, [user]);
 
-  // Check if session is valid in database
+  // Fetch server_secret for a session (now uses optimized function)
+  const getServerSecretFromDB = useCallback(async (sessionId: string): Promise<string | null> => {
+    const { serverSecret } = await getSessionDataFromDB(sessionId);
+    return serverSecret;
+  }, [getSessionDataFromDB]);
+
+  // Check if session is valid in database (now uses optimized function)
   const checkSessionInDB = useCallback(async (sessionId: string): Promise<boolean> => {
-    if (!user) return false;
-    
-    try {
-      const { data, error } = await supabase
-        .from('vault_sessions')
-        .select('expires_at')
-        .eq('user_id', user.id)
-        .eq('session_id', sessionId)
-        .single();
-      
-      if (error || !data) return false;
-      
-      const expiresAt = new Date(data.expires_at).getTime();
-      return Date.now() < expiresAt;
-    } catch (error) {
-      console.error('Error checking session in database:', error);
-      return false;
-    }
-  }, [user]);
+    const { isValid } = await getSessionDataFromDB(sessionId);
+    return isValid;
+  }, [getSessionDataFromDB]);
 
   // Clear session from database
   const clearSessionFromDB = useCallback(async (sessionId?: string) => {

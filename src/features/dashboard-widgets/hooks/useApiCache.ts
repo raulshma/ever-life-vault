@@ -461,3 +461,68 @@ export function getEffectiveCacheTime<T extends BaseWidgetConfig>(
     return undefined
   }
 }
+
+/**
+ * Batch multiple API calls for better performance
+ * This utility helps widgets make multiple API calls in parallel
+ */
+export function useBatchApiCalls() {
+  const { getCached, getCachedAsync, setCached } = useApiCache()
+
+  /**
+   * Execute multiple API calls in parallel with caching
+   */
+  const batchApiCalls = useCallback(async <T extends Record<string, any>>(
+    calls: Array<{
+      key: string
+      cacheKey: string
+      cacheTimeMs: number
+      apiCall: () => Promise<any>
+    }>
+  ): Promise<T> => {
+    // Check cache first for all calls
+    const cacheResults = await Promise.all(
+      calls.map(async (call) => {
+        const cached = await getCachedAsync(call.cacheKey, call.cacheTimeMs)
+        return { ...call, cached, needsFetch: !cached }
+      })
+    )
+
+    // Filter calls that need fresh data
+    const callsNeedingFetch = cacheResults.filter(call => call.needsFetch)
+
+    // Execute API calls in parallel for those that need fresh data
+    let freshResults: Array<{ key: string; data: any }> = []
+    if (callsNeedingFetch.length > 0) {
+      const apiResults = await Promise.all(
+        callsNeedingFetch.map(async (call) => {
+          try {
+            const data = await call.apiCall()
+            // Cache the fresh result
+            setCached(call.cacheKey, data, call.cacheTimeMs)
+            return { key: call.key, data }
+          } catch (error) {
+            console.error(`API call failed for ${call.key}:`, error)
+            return { key: call.key, data: null }
+          }
+        })
+      )
+      freshResults = apiResults.filter(result => result.data !== null)
+    }
+
+    // Combine cached and fresh results
+    const combined = {} as T
+    cacheResults.forEach(call => {
+      if (call.cached) {
+        ;(combined as any)[call.key] = call.cached
+      }
+    })
+    freshResults.forEach(result => {
+      ;(combined as any)[result.key] = result.data
+    })
+
+    return combined
+  }, [getCached, getCachedAsync, setCached])
+
+  return { batchApiCalls }
+}
