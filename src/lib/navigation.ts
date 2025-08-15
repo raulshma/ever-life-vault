@@ -48,7 +48,7 @@ export const moduleCategories: NavGroups = {
     { name: "Clip", path: "/clip/new", icon: FileText },
   ],
   homelab: [
-    // homelab static pages removed
+    { name: "Infrastructure", path: "/infrastructure", icon: Server },
     { name: "Jellyfin", path: "/homelab/jellyfin", icon: Play },
     { name: "Media Requests", path: "/homelab/media-requests", icon: Film },
     { name: "Karakeep", path: "/homelab/karakeep", icon: Bookmark },

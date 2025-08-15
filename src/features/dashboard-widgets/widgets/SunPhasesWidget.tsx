@@ -133,15 +133,18 @@ export default function SunPhasesWidget({ config, onConfigChange }: WidgetProps<
     return () => window.clearInterval(id)
   }, [])
 
-  const setLat = (v: string) => {
+  const setLat = React.useCallback((v: string) => {
     const n = Number(v)
     onConfigChange({ ...config, lat: Number.isFinite(n) ? n : undefined })
-  }
-  const setLon = (v: string) => {
+  }, [config, onConfigChange])
+  
+  const setLon = React.useCallback((v: string) => {
     const n = Number(v)
     onConfigChange({ ...config, lon: Number.isFinite(n) ? n : undefined })
-  }
-  const setMode = (v: SunPhasesConfig['mode']) => onConfigChange({ ...config, mode: v })
+  }, [config, onConfigChange])
+  const setMode = React.useCallback((v: SunPhasesConfig['mode']) => {
+    onConfigChange({ ...config, mode: v })
+  }, [config, onConfigChange])
 
   const useMyLocation = async () => {
     try {

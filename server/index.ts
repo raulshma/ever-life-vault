@@ -13,6 +13,7 @@ import { registerLiveShareRoutes } from './routes/live-share.js'
 import { registerSteamRoutes } from './routes/steam.js'
 import { registerMALRoutes } from './routes/mal.js'
 import { registerClipRoutes } from './routes/clips.js'
+import { registerInfrastructureRoutes } from './routes/infrastructure.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -120,6 +121,13 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // Clips (cl1p-like) routes (minimal helper; primary operations via Supabase RPCs)
   registerClipRoutes(server)
+
+  // Infrastructure management routes
+  registerInfrastructureRoutes(server, {
+    requireSupabaseUser,
+    SUPABASE_URL: env.SUPABASE_URL,
+    SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+  })
 
   server.get('/', async () => ({
     ok: true,

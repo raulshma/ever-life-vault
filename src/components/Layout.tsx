@@ -368,6 +368,7 @@ const MobileTabBar: React.FC<{ location: ReturnType<typeof useLocation>; onQuick
 
 export const Layout: React.FC = React.memo(() => {
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Local UI state for Search (Command Palette) and Quick Add
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -441,6 +442,7 @@ export const Layout: React.FC = React.memo(() => {
                 key={m.path}
                 onSelect={() => {
                   setIsSearchOpen(false);
+                  navigate(m.path);
                 }}
                 className="py-3 md:py-2 text-base md:text-sm"
               >
@@ -455,6 +457,7 @@ export const Layout: React.FC = React.memo(() => {
                 key={m.path}
                 onSelect={() => {
                   setIsSearchOpen(false);
+                  navigate(m.path);
                 }}
                 className="py-3 md:py-2 text-base md:text-sm"
               >
@@ -469,6 +472,7 @@ export const Layout: React.FC = React.memo(() => {
                 key={m.path}
                 onSelect={() => {
                   setIsSearchOpen(false);
+                  navigate(m.path);
                 }}
                 className="py-3 md:py-2 text-base md:text-sm"
               >

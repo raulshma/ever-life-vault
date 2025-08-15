@@ -78,15 +78,18 @@ export default function WindFocusWidget({ config, onConfigChange }: WidgetProps<
 
   React.useEffect(() => { void refresh() }, [refresh])
 
-  const setLat = (v: string) => {
+  const setLat = React.useCallback((v: string) => {
     const n = Number(v)
     onConfigChange({ ...config, lat: Number.isFinite(n) ? n : undefined })
-  }
-  const setLon = (v: string) => {
+  }, [config, onConfigChange])
+  
+  const setLon = React.useCallback((v: string) => {
     const n = Number(v)
     onConfigChange({ ...config, lon: Number.isFinite(n) ? n : undefined })
-  }
-  const setUnits = (v: string) => onConfigChange({ ...config, units: (v as WindConfig['units']) })
+  }, [config, onConfigChange])
+  const setUnits = React.useCallback((v: string) => {
+    onConfigChange({ ...config, units: (v as WindConfig['units']) })
+  }, [config, onConfigChange])
 
   const useMyLocation = async () => {
     try {

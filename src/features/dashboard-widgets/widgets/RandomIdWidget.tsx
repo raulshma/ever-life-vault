@@ -47,6 +47,14 @@ export default function RandomIdWidget({ config, onConfigChange }: WidgetProps<R
 
   const copy = async () => { try { await navigator.clipboard.writeText(value) } catch {} }
 
+  const setVariant = React.useCallback((variant: RandomIdConfig['variant']) => {
+    onConfigChange({ ...config, variant })
+  }, [config, onConfigChange])
+
+  const setLength = React.useCallback((length: number) => {
+    onConfigChange({ ...config, length })
+  }, [config, onConfigChange])
+
   return (
     <WidgetShell title="Random ID" actions={
       <Tooltip>
@@ -71,13 +79,13 @@ export default function RandomIdWidget({ config, onConfigChange }: WidgetProps<R
           </Tooltip>
         </div>
         <div className="flex flex-wrap gap-2 text-sm items-center">
-          <Button size="sm" variant={variant === 'uuid' ? 'default' : 'secondary'} onClick={() => onConfigChange({ ...config, variant: 'uuid' })}>UUID</Button>
-          <Button size="sm" variant={variant === 'ulid' ? 'default' : 'secondary'} onClick={() => onConfigChange({ ...config, variant: 'ulid' })}>ULID</Button>
-          <Button size="sm" variant={variant === 'nano' ? 'default' : 'secondary'} onClick={() => onConfigChange({ ...config, variant: 'nano' })}>NanoID</Button>
+          <Button size="sm" variant={variant === 'uuid' ? 'default' : 'secondary'} onClick={() => setVariant('uuid')}>UUID</Button>
+          <Button size="sm" variant={variant === 'ulid' ? 'default' : 'secondary'} onClick={() => setVariant('ulid')}>ULID</Button>
+          <Button size="sm" variant={variant === 'nano' ? 'default' : 'secondary'} onClick={() => setVariant('nano')}>NanoID</Button>
           {variant === 'nano' && (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Length</span>
-              <Input type="number" min={6} max={64} value={length} onChange={(e) => onConfigChange({ ...config, length: Number(e.target.value) })} className="w-24" />
+              <Input type="number" min={6} max={64} value={length} onChange={(e) => setLength(Number(e.target.value))} className="w-24" />
             </div>
           )}
         </div>

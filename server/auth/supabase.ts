@@ -1,9 +1,9 @@
 import type { FastifyBaseLogger } from 'fastify'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-export function createSupabaseClient(url?: string, anonKey?: string): SupabaseClient | null {
+export function createSupabaseClient(url?: string, anonKey?: string, options?: any): SupabaseClient | null {
   if (!url || !anonKey) return null
-  return createClient(url, anonKey)
+  return createClient(url, anonKey, options)
 }
 
 export function requireSupabaseUserFactory(

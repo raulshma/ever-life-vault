@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.12 (cd3cf9e)"
@@ -68,6 +68,39 @@ export type Database = {
           updated_at?: string
           user_id?: string
           widget_state?: Json
+        }
+        Relationships: []
+      }
+      docker_compose_configs: {
+        Row: {
+          compose_content: string
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          compose_content: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          compose_content?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          name?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -213,6 +246,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      infrastructure_secrets: {
+        Row: {
+          auth_tag: string
+          created_at: string
+          encrypted_value: string
+          id: string
+          iv: string
+          key: string
+          salt: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth_tag: string
+          created_at?: string
+          encrypted_value: string
+          id?: string
+          iv: string
+          key: string
+          salt: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth_tag?: string
+          created_at?: string
+          encrypted_value?: string
+          id?: string
+          iv?: string
+          key?: string
+          salt?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       inventory_items: {
         Row: {
@@ -1124,6 +1193,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      delete_docker_compose_config: {
+        Args: { _name: string }
+        Returns: boolean
+      }
+      delete_infrastructure_secret: {
+        Args: { _key: string }
+        Returns: boolean
+      }
       end_live_share: {
         Args: { _id: string }
         Returns: undefined
@@ -1131,26 +1208,71 @@ export type Database = {
       get_clip: {
         Args: { _id: string; _proof?: string }
         Returns: {
-          id: string
           content: string
           expires_at: string
-          updated_at: string
           has_password: boolean
+          id: string
+          updated_at: string
         }[]
       }
       get_clip_meta: {
         Args: { _id: string }
         Returns: {
           clip_exists: boolean
-          has_password: boolean
           expires_at: string
-          updated_at: string
+          has_password: boolean
           password_salt: string
+          updated_at: string
+        }[]
+      }
+      get_docker_compose_config: {
+        Args: { _name: string }
+        Returns: {
+          compose_content: string
+          created_at: string
+          description: string
+          id: string
+          metadata: Json
+          name: string
+          updated_at: string
+        }[]
+      }
+      get_infrastructure_secret: {
+        Args: { _key: string }
+        Returns: {
+          auth_tag: string
+          created_at: string
+          encrypted_value: string
+          id: string
+          iv: string
+          key: string
+          salt: string
+          updated_at: string
         }[]
       }
       get_live_share_participant_status: {
         Args: { _id: string }
         Returns: string
+      }
+      list_docker_compose_configs: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          description: string
+          id: string
+          metadata: Json
+          name: string
+          updated_at: string
+        }[]
+      }
+      list_infrastructure_secret_keys: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+        }[]
       }
       purge_expired_live_shares: {
         Args: Record<PropertyKey, never>
@@ -1159,19 +1281,38 @@ export type Database = {
       redeem_live_share_invite: {
         Args: { _code: string; _display_name: string }
         Returns: {
-          room_id: string
           participant_id: string
+          room_id: string
         }[]
       }
       set_live_share_participant_status: {
         Args: { _participant_id: string; _status: string }
         Returns: undefined
       }
+      store_docker_compose_config: {
+        Args: {
+          _compose_content: string
+          _description: string
+          _metadata?: Json
+          _name: string
+        }
+        Returns: string
+      }
+      store_infrastructure_secret: {
+        Args: {
+          _auth_tag: string
+          _encrypted_value: string
+          _iv: string
+          _key: string
+          _salt: string
+        }
+        Returns: string
+      }
       upsert_clip: {
         Args: {
-          _id: string
           _content: string
           _expires_at?: string
+          _id: string
           _proof?: string
           _set_password_proof?: string
           _set_password_salt?: string
