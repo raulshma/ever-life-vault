@@ -136,8 +136,13 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
     try {
-      const { data, error } = await supabase
+      const { data, error } = await authenticatedSupabase
         .from('docker_compose_configs')
         .select('*')
         .eq('user_id', user.id)
@@ -159,6 +164,11 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
     try {
       const body = createConfigSchema.parse(request.body)
       
@@ -172,7 +182,7 @@ export function registerInfrastructureRoutes(
         })
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await authenticatedSupabase
         .from('docker_compose_configs')
         .insert({
           user_id: user.id,
@@ -203,10 +213,15 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
     try {
       const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
 
-      const { data, error } = await supabase
+      const { data, error } = await authenticatedSupabase
         .from('docker_compose_configs')
         .select('*')
         .eq('id', params.id)
@@ -235,6 +250,11 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
     try {
       const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
       const body = updateConfigSchema.parse(request.body)
@@ -251,7 +271,7 @@ export function registerInfrastructureRoutes(
         }
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await authenticatedSupabase
         .from('docker_compose_configs')
         .update({
           ...body,
@@ -284,10 +304,15 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
     try {
       const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
 
-      const { error } = await supabase
+      const { error } = await authenticatedSupabase
         .from('docker_compose_configs')
         .delete()
         .eq('id', params.id)
@@ -312,11 +337,16 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
     try {
       const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
 
       // Get configuration
-      const { data: config, error } = await supabase
+      const { data: config, error } = await authenticatedSupabase
         .from('docker_compose_configs')
         .select('compose_content')
         .eq('id', params.id)

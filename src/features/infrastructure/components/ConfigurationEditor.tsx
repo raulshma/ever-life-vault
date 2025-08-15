@@ -17,6 +17,7 @@ import { useKeyboardShortcuts, createInfrastructureShortcuts } from "../hooks/us
 import { useScreenSize } from "../utils/responsive";
 import { useValidation, useServerValidation } from "../hooks/useValidation";
 import { DockerImportDialog } from "./DockerImportDialog";
+import { useToast } from "@/hooks/use-toast";
 import type { DockerComposeConfig, ServiceDefinition, VolumeDefinition, NetworkDefinition } from "../types";
 
 interface ConfigurationEditorProps {
@@ -47,6 +48,7 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
   // Validation hooks
   const validation = useValidation();
   const serverValidation = useServerValidation();
+  const { toast } = useToast();
 
   // Ensure existing services have the new advanced configuration fields
   useEffect(() => {
@@ -108,15 +110,53 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
     // Perform client-side validation first
     const clientValidation = validateCurrentConfig();
     if (!clientValidation.valid) {
+      console.log('Client validation failed:', clientValidation.errors);
+      toast({
+        title: "Validation Failed",
+        description: `Configuration has ${clientValidation.errors.length} error(s) that must be fixed before saving.`,
+        variant: "destructive",
+      });
       return; // Don't save if client validation fails
     }
 
-    // Perform server-side validation
-    const serverValidationResult = await serverValidation.validateWithServer(configData);
-    if (!serverValidationResult.valid) {
-      return; // Don't save if server validation fails
-    }
+         // Perform server-side validation
+     const serverValidationResult = await serverValidation.validateWithServer(configData);
+     if (!serverValidationResult.valid) {
+       console.log('Server validation failed:', serverValidationResult.errors);
+       
+       // Show toast for server validation failure
+       if (serverValidationResult.errors.some(err => err.field === 'auth')) {
+         toast({
+           title: "Authentication Required",
+           description: "Please log in to validate configurations.",
+           variant: "destructive",
+         });
+       } else if (serverValidationResult.errors.some(err => err.message.includes('Warning:'))) {
+         toast({
+           title: "Docker Compose Warnings Found",
+           description: `Configuration has ${serverValidationResult.errors.length} warning(s) that should be fixed before saving.`,
+           variant: "destructive",
+         });
+       } else {
+         toast({
+           title: "Docker Compose Validation Failed",
+           description: `Configuration has ${serverValidationResult.errors.length} error(s) that must be fixed before saving.`,
+           variant: "destructive",
+         });
+       }
+       
+       // The server errors are already set in the serverValidation hook
+       // and will be displayed in the ValidationDisplay component
+       return; // Don't save if server validation fails
+     }
 
+    // All validation passed, save the configuration
+    console.log('Validation passed, saving configuration');
+    toast({
+      title: "Configuration Validated",
+      description: "Docker Compose configuration is valid and ready to save.",
+      variant: "default",
+    });
     onSave(configData);
   }, [name, description, services, volumes, networks, onSave, validateCurrentConfig, serverValidation]);
 

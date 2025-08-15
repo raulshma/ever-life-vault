@@ -352,26 +352,69 @@ export function useServerValidation() {
 
       const result = await response.json();
       
-      if (!result.valid) {
+      // Check if there are any errors (validation failures)
+      if (!result.valid || (result.errors && result.errors.length > 0)) {
         setServerErrors(result.errors || []);
+        return {
+          valid: false,
+          errors: result.errors || [],
+          warnings: result.warnings || []
+        };
+      }
+
+      // Check if there are warnings that should prevent saving
+      // Only treat critical warnings as blocking - allow valid Docker Compose configurations to save
+      if (result.warnings && result.warnings.length > 0) {
+        // Filter out warnings that shouldn't block saving
+        const blockingWarnings = result.warnings.filter(warning => {
+          // Allow valid port mappings to pass through
+          if (warning.field.includes('ports') && warning.message.includes('should use format')) {
+            return false; // Don't block on format warnings for valid port mappings
+          }
+          // Allow other non-critical warnings to pass through
+          if (warning.message.includes('External network should specify a name') ||
+              warning.message.includes('External volume should specify a name')) {
+            return false;
+          }
+          // Block on security and configuration warnings
+          return true;
+        });
+
+        if (blockingWarnings.length > 0) {
+          setServerErrors(blockingWarnings.map(warning => ({
+            ...warning,
+            field: warning.field,
+            message: `Warning: ${warning.message} - Please fix before saving.`
+          })));
+          return {
+            valid: false,
+            errors: blockingWarnings.map(warning => ({
+              ...warning,
+              field: warning.field,
+              message: `Warning: ${warning.message} - Please fix before saving.`
+            })),
+            warnings: result.warnings
+          };
+        }
       }
 
       return result;
     } catch (error) {
       console.error('Server validation error:', error);
-      setServerErrors([{
+      const serverError = {
         field: 'server',
         message: 'Unable to validate configuration with server. Please check your connection and try again.'
-      }]);
+      };
+      setServerErrors([serverError]);
       return {
         valid: false,
-        errors: serverErrors,
+        errors: [serverError],
         warnings: []
       };
     } finally {
       setIsValidating(false);
     }
-  }, [serverErrors]);
+  }, [session?.access_token]);
 
   return {
     isValidating,

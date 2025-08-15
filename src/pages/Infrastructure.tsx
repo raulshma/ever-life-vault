@@ -15,6 +15,7 @@ import { HelpTooltip, HelpSection, HELP_CONTENT } from "@/features/infrastructur
 import { ResponsiveLayout, ResponsiveText, ResponsiveButtonGroup } from "@/features/infrastructure/components/ResponsiveLayout";
 import { useScreenSize } from "@/features/infrastructure/utils/responsive";
 import type { DockerComposeConfig } from "@/features/infrastructure/types";
+import { configsApi } from "@/features/infrastructure/services/configsApi";
 
 const Infrastructure: React.FC = () => {
   const [showEditor, setShowEditor] = useState(false);
@@ -57,11 +58,31 @@ const Infrastructure: React.FC = () => {
     try {
       await executeWithErrorHandling(
         async () => {
-          // TODO: Implement actual API call
-          console.log('Saving config:', config);
-          // Simulate API call
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return config;
+          if (editingConfig?.id) {
+            const payload = {
+              // allow renaming and description edits
+              name: config.name,
+              description: config.description,
+              compose_content: undefined as unknown as string, // replaced when metadata exists
+              metadata: config.metadata,
+            };
+            // Build compose_content only if metadata provided
+            if (config.metadata) {
+              const built = configsApi.buildCreatePayload({
+                name: config.name!,
+                description: config.description,
+                metadata: config.metadata,
+              });
+              payload.compose_content = built.compose_content;
+            }
+            const updated = await configsApi.update(editingConfig.id, payload as any);
+            return updated;
+          }
+          // Create new
+          const created = await configsApi.create(
+            configsApi.buildCreatePayload(config)
+          );
+          return created;
         },
         'Configuration saved successfully',
         {

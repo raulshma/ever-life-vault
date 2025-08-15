@@ -87,11 +87,13 @@ export class DockerService {
     if (service.ports) {
       for (const port of service.ports) {
         if (typeof port === 'string') {
-          const portMatch = port.match(/^(\d+):(\d+)$/);
+          // Docker Compose port format: "host:container" or "host:container/protocol"
+          // Examples: "8080:8080", "80:80/tcp", "53:53/udp"
+          const portMatch = port.match(/^(\d+):(\d+)(?:\/(tcp|udp))?$/);
           if (!portMatch) {
             warnings.push({
               field: `services.${serviceName}.ports`,
-              message: `Port mapping "${port}" should use format "host:container"`
+              message: `Port mapping "${port}" should use format "host:container" or "host:container/protocol"`
             });
           }
         }

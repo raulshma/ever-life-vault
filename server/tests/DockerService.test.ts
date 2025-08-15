@@ -141,8 +141,49 @@ services:
       
       expect(result.warnings).toContainEqual({
         field: 'services.web.ports',
-        message: 'Port mapping "invalid-port" should use format "host:container"'
+        message: 'Port mapping "invalid-port" should use format "host:container" or "host:container/protocol"'
       });
+    });
+
+    it('should accept valid port mappings with protocols', async () => {
+      const composeWithValidPorts = `
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "8080:8080"
+      - "80:80/tcp"
+      - "53:53/udp"
+`;
+
+      const result = await dockerService.validateCompose(composeWithValidPorts);
+      
+      // Should have no warnings for valid port mappings
+      const portWarnings = result.warnings.filter(w => w.field.includes('ports'));
+      expect(portWarnings).toHaveLength(0);
+    });
+
+    it('should accept simple port mappings without protocol', async () => {
+      const composeWithSimplePorts = `
+version: '3.8'
+services:
+  adminer:
+    image: adminer
+    ports:
+      - "8080:8080"
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: example
+`;
+
+      const result = await dockerService.validateCompose(composeWithSimplePorts);
+      
+      // Should have no warnings for valid port mappings
+      const portWarnings = result.warnings.filter(w => w.field.includes('ports'));
+      expect(portWarnings).toHaveLength(0);
+      expect(result.valid).toBe(true);
     });
 
     it('should validate external networks without names', async () => {
