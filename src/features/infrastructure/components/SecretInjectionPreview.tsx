@@ -223,10 +223,12 @@ export function SecretInjectionPreview({
 
       {/* Preview Tabs */}
       <Tabs defaultValue="original" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="original">Original Compose</TabsTrigger>
-          <TabsTrigger value="injected">With Secrets Injected</TabsTrigger>
-        </TabsList>
+        <div className="bg-muted rounded-md p-1 border border-border">
+          <TabsList className="w-full flex flex-wrap h-auto min-h-[2.5rem]">
+            <TabsTrigger value="original">Original Compose</TabsTrigger>
+            <TabsTrigger value="injected">With Secrets Injected</TabsTrigger>
+          </TabsList>
+        </div>
         
         <TabsContent value="original" className="space-y-4">
           <Card>

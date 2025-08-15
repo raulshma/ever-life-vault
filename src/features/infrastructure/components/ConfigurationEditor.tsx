@@ -278,30 +278,32 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
 
             {/* Configuration Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className={`grid w-full ${isMobile ? 'grid-cols-1 h-auto' : 'grid-cols-3'}`}>
-                <TabsTrigger value="basic" className="flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  <span>Basic Info</span>
-                </TabsTrigger>
-                <TabsTrigger value="services" className="flex items-center gap-2">
-                  <span>Services ({services.length})</span>
-                  <HelpTooltip content="Define the containers that make up your application">
-                    <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                  </HelpTooltip>
-                </TabsTrigger>
-                <TabsTrigger value="volumes" className="flex items-center gap-2">
-                  <span>Volumes ({volumes.length})</span>
-                  <HelpTooltip content="Configure persistent storage for your containers">
-                    <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                  </HelpTooltip>
-                </TabsTrigger>
-                <TabsTrigger value="networks" className="flex items-center gap-2">
-                  <span>Networks ({networks.length})</span>
-                  <HelpTooltip content="Set up networking between your containers">
-                    <HelpCircle className="h-3 w-3 text-muted-foreground" />
-                  </HelpTooltip>
-                </TabsTrigger>
-              </TabsList>
+              <div className="bg-muted rounded-md p-1 border border-border">
+                <TabsList className={`w-full ${isMobile ? 'grid grid-cols-1 h-auto' : 'flex flex-wrap h-auto min-h-[2.5rem]'}`}>
+                  <TabsTrigger value="basic" className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    <span>Basic Info</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="services" className="flex items-center gap-2">
+                    <span>Services ({services.length})</span>
+                    <HelpTooltip content="Define the containers that make up your application">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </HelpTooltip>
+                  </TabsTrigger>
+                  <TabsTrigger value="volumes" className="flex items-center gap-2">
+                    <span>Volumes ({volumes.length})</span>
+                    <HelpTooltip content="Configure persistent storage for your containers">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </HelpTooltip>
+                  </TabsTrigger>
+                  <TabsTrigger value="networks" className="flex items-center gap-2">
+                    <span>Networks ({networks.length})</span>
+                    <HelpTooltip content="Set up networking between your containers">
+                      <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                    </HelpTooltip>
+                  </TabsTrigger>
+                </TabsList>
+              </div>
               
               {/* Basic Information Tab */}
               <TabsContent value="basic" className="space-y-4">

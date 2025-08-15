@@ -78,20 +78,22 @@ export function SecretsManagementPage({
       </Alert>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="secrets" className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            Secrets
-          </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Templates
-          </TabsTrigger>
-          <TabsTrigger value="preview" className="flex items-center gap-2">
-            <Eye className="h-4 w-4" />
-            Preview
-          </TabsTrigger>
-        </TabsList>
+        <div className="bg-muted rounded-md p-1 border border-border">
+          <TabsList className="w-full flex flex-wrap h-auto min-h-[2.5rem]">
+            <TabsTrigger value="secrets" className="flex items-center gap-2">
+              <Key className="h-4 w-4" />
+              Secrets
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Templates
+            </TabsTrigger>
+            <TabsTrigger value="preview" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Preview
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="secrets" className="space-y-6">
           <SecretsManager

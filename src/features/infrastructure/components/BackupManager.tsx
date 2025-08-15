@@ -28,16 +28,18 @@ export function BackupManager() {
       </Alert>
 
       <Tabs defaultValue="export" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="export" className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
-            Export Backup
-          </TabsTrigger>
-          <TabsTrigger value="import" className="flex items-center gap-2">
-            <Upload className="h-4 w-4" />
-            Import Backup
-          </TabsTrigger>
-        </TabsList>
+        <div className="bg-muted rounded-md p-1 border border-border">
+          <TabsList className="w-full flex flex-wrap h-auto min-h-[2.5rem]">
+            <TabsTrigger value="export" className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Export Backup
+            </TabsTrigger>
+            <TabsTrigger value="import" className="flex items-center gap-2">
+              <Upload className="h-4 w-4" />
+              Import Backup
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="export">
           <Card>

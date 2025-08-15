@@ -237,18 +237,20 @@ export default function DayTracker() {
 
       <div className="pt-4 pb-0">
         <Tabs defaultValue="monthly" className="w-full">
-          <TabsList className="tablist-elevated grid w-full grid-cols-2 mb-6 sm:mb-8">
-            <TabsTrigger value="kanban" className="tabtrigger flex items-center gap-2">
-              <Calendar className="h-4 w-4" />
-              <span className="hidden xs:inline">Daily Tasks</span>
-              <span className="xs:hidden">Daily</span>
-            </TabsTrigger>
-            <TabsTrigger value="monthly" className="tabtrigger flex items-center gap-2">
-              <Grid className="h-4 w-4" />
-              <span className="hidden xs:inline">Monthly Status</span>
-              <span className="xs:hidden">Monthly</span>
-            </TabsTrigger>
-          </TabsList>
+          <div className="tablist-elevated mb-6 sm:mb-8">
+            <TabsList className="w-full flex flex-wrap h-auto min-h-[2.5rem]">
+              <TabsTrigger value="kanban" className="tabtrigger flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                <span className="hidden xs:inline">Daily Tasks</span>
+                <span className="xs:hidden">Daily</span>
+              </TabsTrigger>
+              <TabsTrigger value="monthly" className="tabtrigger flex items-center gap-2">
+                <Grid className="h-4 w-4" />
+                <span className="hidden xs:inline">Monthly Status</span>
+                <span className="xs:hidden">Monthly</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="kanban" className="space-y-6 sm:space-y-8">
             {/* Summary & Controls */}

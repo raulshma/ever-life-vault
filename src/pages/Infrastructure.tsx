@@ -178,34 +178,36 @@ const Infrastructure: React.FC = () => {
 
         {/* Main Tabs Interface */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className={`grid w-full ${isMobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
-            <TabsTrigger value="configurations" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              <span className={isMobile ? "text-xs" : ""}>{isMobile ? "Config" : "Configurations"}</span>
-            </TabsTrigger>
-            <TabsTrigger value="stacks" className="flex items-center gap-2">
-              <Server className="h-4 w-4" />
-              <span className={isMobile ? "text-xs" : ""}>Stacks</span>
-            </TabsTrigger>
-            {!isMobile && (
-              <>
-                <TabsTrigger value="monitoring" className="flex items-center gap-2">
-                  <Activity className="h-4 w-4" />
-                  <span>Monitoring</span>
-                </TabsTrigger>
-                <TabsTrigger value="secrets" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  <span>Secrets</span>
-                </TabsTrigger>
-              </>
-            )}
-            {isMobile && (
-              <TabsTrigger value="more" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                <span className="text-xs">More</span>
+          <div className="bg-muted rounded-md p-1 border border-border">
+            <TabsList className={`w-full ${isMobile ? 'grid grid-cols-2' : 'flex flex-wrap h-auto min-h-[2.5rem]'}`}>
+              <TabsTrigger value="configurations" className="flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                <span className={isMobile ? "text-xs" : ""}>{isMobile ? "Config" : "Configurations"}</span>
               </TabsTrigger>
-            )}
-          </TabsList>
+              <TabsTrigger value="stacks" className="flex items-center gap-2">
+                <Server className="h-4 w-4" />
+                <span className={isMobile ? "text-xs" : ""}>Stacks</span>
+              </TabsTrigger>
+              {!isMobile && (
+                <>
+                  <TabsTrigger value="monitoring" className="flex items-center gap-2">
+                    <Activity className="h-4 w-4" />
+                    <span>Monitoring</span>
+                  </TabsTrigger>
+                  <TabsTrigger value="secrets" className="flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    <span>Secrets</span>
+                  </TabsTrigger>
+                </>
+              )}
+              {isMobile && (
+                <TabsTrigger value="more" className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  <span className="text-xs">More</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+          </div>
 
           {/* Mobile More Tab */}
           {isMobile && (
