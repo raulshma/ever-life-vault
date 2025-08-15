@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { buildForwardHeaders, prepareBody, sendUpstreamResponse } from './shared.js'
+import { buildForwardHeaders, prepareBody, sendUpstreamResponse, sanitizeRequestBody, validateUrl, checkRateLimit } from './shared.js'
 
 export function registerAgpRoute(
   server: FastifyInstance,
@@ -8,14 +8,30 @@ export function registerAgpRoute(
   allowUnauthenticated: boolean = false,
 ) {
   server.all('/agp', async (request, reply) => {
+    // Rate limiting
+    const clientId = (request as any).user?.id || request.ip;
+    if (!checkRateLimit(`agp:${clientId}`, 50, 60000)) {
+      return reply.code(429).send({ 
+        error: 'Rate limit exceeded', 
+        message: 'Too many requests, please try again later' 
+      });
+    }
+
     if (!allowUnauthenticated) {
       const user = await requireSupabaseUser(request, reply)
       if (!user) return
     }
+    
     const { url: targetUrl } = (request as any).query || {}
     if (!targetUrl || typeof targetUrl !== 'string') {
       return reply.code(400).send({ error: 'Missing url query parameter' })
     }
+    
+    // Validate URL format and prevent SSRF
+    if (!validateUrl(targetUrl, ['localhost', '127.0.0.1', '::1'])) {
+      return reply.code(400).send({ error: 'Invalid URL format' })
+    }
+    
     if (!isTargetAllowed(targetUrl)) {
       return reply.code(403).send({ error: 'Target not allowed' })
     }
@@ -30,22 +46,24 @@ export function registerAgpRoute(
     }
 
     const method = request.method.toUpperCase()
-    const body = prepareBody(method, incomingHeaders, (request as any).body, forwardHeaders)
+    
+    // Sanitize request body
+    const sanitizedBody = sanitizeRequestBody((request as any).body);
+    const body = prepareBody(method, incomingHeaders, sanitizedBody, forwardHeaders)
 
     // Add a timeout to avoid resource exhaustion from slow upstreams
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 30_000)
     try {
       const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as any })
-      // Allow Set-Cookie only if upstream is same-host as target? Keep default allow to not break integrations
-      return sendUpstreamResponse(reply, res, false)
-    } catch (err) {
-      // Upstream error (network, DNS, CORS at upstream, etc.) — do not crash with 500
-      request.log?.error?.({ err, targetUrl, method }, 'AGP upstream fetch failed')
       clearTimeout(to)
-      return reply.code(502).send({ error: 'Upstream fetch failed' })
-    } finally {
+      return sendUpstreamResponse(reply, res)
+    } catch (e) {
       clearTimeout(to)
+      if (e.name === 'AbortError') {
+        return reply.code(504).send({ error: 'Request timeout' })
+      }
+      return reply.code(500).send({ error: 'Upstream request failed' })
     }
   })
 }

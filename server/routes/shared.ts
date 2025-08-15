@@ -1,5 +1,81 @@
 import { Readable } from 'node:stream'
 
+/**
+ * Security utilities for route handlers
+ */
+
+/**
+ * Validate and sanitize request body to prevent injection attacks
+ */
+export function sanitizeRequestBody(body: any): any {
+  if (!body || typeof body !== 'object') return body;
+  
+  const sanitized: any = {};
+  for (const [key, value] of Object.entries(body)) {
+    if (typeof value === 'string') {
+      // Sanitize string values
+      sanitized[key] = value
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+        .replace(/javascript:/gi, '')
+        .replace(/on\w+\s*=/gi, '')
+        .replace(/data:/gi, '')
+        .replace(/vbscript:/gi, '')
+        .substring(0, 10000); // Limit length
+    } else if (typeof value === 'object' && value !== null) {
+      // Recursively sanitize nested objects
+      sanitized[key] = sanitizeRequestBody(value);
+    } else {
+      // Keep other types as-is
+      sanitized[key] = value;
+    }
+  }
+  
+  return sanitized;
+}
+
+/**
+ * Validate URL to prevent SSRF attacks
+ */
+export function validateUrl(url: string, allowedHosts: string[]): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    
+    // Check if host is in allowed list
+    return allowedHosts.some(allowed => {
+      if (allowed.startsWith('*.')) {
+        const domain = allowed.slice(2);
+        return host === domain || host.endsWith('.' + domain);
+      }
+      return host === allowed.toLowerCase();
+    });
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Rate limiting helper (simple in-memory implementation)
+ */
+const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+
+export function checkRateLimit(key: string, maxRequests: number = 100, windowMs: number = 60000): boolean {
+  const now = Date.now();
+  const record = rateLimitStore.get(key);
+  
+  if (!record || now > record.resetTime) {
+    rateLimitStore.set(key, { count: 1, resetTime: now + windowMs });
+    return true;
+  }
+  
+  if (record.count >= maxRequests) {
+    return false;
+  }
+  
+  record.count++;
+  return true;
+}
+
 export function buildForwardHeaders(
   incomingHeaders: Record<string, any>,
   omitAuthorization: boolean = false,
@@ -18,7 +94,8 @@ export function buildForwardHeaders(
 }
 
 export async function sendUpstreamResponse(reply: any, res: Response, allowSetCookie: boolean = true) {
-  for (const [hk, hv] of (res.headers as any)) {
+  // Forward only safe headers
+  for (const [hk, hv] of res.headers.entries()) {
     const lower = hk.toLowerCase()
     if (['content-type', 'cache-control', 'etag', 'last-modified'].includes(lower)) {
       reply.header(hk, hv)

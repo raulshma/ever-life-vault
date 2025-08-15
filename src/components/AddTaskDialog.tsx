@@ -23,6 +23,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { format } from 'date-fns';
 import { CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { validateInput, escapeHtml } from '@/lib/utils';
 
 interface AddTaskDialogProps {
   open: boolean;
@@ -59,6 +60,40 @@ export function AddTaskDialog({ open, onOpenChange, onAdd }: AddTaskDialogProps)
       setIsAdding(false);
     }
   };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validate and sanitize inputs
+    const sanitizedTitle = validateInput(title, 200);
+    const sanitizedDescription = validateInput(description, 1000);
+    const sanitizedPriority = validateInput(priority, 20);
+    const sanitizedStatus = validateInput(status, 20);
+    
+    if (!sanitizedTitle.trim()) {
+      alert('Task title is required');
+      return;
+    }
+    
+    // Escape HTML to prevent XSS
+    const safeTitle = escapeHtml(sanitizedTitle);
+    const safeDescription = escapeHtml(sanitizedDescription);
+    
+    addTask({
+      title: safeTitle,
+      description: safeDescription,
+      priority: sanitizedPriority,
+      status: sanitizedStatus,
+      due_date: dueDate,
+    })
+    
+    setTitle('')
+    setDescription('')
+    setPriority('medium')
+    setStatus('pending')
+    setDueDate('')
+    setOpen(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

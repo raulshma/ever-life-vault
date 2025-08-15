@@ -90,28 +90,47 @@ const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
     return null
   }
 
-  return (
-    <style
-      dangerouslySetInnerHTML={{
-    __html: Object.entries(THEMES)
-          .map(
-            ([theme, prefix]) => `
-${prefix} [data-chart=${id}] {
-${colorConfig
-  .map(([key, itemConfig]) => {
-    const color =
-      itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||
-      itemConfig.color
-    return color && isSafeColor(color) ? `  --color-${key}: ${color};` : null
-  })
-  .join("\n")}
-}
-`
-          )
-          .join("\n"),
-      }}
-    />
-  )
+  // Create CSS rules programmatically instead of using dangerouslySetInnerHTML
+  const createStyleElement = () => {
+    const styleElement = document.createElement('style');
+    styleElement.setAttribute('data-chart-style', id);
+    
+    const cssRules = Object.entries(THEMES)
+      .map(([theme, prefix]) => {
+        const colorRules = colorConfig
+          .map(([key, itemConfig]) => {
+            const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
+            return color && isSafeColor(color) ? `  --color-${key}: ${color};` : null;
+          })
+          .filter(Boolean)
+          .join('\n');
+        
+        if (!colorRules) return '';
+        
+        return `${prefix} [data-chart=${id}] {\n${colorRules}\n}`;
+      })
+      .filter(Boolean)
+      .join('\n');
+    
+    styleElement.textContent = cssRules;
+    return styleElement;
+  };
+
+  // Use useEffect to safely inject styles
+  React.useEffect(() => {
+    const styleElement = createStyleElement();
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      // Clean up on unmount
+      const existingStyle = document.querySelector(`[data-chart-style="${id}"]`);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, [id, config]);
+
+  return null; // No JSX needed since we're handling styles programmatically
 }
 
 const ChartTooltip = RechartsPrimitive.Tooltip

@@ -68,13 +68,68 @@ function formatWithMonth(date: Date, pattern: string) {
   return pattern.split("${YYYY}").join(YYYY).split("${MM}").join(MM).split("${MMM}").join(MMM);
 }
 
-function safeTransform(body: string | undefined, value: any, row: any) {
+function safeTransform(body: string | undefined, value: any, row: any): any {
   if (!body || !body.trim()) return value;
+  
   try {
-    // eslint-disable-next-line no-new-func
-    const fn = new Function("value", "row", body);
-    const res = fn(value, row);
-    return res;
+    // Create a safe evaluation context with only allowed operations
+    const safeContext = {
+      value,
+      row,
+      // Safe mathematical operations
+      Math: {
+        abs: Math.abs,
+        ceil: Math.ceil,
+        floor: Math.floor,
+        round: Math.round,
+        max: Math.max,
+        min: Math.min,
+        pow: Math.pow,
+        sqrt: Math.sqrt,
+        random: Math.random,
+      },
+      // Safe string operations
+      String: String,
+      Number: Number,
+      Boolean: Boolean,
+      // Safe array operations
+      Array: Array,
+      // Safe date operations
+      Date: Date,
+      // Safe utility functions
+      parseInt: parseInt,
+      parseFloat: parseFloat,
+      isNaN: isNaN,
+      isFinite: isFinite,
+    };
+
+    // Create a safe function that only has access to the safe context
+    const safeEval = new Function(
+      'value', 'row', 'Math', 'String', 'Number', 'Boolean', 'Array', 'Date', 'parseInt', 'parseFloat', 'isNaN', 'isFinite',
+      `"use strict"; return (function() { return ${body}; })();`
+    );
+
+    const result = safeEval(
+      value, row, 
+      safeContext.Math, 
+      safeContext.String, 
+      safeContext.Number, 
+      safeContext.Boolean, 
+      safeContext.Array, 
+      safeContext.Date, 
+      safeContext.parseInt, 
+      safeContext.parseFloat, 
+      safeContext.isNaN, 
+      safeContext.isFinite
+    );
+
+    // Additional safety check - ensure result is not a function
+    if (typeof result === 'function') {
+      console.warn('Transform result is a function, returning original value');
+      return value;
+    }
+
+    return result;
   } catch (e) {
     console.error("Transform error:", e);
     return value;

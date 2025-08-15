@@ -6,7 +6,6 @@ export async function registerPerfPlugins(server: FastifyInstance): Promise<void
   try {
     const helmet = await import('@fastify/helmet').then(m => m.default || (m as any))
     await server.register(helmet, {
-      contentSecurityPolicy: false,
       frameguard: { action: 'deny' },
       referrerPolicy: { policy: 'no-referrer' },
       crossOriginResourcePolicy: { policy: 'same-origin' },
@@ -14,11 +13,57 @@ export async function registerPerfPlugins(server: FastifyInstance): Promise<void
       noSniff: true,
       hidePoweredBy: true,
       hsts: process.env.NODE_ENV === 'production' ? { maxAge: 15552000 } : false,
+      // Additional security headers
+      crossOriginEmbedderPolicy: { policy: 'require-corp' },
+      crossOriginOpenerPolicy: { policy: 'same-origin' },
+      originAgentCluster: true,
+      // Custom security headers
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "blob:", "https://*.steamstatic.com", "https://*.akamaihd.net", "https://*.steampowered.com"],
+          fontSrc: ["'self'", "data:"],
+          connectSrc: ["'self'", "https://*.supabase.co", "wss://*.supabase.co"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+          objectSrc: ["'none'"],
+          // upgradeInsecureRequests: process.env.NODE_ENV === 'production',
+        }
+      }
     } as any)
   } catch (e) {
     server.log.warn('Helmet plugin not installed; skipping @fastify/helmet')
   }
 
+  // Rate limiting
+  try {
+    const rateLimit = await import('@fastify/rate-limit').then(m => m.default || (m as any))
+    await server.register(rateLimit, {
+      global: true,
+      max: 100, // Maximum 100 requests per window
+      timeWindow: '1 minute', // Per minute
+      allowList: ['127.0.0.1', '::1'], // Allow localhost
+      skipOnError: false,
+      keyGenerator: (request: any) => {
+        // Use user ID if authenticated, otherwise IP address
+        const user = (request as any).user;
+        return user ? user.id : request.ip;
+      },
+      errorResponseBuilder: (request: any, context: any) => ({
+        code: 429,
+        error: 'Too Many Requests',
+        message: `Rate limit exceeded, retry in ${Math.ceil(context.after / 1000)} seconds`,
+        retryAfter: Math.ceil(context.after / 1000)
+      })
+    } as any)
+  } catch (e) {
+    server.log.warn('Rate limit plugin not installed; skipping @fastify/rate-limit')
+  }
+
+  // Compression
   try {
     const compress = await import('@fastify/compress').then(m => m.default || (m as any))
     await server.register(compress, {
@@ -30,6 +75,7 @@ export async function registerPerfPlugins(server: FastifyInstance): Promise<void
     server.log.warn('Compression plugin not installed; skipping @fastify/compress')
   }
 
+  // ETags
   try {
     const etag = await import('@fastify/etag').then(m => m.default || (m as any))
     await server.register(etag)
