@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "proxy": "tsx server/index.ts",
-    "types:generate": "npx supabase gen types typescript --project-id ldnilzmkufdosagwowgd > src/integrations/supabase/types.ts",
+    "types:generate": "npx supabase gen types typescript --project-id ldnilzmkufdosagwowgd --output src/integrations/supabase/types.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
