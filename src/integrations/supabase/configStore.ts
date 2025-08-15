@@ -12,6 +12,12 @@ interface UserConfigRow {
   updated_at?: string
 }
 
+interface BatchConfigOperation {
+  namespace: string
+  key: string
+  value?: any // undefined means delete
+}
+
 async function getCurrentUserId(): Promise<string | null> {
   try {
     // Prefer local session (no network) for user id
@@ -61,6 +67,103 @@ export async function getNamespaceValues(namespace: string): Promise<Record<stri
     .eq('namespace', namespace)
   if (error || !data) return {}
   return Object.fromEntries((data as Array<{ key: string; value: any }>).map((r) => [r.key, r.value]))
+}
+
+// New batch operations for better performance
+
+/**
+ * Get multiple config values in a single database call
+ */
+export async function getConfigValues(operations: Array<{ namespace: string; key: string }>): Promise<Array<{ namespace: string; key: string; value: any }>> {
+  const userId = await getCurrentUserId()
+  if (!userId || operations.length === 0) return []
+  
+  const client: any = supabase
+  
+  // Group operations by namespace for optimal querying
+  const namespaceGroups = operations.reduce((acc, op) => {
+    if (!acc[op.namespace]) acc[op.namespace] = []
+    acc[op.namespace].push(op.key)
+    return acc
+  }, {} as Record<string, string[]>)
+  
+  const results: Array<{ namespace: string; key: string; value: any }> = []
+  
+  // Query each namespace separately since we need to match specific keys
+  for (const [namespace, keys] of Object.entries(namespaceGroups)) {
+    const { data, error } = await client
+      .from('user_configs')
+      .select('key, value')
+      .eq('user_id', userId)
+      .eq('namespace', namespace)
+      .in('key', keys)
+    
+    if (!error && data) {
+      results.push(...data.map(row => ({ namespace, key: row.key, value: row.value })))
+    }
+  }
+  
+  return results
+}
+
+/**
+ * Set multiple config values in a single database call
+ */
+export async function setConfigValues(operations: Array<{ namespace: string; key: string; value: any }>): Promise<boolean> {
+  const userId = await getCurrentUserId()
+  if (!userId || operations.length === 0) return false
+  
+  const client: any = supabase
+  
+  // Prepare rows for batch upsert
+  const rows: UserConfigRow[] = operations.map(op => ({
+    user_id: userId,
+    namespace: String(op.namespace).slice(0, 64),
+    key: String(op.key).slice(0, 128),
+    value: op.value
+  }))
+  
+  const { error } = await client
+    .from('user_configs')
+    .upsert(rows, { onConflict: 'user_id,namespace,key' })
+  
+  return !error
+}
+
+/**
+ * Batch get and set operations for maximum efficiency
+ * This is the most optimized function for multiple operations
+ */
+export async function batchConfigOperations(
+  gets: Array<{ namespace: string; key: string }> = [],
+  sets: Array<{ namespace: string; key: string; value: any }> = []
+): Promise<{
+  gets: Array<{ namespace: string; key: string; value: any }>
+  sets: boolean
+}> {
+  const userId = await getCurrentUserId()
+  if (!userId) {
+    return { gets: [], sets: false }
+  }
+  
+  const client: any = supabase
+  const results = { gets: [] as Array<{ namespace: string; key: string; value: any }>, sets: false }
+  
+  // Execute gets and sets in parallel if both exist
+  if (gets.length > 0 && sets.length > 0) {
+    const [getResults, setResults] = await Promise.all([
+      getConfigValues(gets),
+      setConfigValues(sets)
+    ])
+    results.gets = getResults
+    results.sets = setResults
+  } else if (gets.length > 0) {
+    results.gets = await getConfigValues(gets)
+  } else if (sets.length > 0) {
+    results.sets = await setConfigValues(sets)
+  }
+  
+  return results
 }
 
 

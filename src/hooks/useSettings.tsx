@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getConfigValue, setConfigValue } from '@/integrations/supabase/configStore';
+import { getConfigValue, setConfigValue, batchConfigOperations } from '@/integrations/supabase/configStore'
 
 type ThemeMode = 'light' | 'dark' | 'amoled' | 'system';
 
@@ -141,11 +141,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let mounted = true;
     (async () => {
       try {
-        const [dbTheme, dbTransitions, dbAutoCategorize] = await Promise.all([
-          getConfigValue<ThemeMode>('settings', 'themeMode'),
-          getConfigValue<boolean>('settings', 'viewTransitionsEnabled'),
-          getConfigValue<boolean>('settings', 'autoCategorizeSidebar'),
+        const results = await batchConfigOperations([
+          { namespace: 'settings', key: 'themeMode' },
+          { namespace: 'settings', key: 'viewTransitionsEnabled' },
+          { namespace: 'settings', key: 'autoCategorizeSidebar' }
         ]);
+        
+        const dbTheme = results.gets.find(r => r.key === 'themeMode')?.value
+        const dbTransitions = results.gets.find(r => r.key === 'viewTransitionsEnabled')?.value
+        const dbAutoCategorize = results.gets.find(r => r.key === 'autoCategorizeSidebar')?.value
         if (!mounted) return;
         const allowedModes: ThemeMode[] = ['light', 'dark', 'amoled', 'system']
         if (dbTheme && typeof dbTheme === 'string' && (allowedModes as string[]).includes(dbTheme)) {

@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
-import { getConfigValue, setConfigValue } from "@/integrations/supabase/configStore";
+import { getConfigValue, setConfigValue, batchConfigOperations } from "@/integrations/supabase/configStore";
 
 // Register Handsontable modules
 registerAllModules();
@@ -173,7 +173,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     try {
       localStorage.setItem(LS_SCHEMA_KEY, JSON.stringify(sanitized));
     } catch {}
-    void setConfigValue('mss', 'schema', sanitized);
+    void batchConfigOperations([], [{ namespace: 'mss', key: 'schema', value: sanitized }]);
   }, []);
 
   // Per month custom values
@@ -211,7 +211,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     try {
       localStorage.setItem(LS_MONTH_DATA_PREFIX + month, JSON.stringify(sanitized));
     } catch {}
-    void setConfigValue('mss', `custom_${month}`, sanitized);
+    void batchConfigOperations([], [{ namespace: 'mss', key: `custom_${month}`, value: sanitized }]);
   }, []);
 
   // Fullscreen state
@@ -460,7 +460,7 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     try {
       localStorage.setItem("mss_export_config", JSON.stringify(safeCfg));
     } catch {}
-    void setConfigValue('mss', 'export_config', safeCfg);
+    void batchConfigOperations([], [{ namespace: 'mss', key: 'export_config', value: safeCfg }]);
   };
 
   const performExport = useCallback(
@@ -525,10 +525,13 @@ export const MonthlyStatusSheets: React.FC = React.memo(function MonthlyStatusSh
     let mounted = true;
     (async () => {
       try {
-        const [dbSchema, dbExport] = await Promise.all([
-          getConfigValue<CustomSchema>('mss', 'schema'),
-          getConfigValue<ExportConfig>('mss', 'export_config'),
+        const results = await batchConfigOperations([
+          { namespace: 'mss', key: 'schema' },
+          { namespace: 'mss', key: 'export_config' }
         ]);
+        
+        const dbSchema = results.gets.find(r => r.key === 'schema')?.value
+        const dbExport = results.gets.find(r => r.key === 'export_config')?.value
         if (!mounted) return;
         if (dbSchema && typeof dbSchema === 'object') {
           setSchema(dbSchema);

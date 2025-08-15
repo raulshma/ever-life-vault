@@ -5,7 +5,7 @@ import type { Json } from '@/integrations/supabase/types'
 import { useWidgetRegistry, registerBuiltInWidgets } from './registry'
 import type { DashboardLayoutRecord, WidgetDefinition, WidgetInstanceId, WidgetProps, WidgetState } from './types'
 import type { LayoutTree, GridLayout, MosaicTree, GridColSpan, GridRowSpan } from './types'
-import { getConfigValue, setConfigValue } from '@/integrations/supabase/configStore'
+import { getConfigValue, setConfigValue, batchConfigOperations } from '@/integrations/supabase/configStore'
 // Note: Drag-and-drop is loaded only in EditingStackView to keep the default view light
 
 type WidgetStateMap = Record<WidgetInstanceId, WidgetState<any>>
@@ -101,15 +101,15 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       localStorage.setItem('dashboard:spans', JSON.stringify(nextSpans ?? spans))
       localStorage.setItem('dashboard:rowspans', JSON.stringify(nextRowSpans ?? rowSpans))
     } catch {}
-    // Persist spans to DB for cross-device sync
-    try {
-      const safeSpans = Object.fromEntries(Object.entries((nextSpans ?? spans) || {}).map(([k, v]) => [k, Math.max(1, Math.min(4, Number(v) || 1))]))
-      const safeRowSpans = Object.fromEntries(Object.entries((nextRowSpans ?? rowSpans) || {}).map(([k, v]) => [k, Math.max(1, Math.min(3, Number(v) || 1))]))
-      await Promise.all([
-        setConfigValue('dashboard', 'spans', safeSpans),
-        setConfigValue('dashboard', 'rowspans', safeRowSpans),
-      ])
-    } catch {}
+          // Persist spans to DB for cross-device sync
+      try {
+        const safeSpans = Object.fromEntries(Object.entries((nextSpans ?? spans) || {}).map(([k, v]) => [k, Math.max(1, Math.min(4, Number(v) || 1))]))
+        const safeRowSpans = Object.fromEntries(Object.entries((nextRowSpans ?? rowSpans) || {}).map(([k, v]) => [k, Math.max(1, Math.min(3, Number(v) || 1))]))
+        await batchConfigOperations([], [
+          { namespace: 'dashboard', key: 'spans', value: safeSpans },
+          { namespace: 'dashboard', key: 'rowspans', value: safeRowSpans }
+        ])
+      } catch {}
   }, 800)
 
   useEffect(() => {
@@ -137,10 +137,14 @@ export function DashboardRuntimeProvider({ children }: { children: React.ReactNo
       } catch {}
       // Load DB-synced spans
       try {
-        const [dbSpans, dbRowSpans] = await Promise.all([
-          getConfigValue<Record<WidgetInstanceId, GridColSpan>>('dashboard', 'spans'),
-          getConfigValue<Record<WidgetInstanceId, GridRowSpan>>('dashboard', 'rowspans'),
+        const results = await batchConfigOperations([
+          { namespace: 'dashboard', key: 'spans' },
+          { namespace: 'dashboard', key: 'rowspans' }
         ])
+        
+        const dbSpans = results.gets.find(r => r.key === 'spans')?.value
+        const dbRowSpans = results.gets.find(r => r.key === 'rowspans')?.value
+        
         if (dbSpans && typeof dbSpans === 'object') {
           const safe = Object.fromEntries(Object.entries(dbSpans).map(([k, v]) => [k, Math.max(1, Math.min(4, Number(v) || 1))])) as Record<WidgetInstanceId, GridColSpan>
           setSpans(safe)
