@@ -123,11 +123,15 @@ export async function buildServer(): Promise<FastifyInstance> {
   registerClipRoutes(server)
 
   // Infrastructure management routes
-  registerInfrastructureRoutes(server, {
-    requireSupabaseUser,
-    SUPABASE_URL: env.SUPABASE_URL,
-    SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
-  })
+  if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
+    registerInfrastructureRoutes(server, {
+      requireSupabaseUser,
+      SUPABASE_URL: env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+    })
+  } else {
+    server.log.warn('Skipping infrastructure routes: SUPABASE_URL or SUPABASE_ANON_KEY not configured')
+  }
 
   server.get('/', async () => ({
     ok: true,

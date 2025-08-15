@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { DockerService } from '../services/DockerService.js'
 import { FileSystemService } from '../services/FileSystemService.js'
 import { SecretsService } from '../services/SecretsService.js'
@@ -34,7 +34,15 @@ const createConfigSchema = z.object({
         gid: z.number().optional(),
         permissions: z.string().optional()
       })).optional().default([]),
-      depends_on: z.array(z.string()).optional()
+      depends_on: z.array(z.string()).optional(),
+      restart_policy: z.enum(['no', 'always', 'on-failure', 'unless-stopped']).optional(),
+      user_id: z.number().optional(),
+      group_id: z.number().optional(),
+      memory_limit: z.string().optional(),
+      cpu_limit: z.string().optional(),
+      health_check: z.string().optional(),
+      working_dir: z.string().optional(),
+      command: z.string().optional()
     })),
     volumes: z.array(z.object({
       name: z.string(),
@@ -474,7 +482,7 @@ export function registerInfrastructureRoutes(
     }
 
     try {
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       const keys = await secretsService.listSecretKeys(user.id)
       return reply.send({ secret_keys: keys })
     } catch (error: unknown) {
@@ -496,7 +504,7 @@ export function registerInfrastructureRoutes(
 
     try {
       const body = secretSchema.parse(request.body)
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       
       // Sanitize the secret key
       const sanitizedKey = secretsService.sanitizeSecretKey(body.key)
@@ -529,7 +537,7 @@ export function registerInfrastructureRoutes(
 
     try {
       const params = z.object({ key: z.string().min(1) }).parse((request as any).params)
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       
       const value = await secretsService.retrieveSecret(params.key, user.id)
       
@@ -560,7 +568,7 @@ export function registerInfrastructureRoutes(
 
     try {
       const params = z.object({ key: z.string().min(1) }).parse((request as any).params)
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       
       await secretsService.deleteSecret(params.key, user.id)
       
@@ -587,7 +595,7 @@ export function registerInfrastructureRoutes(
 
     try {
       const body = bulkSecretsSchema.parse(request.body)
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       
       // Sanitize all secret keys
       const sanitizedSecrets: Record<string, string> = {}
@@ -625,7 +633,7 @@ export function registerInfrastructureRoutes(
 
     try {
       const body = validateComposeSchema.parse(request.body)
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       
       const validation = await secretsService.validateSecretsExist(body.compose_content, user.id)
       
@@ -728,7 +736,7 @@ export function registerInfrastructureRoutes(
 
       const restoreOptions = {
         overwrite_existing: body.overwrite_existing,
-        selective_restore: body.selective_restore
+        selective_restore: body.selective_restore || { config_ids: [], secret_keys: [] }
       }
 
       const result = await backupService.importBackup(user.id, backupData, restoreOptions)
@@ -797,7 +805,7 @@ export function registerInfrastructureRoutes(
     }
 
     try {
-      const secretsService = new SecretsService(authenticatedSupabase)
+      const secretsService = new SecretsService(authenticatedSupabase as any)
       const result = await secretsService.exportSecretKeys(user.id)
       
       return reply.send({
@@ -807,7 +815,7 @@ export function registerInfrastructureRoutes(
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
-      return reply.code(500).send({ error: 'Failed to export secrets', details: error.message })
+      return reply.code(500).send({ error: 'Failed to export secrets', details: errorMessage })
     }
   })
 }

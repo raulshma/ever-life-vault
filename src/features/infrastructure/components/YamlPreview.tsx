@@ -267,7 +267,53 @@ function generateDockerComposeYaml(
       }
       
       // Restart policy
-      yaml.push('    restart: unless-stopped');
+      if (service.restart_policy && service.restart_policy !== 'no') {
+        yaml.push(`    restart: ${service.restart_policy}`);
+      }
+      
+      // User and group
+      if (service.user_id !== undefined) {
+        yaml.push(`    user: ${service.user_id}${service.group_id !== undefined ? `:${service.group_id}` : ''}`);
+      } else if (service.group_id !== undefined) {
+        yaml.push(`    user: :${service.group_id}`);
+      }
+      
+      // Resource limits
+      if (service.memory_limit || service.cpu_limit) {
+        yaml.push('    deploy:');
+        if (service.memory_limit) {
+          yaml.push(`      resources:`);
+          yaml.push(`        limits:`);
+          yaml.push(`          memory: ${service.memory_limit}`);
+        }
+        if (service.cpu_limit) {
+          if (!service.memory_limit) {
+            yaml.push(`      resources:`);
+            yaml.push(`        limits:`);
+          }
+          yaml.push(`          cpus: '${service.cpu_limit}'`);
+        }
+      }
+      
+      // Health check
+      if (service.health_check) {
+        yaml.push('    healthcheck:');
+        yaml.push(`      test: ${service.health_check}`);
+        yaml.push('      interval: 30s');
+        yaml.push('      timeout: 10s');
+        yaml.push('      retries: 3');
+        yaml.push('      start_period: 40s');
+      }
+      
+      // Working directory
+      if (service.working_dir) {
+        yaml.push(`    working_dir: ${service.working_dir}`);
+      }
+      
+      // Command override
+      if (service.command) {
+        yaml.push(`    command: ${service.command}`);
+      }
       
       yaml.push('');
     });

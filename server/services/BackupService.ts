@@ -32,7 +32,7 @@ export class BackupService {
     supabaseAnonKey: string
   ) {
     this.dockerService = new DockerService()
-    this.secretsService = new SecretsService(this.supabase)
+    this.secretsService = new SecretsService(this.supabase as any)
   }
 
   /**
@@ -56,10 +56,12 @@ export class BackupService {
     }
 
     // Get secrets to export (keys only, not values for security)
-    let secrets: Array<{ key: string; created_at: string; updated_at: string }> = []
+    let secrets: Array<{ id: string; user_id: string; key: string; created_at: string; updated_at: string }> = []
     if (options.include_secrets) {
       const secretKeys = await this.secretsService.listSecretKeys(userId)
       secrets = secretKeys.map(key => ({
+        id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        user_id: userId,
         key,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -168,18 +170,31 @@ export class BackupService {
     }
 
     // Validate structure
-    if (!parsedData.version) {
-      errors.push('Missing version field')
-    } else if (parsedData.version !== '1.0.0') {
-      errors.push(`Unsupported version: ${parsedData.version}. Expected: 1.0.0`)
+    if (!parsedData || typeof parsedData !== 'object') {
+      errors.push('Invalid backup data structure')
+      return {
+        valid: false,
+        format,
+        errors,
+        warnings,
+        metadata: {}
+      }
     }
 
-    if (!parsedData.configurations || !Array.isArray(parsedData.configurations)) {
+    const data = parsedData as any
+
+    if (!data.version) {
+      errors.push('Missing version field')
+    } else if (data.version !== '1.0.0') {
+      errors.push(`Unsupported version: ${data.version}. Expected: 1.0.0`)
+    }
+
+    if (!data.configurations || !Array.isArray(data.configurations)) {
       errors.push('Missing or invalid configurations array')
     } else {
       // Validate each configuration
-      for (let i = 0; i < parsedData.configurations.length; i++) {
-        const config = parsedData.configurations[i]
+      for (let i = 0; i < data.configurations.length; i++) {
+        const config = data.configurations[i]
         if (!config.name) {
           errors.push(`Configuration ${i + 1}: Missing name`)
         }
@@ -199,7 +214,7 @@ export class BackupService {
       }
     }
 
-    if (parsedData.secrets && !Array.isArray(parsedData.secrets)) {
+    if (data.secrets && !Array.isArray(data.secrets)) {
       errors.push('Invalid secrets array')
     }
 
@@ -208,7 +223,7 @@ export class BackupService {
       format,
       errors,
       warnings,
-      metadata: parsedData.metadata || {}
+      metadata: data.metadata || {}
     }
   }
 

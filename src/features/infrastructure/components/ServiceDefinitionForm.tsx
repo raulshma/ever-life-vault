@@ -389,6 +389,102 @@ export const ServiceDefinitionForm: React.FC<ServiceDefinitionFormProps> = ({
               </CollapsibleTrigger>
               
               <CollapsibleContent className="space-y-4 mt-4">
+                {/* Restart Policy */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Restart Policy</Label>
+                  <Select
+                    value={service.restart_policy || 'no'}
+                    onValueChange={(value) => handleFieldChange('restart_policy', value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select restart policy" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">No restart</SelectItem>
+                      <SelectItem value="always">Always restart</SelectItem>
+                      <SelectItem value="on-failure">On failure only</SelectItem>
+                      <SelectItem value="unless-stopped">Unless stopped</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Determines when the container should be automatically restarted
+                  </p>
+                </div>
+
+                {/* User and Group */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">User ID</Label>
+                    <Input
+                      type="number"
+                      value={service.user_id || ''}
+                      onChange={(e) => handleFieldChange('user_id', e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="1000"
+                      min="0"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      User ID to run the container as (leave empty for default)
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Group ID</Label>
+                    <Input
+                      type="number"
+                      value={service.group_id || ''}
+                      onChange={(e) => handleFieldChange('group_id', e.target.value ? parseInt(e.target.value) : undefined)}
+                      placeholder="1000"
+                      min="0"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Group ID to run the container as (leave empty for default)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Resource Limits */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Resource Limits</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Memory Limit</Label>
+                      <Input
+                        value={service.memory_limit || ''}
+                        onChange={(e) => handleFieldChange('memory_limit', e.target.value)}
+                        placeholder="512m"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Memory limit (e.g., 512m, 1g)
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">CPU Limit</Label>
+                      <Input
+                        value={service.cpu_limit || ''}
+                        onChange={(e) => handleFieldChange('cpu_limit', e.target.value)}
+                        placeholder="0.5"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        CPU limit (e.g., 0.5, 1.0, 2.0)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Health Check */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">Health Check</Label>
+                  <div className="space-y-2">
+                    <Input
+                      value={service.health_check || ''}
+                      onChange={(e) => handleFieldChange('health_check', e.target.value)}
+                      placeholder="curl -f http://localhost/health || exit 1"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Command to check if the service is healthy
+                    </p>
+                  </div>
+                </div>
+
                 {/* Service Dependencies */}
                 {availableServices.length > 0 && (
                   <div className="space-y-3">
@@ -413,6 +509,32 @@ export const ServiceDefinitionForm: React.FC<ServiceDefinitionFormProps> = ({
                     )}
                   </div>
                 )}
+
+                {/* Working Directory */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Working Directory</Label>
+                  <Input
+                    value={service.working_dir || ''}
+                    onChange={(e) => handleFieldChange('working_dir', e.target.value)}
+                    placeholder="/app"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Working directory inside the container
+                  </p>
+                </div>
+
+                {/* Command Override */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Command Override</Label>
+                  <Input
+                    value={service.command || ''}
+                    onChange={(e) => handleFieldChange('command', e.target.value)}
+                    placeholder="npm start"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Override the default command from the Docker image
+                  </p>
+                </div>
               </CollapsibleContent>
             </Collapsible>
           </CardContent>

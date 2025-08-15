@@ -22,6 +22,14 @@ export interface ServiceDefinition {
   environment: EnvironmentVariable[]
   volumes: VolumeMount[]
   depends_on?: string[]
+  restart_policy?: 'no' | 'always' | 'on-failure' | 'unless-stopped'
+  user_id?: number
+  group_id?: number
+  memory_limit?: string
+  cpu_limit?: string
+  health_check?: string
+  working_dir?: string
+  command?: string
 }
 
 export interface PortMapping {
@@ -166,6 +174,13 @@ export interface SetPermissionsRequest {
   uid: number
   gid: number
   mode: string
+}
+
+// File system operation result types
+export interface OperationResult {
+  success: boolean
+  message: string
+  error?: string
 }
 
 // Backup and restore types

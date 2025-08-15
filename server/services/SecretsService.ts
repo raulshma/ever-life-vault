@@ -87,14 +87,14 @@ export class SecretsService {
       }
 
       // Generate user-specific encryption key using stored salt
-      const salt = Buffer.from(data.salt, 'base64');
+      const salt = Buffer.from(data.salt as string, 'base64');
       const encryptionKey = this.generateUserKeyWithSalt(userId, salt);
       
       // Decrypt the secret value
       const decryptedValue = this.decryptWithSeparateFields({
-        encrypted: data.encrypted_value,
-        iv: data.iv,
-        authTag: data.auth_tag
+        encrypted: data.encrypted_value as string,
+        iv: data.iv as string,
+        authTag: data.auth_tag as string
       }, encryptionKey);
       
       return decryptedValue;
@@ -126,7 +126,7 @@ export class SecretsService {
         throw new Error(`Failed to list secret keys: ${error.message}`);
       }
 
-      return data ? data.map((row: { key: string }) => row.key) : [];
+      return data ? data.map((row: { key: unknown }) => String(row.key)) : [];
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       throw new Error(`Failed to list secret keys: ${errorMessage}`);

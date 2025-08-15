@@ -74,7 +74,15 @@ export const serviceDefinitionSchema = z.object({
       const containerPaths = volumes.map(v => v.container_path);
       return containerPaths.length === new Set(containerPaths).size;
     }, 'Duplicate container paths are not allowed'),
-  depends_on: z.array(z.string()).optional()
+  depends_on: z.array(z.string()).optional(),
+  restart_policy: z.enum(['no', 'always', 'on-failure', 'unless-stopped']).optional(),
+  user_id: z.number().min(0).max(65535).optional(),
+  group_id: z.number().min(0).max(65535).optional(),
+  memory_limit: z.string().regex(/^[0-9]+[kmgKMG]?$/, 'Memory limit must be a number followed by optional unit (k, m, g)').optional(),
+  cpu_limit: z.string().regex(/^[0-9]+(\.[0-9]+)?$/, 'CPU limit must be a positive number').optional(),
+  health_check: z.string().min(1, 'Health check command cannot be empty').optional(),
+  working_dir: z.string().refine((path) => path.startsWith('/'), 'Working directory must be an absolute path').optional(),
+  command: z.string().min(1, 'Command cannot be empty').optional()
 });
 
 // Volume definition validation schema

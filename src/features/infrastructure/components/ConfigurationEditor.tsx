@@ -47,6 +47,23 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
   const validation = useValidation();
   const serverValidation = useServerValidation();
 
+  // Ensure existing services have the new advanced configuration fields
+  useEffect(() => {
+    if (services.length > 0) {
+      const updatedServices = services.map(service => ({
+        ...service,
+        restart_policy: service.restart_policy || 'unless-stopped',
+        memory_limit: service.memory_limit || '512m',
+        cpu_limit: service.cpu_limit || '0.5',
+      }));
+      
+      // Only update if there are actual changes
+      if (JSON.stringify(updatedServices) !== JSON.stringify(services)) {
+        setServices(updatedServices);
+      }
+    }
+  }, []); // Only run once on mount
+
   const handleAddService = useCallback(() => {
     const newService: ServiceDefinition = {
       name: `service-${services.length + 1}`,
@@ -55,6 +72,9 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
       environment: [],
       volumes: [],
       depends_on: [],
+      restart_policy: 'unless-stopped',
+      memory_limit: '512m',
+      cpu_limit: '0.5',
     };
     setServices([...services, newService]);
   }, [services]);
