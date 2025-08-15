@@ -99,17 +99,17 @@ const SteamPage: React.FC = () => {
             <Carousel className="w-full">
               <CarouselContent>
                 <CarouselItem>
-                  <HeroCard title="Jump back in" subtitle="Continue your recent adventures" icon={<Timer className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
+                  <HeroCard title="Jump back in" subtitle="Continue your recent adventures" icon={<Timer className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]" appIds={heroCandidates.slice(0, 10)}>
                     <HeroScroller appIds={heroCandidates.slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>
                 <CarouselItem>
-                  <HeroCard title="What to play next" subtitle="Curated from your backlog" icon={<Sparkles className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
+                  <HeroCard title="What to play next" subtitle="Curated from your backlog" icon={<Sparkles className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]" appIds={suggestions.slice(0, 10).map(s => s.appid)}>
                     <SuggestionScroller items={suggestions.slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>
                 <CarouselItem>
-                  <HeroCard title="All-time favorites" subtitle="Most played in your library" icon={<TrendingUp className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]">
+                  <HeroCard title="All-time favorites" subtitle="Most played in your library" icon={<TrendingUp className="h-5 w-5" />} gradient="from-[hsl(var(--accent))] via-[hsl(var(--primary-glow))] to-[hsl(var(--primary))]" appIds={[...library].sort((a, b) => (b.playtime_forever_minutes || 0) - (a.playtime_forever_minutes || 0)).slice(0, 10).map(g => g.appid)}>
                     <TopPlaytimeScroller items={[...library].sort((a, b) => (b.playtime_forever_minutes || 0) - (a.playtime_forever_minutes || 0)).slice(0, 10)} />
                   </HeroCard>
                 </CarouselItem>
@@ -194,30 +194,63 @@ function findName(library: SteamLibraryItem[], appid: number): string {
   return library.find((g) => g.appid === appid)?.name || `App ${appid}`
 }
 
-function HeroCard({ title, subtitle, gradient, icon, children }: { title: string; subtitle: string; gradient: string; icon: React.ReactNode; children: React.ReactNode }) {
+function HeroCard({ title, subtitle, gradient, icon, children, appIds }: { title: string; subtitle: string; gradient: string; icon: React.ReactNode; children: React.ReactNode; appIds?: number[] }) {
+  // Use the first game as background if available
+  const backgroundGameId = appIds && appIds.length > 0 ? appIds[0] : null;
+  const backgroundImage = backgroundGameId ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${backgroundGameId}/header.jpg` : null;
+
   return (
     <div className={cn(
       'relative overflow-hidden rounded-2xl border p-4 sm:p-6 md:p-8',
-      'bg-gradient-to-br text-foreground shadow-glow',
-      `from-30% ${gradient}`,
+      'text-foreground shadow-glow',
       'group'
     )}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="inline-flex items-center gap-2 text-foreground/90">
-            {icon}
-            <span className="text-xs uppercase tracking-wider">Steam</span>
+      {/* Background image with dark-to-transparent gradient overlay */}
+      {backgroundImage ? (
+        <>
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        </>
+      ) : (
+        // Fallback gradient when no background image is available
+        <div className={cn(
+          'absolute inset-0 bg-gradient-to-br',
+          `from-30% ${gradient}`
+        )} />
+      )}
+      
+      {/* Content with relative positioning to appear above background */}
+      <div className="relative z-10">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className={cn(
+              "inline-flex items-center gap-2",
+              backgroundImage ? "text-white drop-shadow-lg" : "text-foreground/90"
+            )}>
+              {icon}
+              <span className="text-xs uppercase tracking-wider">Steam</span>
+            </div>
+            <h2 className={cn(
+              "text-2xl sm:text-3xl font-semibold mt-1",
+              backgroundImage ? "text-white drop-shadow-lg" : "text-foreground"
+            )}>{title}</h2>
+            <p className={cn(
+              "text-sm mt-1",
+              backgroundImage ? "text-white/90 drop-shadow-md" : "text-muted-foreground"
+            )}>{subtitle}</p>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-semibold mt-1">{title}</h2>
-          <p className="text-muted-foreground text-sm mt-1">{subtitle}</p>
+          <Button variant="secondary" size="icon" className="rounded-full">
+            <Heart className="h-4 w-4" />
+          </Button>
         </div>
-        <Button variant="secondary" size="icon" className="rounded-full">
-          <Heart className="w-4 h-4" />
-        </Button>
+        <div className="mt-4 sm:mt-6">
+          {children}
+        </div>
       </div>
-      <div className="mt-4 sm:mt-6">
-        {children}
-      </div>
+      
       <div className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
         <div className="absolute -inset-[20%] bg-[radial-gradient(circle_at_20%_20%,hsl(var(--foreground)/0.15),transparent_40%),radial-gradient(circle_at_80%_0%,hsl(var(--foreground)/0.1),transparent_35%),radial-gradient(circle_at_60%_80%,hsl(var(--foreground)/0.08),transparent_45%)]" />
       </div>
