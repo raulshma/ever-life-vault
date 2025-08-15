@@ -14,6 +14,9 @@ interface SettingsContextType {
   sidebarOrder: SidebarOrder;
   setSidebarOrder: (order: SidebarOrder) => void;
   resetSidebarOrder: () => void;
+  // Sidebar behavior
+  autoCategorizeSidebar: boolean;
+  setAutoCategorizeSidebar: (enabled: boolean) => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -35,6 +38,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return raw ? (JSON.parse(raw) as SidebarOrder) : {};
     } catch {
       return {};
+    }
+  });
+
+  const [autoCategorizeSidebar, setAutoCategorizeSidebarState] = useState<boolean>(() => {
+    try {
+      const raw = localStorage.getItem('autoCategorizeSidebar');
+      return raw ? JSON.parse(raw) === true : false;
+    } catch {
+      return false;
     }
   });
 
@@ -96,6 +108,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch {}
   };
 
+  const setAutoCategorizeSidebar = (enabled: boolean) => {
+    setAutoCategorizeSidebarState(enabled);
+    try { localStorage.setItem('autoCategorizeSidebar', JSON.stringify(enabled)); } catch {}
+    void setConfigValue('settings', 'autoCategorizeSidebar', enabled);
+  };
+
 
   // Persist view transition preference
   useEffect(() => {
@@ -107,9 +125,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let mounted = true;
     (async () => {
       try {
-        const [dbTheme, dbTransitions] = await Promise.all([
+        const [dbTheme, dbTransitions, dbAutoCategorize] = await Promise.all([
           getConfigValue<ThemeMode>('settings', 'themeMode'),
           getConfigValue<boolean>('settings', 'viewTransitionsEnabled'),
+          getConfigValue<boolean>('settings', 'autoCategorizeSidebar'),
         ]);
         if (!mounted) return;
         const allowedModes: ThemeMode[] = ['light', 'dark', 'amoled', 'system']
@@ -121,6 +140,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (typeof dbTransitions === 'boolean') {
           setViewTransitionsEnabledState(dbTransitions);
           try { localStorage.setItem('viewTransitionsEnabled', JSON.stringify(dbTransitions)); } catch {}
+        }
+        if (typeof dbAutoCategorize === 'boolean') {
+          setAutoCategorizeSidebarState(dbAutoCategorize);
+          try { localStorage.setItem('autoCategorizeSidebar', JSON.stringify(dbAutoCategorize)); } catch {}
         }
       } catch {}
     })();
@@ -158,6 +181,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       sidebarOrder,
       setSidebarOrder,
       resetSidebarOrder,
+      autoCategorizeSidebar,
+      setAutoCategorizeSidebar,
     }}>
       {children}
     </SettingsContext.Provider>

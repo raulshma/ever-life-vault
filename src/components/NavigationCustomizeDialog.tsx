@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +54,7 @@ function deriveOrderedItems(
 }
 
 export const NavigationCustomizeDialog: React.FC<Props> = ({ open, onOpenChange }) => {
-  const { sidebarOrder, setSidebarOrder, resetSidebarOrder } = useSettings();
+  const { sidebarOrder, setSidebarOrder, resetSidebarOrder, autoCategorizeSidebar, setAutoCategorizeSidebar } = useSettings();
 
   const initialOrder: Record<GroupKey, string[]> = useMemo(() => {
     const defaults = getDefaultOrder();
@@ -109,6 +110,15 @@ export const NavigationCustomizeDialog: React.FC<Props> = ({ open, onOpenChange 
         </DialogHeader>
 
         <div className="space-y-6">
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Auto categorize</div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">Sort groups and items alphabetically</span>
+                <Switch checked={autoCategorizeSidebar} onCheckedChange={setAutoCategorizeSidebar} />
+              </div>
+            </div>
+          </section>
           <section className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">Sidebar order</div>

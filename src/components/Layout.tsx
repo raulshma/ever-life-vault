@@ -93,7 +93,7 @@ const SidebarNavigation: React.FC<{
   onOpenCustomize: () => void;
 }> = ({ location, onOpenSearch, onOpenQuickAdd, onOpenCustomize }) => {
   const navigate = useNavigate();
-  const { sidebarOrder } = useSettings();
+  const { sidebarOrder, autoCategorizeSidebar } = useSettings();
   const groupMap = {
     Daily: "daily",
     Share: "share",
@@ -107,6 +107,9 @@ const SidebarNavigation: React.FC<{
     const key = groupMap[title];
     const order = sidebarOrder?.[key] ?? [];
     const base = moduleCategories[key as keyof typeof moduleCategories];
+    if (autoCategorizeSidebar) {
+      return [...base].sort((a, b) => a.name.localeCompare(b.name));
+    }
     if (!order.length) return base;
     const pathToItem = new Map(base.map((i) => [i.path, i] as const));
     const seen = new Set<string>();
@@ -124,7 +127,11 @@ const SidebarNavigation: React.FC<{
     return [...orderedExisting, ...remaining];
   };
 
-  const navGroups = orderedGroupTitles.map(({ title }) => ({
+  const groupTitleList = autoCategorizeSidebar
+    ? [...orderedGroupTitles].sort((a, b) => a.title.localeCompare(b.title))
+    : orderedGroupTitles;
+
+  const navGroups = groupTitleList.map(({ title }) => ({
     title,
     items: deriveGroupItems(title as keyof typeof groupMap),
   }));
