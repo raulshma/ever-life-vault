@@ -1,28 +1,43 @@
 import React from 'react'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { WidgetShell } from '../components/WidgetShell'
 import { Button } from '@/components/ui/button'
 import { useSteam } from '@/hooks/useSteam'
 import { useAuth } from '@/hooks/useAuth'
 import PrereqGuard from '@/components/PrereqGuard'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type SteamBacklogConfig = { max?: number }
+type SteamBacklogConfig = BaseWidgetConfig & { max?: number }
 
-export default function SteamBacklogWidget({ config }: WidgetProps<SteamBacklogConfig>) {
+export default function SteamBacklogWidget({ config, onConfigChange, isEditing }: WidgetProps<SteamBacklogConfig>) {
   const { getSuggestions, sync, loading } = useSteam()
   const [items, setItems] = React.useState<Array<{ appid: number; name?: string; score: number }>>([])
   const [busy, setBusy] = React.useState(false)
   const { user } = useAuth()
+  
+  const { getCached, setCached } = useApiCache<Array<{ appid: number; name?: string; score: number }>>()
 
   const load = React.useCallback(async () => {
+    // Check cache first
+    const cacheKey = generateCacheKey('steam-backlog', { userId: user?.id })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setItems(cached)
+      return
+    }
+    
     setBusy(true)
     try {
       const json = await getSuggestions()
-      setItems(Array.isArray(json?.items) ? json.items : [])
+      const backlogItems = Array.isArray(json?.items) ? json.items : []
+      setItems(backlogItems)
+      // Cache the result
+      setCached(cacheKey, backlogItems, config.cacheTimeMs)
     } finally {
       setBusy(false)
     }
-  }, [getSuggestions])
+  }, [getSuggestions, user?.id, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { void load() }, [load])
 
@@ -46,6 +61,11 @@ export default function SteamBacklogWidget({ config }: WidgetProps<SteamBacklogC
               </li>
             ))}
           </ul>
+        )}
+        
+        {/* Cache Configuration */}
+        {isEditing && (
+          <CacheConfig config={config} onConfigChange={onConfigChange} />
         )}
       </PrereqGuard>
     </WidgetShell>

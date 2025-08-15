@@ -1,13 +1,15 @@
 import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LocateFixed, RefreshCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { agpFetch } from '@/lib/aggregatorClient'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type PrecipConfig = {
+type PrecipConfig = BaseWidgetConfig & {
   lat?: number
   lon?: number
 }
@@ -35,19 +37,36 @@ async function fetchNowcast(lat: number, lon: number): Promise<MinutePrecip[] | 
   }
 }
 
-export default function PrecipNowcastWidget({ config, onConfigChange }: WidgetProps<PrecipConfig>) {
+export default function PrecipNowcastWidget({ config, onConfigChange, isEditing }: WidgetProps<PrecipConfig>) {
   const [points, setPoints] = React.useState<MinutePrecip[]>([])
   const [loading, setLoading] = React.useState(false)
   const lat = typeof config?.lat === 'number' ? config.lat : undefined
   const lon = typeof config?.lon === 'number' ? config.lon : undefined
+  
+  const { getCached, setCached } = useApiCache<MinutePrecip[]>()
 
   const refresh = React.useCallback(async () => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return
+    
+    // Check cache first
+    const cacheKey = generateCacheKey('precip-nowcast', { lat, lon })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setPoints(cached)
+      return
+    }
+    
     setLoading(true)
     const arr = await fetchNowcast(lat, lon)
     setLoading(false)
-    setPoints(Array.isArray(arr) ? arr : [])
-  }, [lat, lon])
+    if (Array.isArray(arr)) {
+      setPoints(arr)
+      // Cache the result
+      setCached(cacheKey, arr, config.cacheTimeMs)
+    } else {
+      setPoints([])
+    }
+  }, [lat, lon, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { void refresh() }, [refresh])
 
@@ -118,6 +137,11 @@ export default function PrecipNowcastWidget({ config, onConfigChange }: WidgetPr
           })}
         </div>
         <div className="text-xs text-muted-foreground">Data via Open-Meteo (proxied). Coordinates are stored only in this widget's settings.</div>
+        
+        {/* Cache Configuration */}
+        {isEditing && (
+          <CacheConfig config={config} onConfigChange={onConfigChange} />
+        )}
       </div>
     </WidgetShell>
   )

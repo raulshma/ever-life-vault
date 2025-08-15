@@ -1,13 +1,15 @@
 import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LocateFixed, RefreshCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { agpFetch } from '@/lib/aggregatorClient'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type WindConfig = {
+type WindConfig = BaseWidgetConfig & {
   lat?: number
   lon?: number
   units?: 'kmh' | 'ms' | 'mph'
@@ -61,20 +63,35 @@ async function fetchWind(lat: number, lon: number): Promise<WindData | null> {
   }
 }
 
-export default function WindFocusWidget({ config, onConfigChange }: WidgetProps<WindConfig>) {
+export default function WindFocusWidget({ config, onConfigChange, isEditing }: WidgetProps<WindConfig>) {
   const [data, setData] = React.useState<WindData>({})
   const [loading, setLoading] = React.useState(false)
   const lat = typeof config?.lat === 'number' ? config.lat : undefined
   const lon = typeof config?.lon === 'number' ? config.lon : undefined
   const units = config?.units || 'kmh'
+  
+  const { getCached, setCached } = useApiCache<WindData>()
 
   const refresh = React.useCallback(async () => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return
+    
+    // Check cache first
+    const cacheKey = generateCacheKey('wind-data', { lat, lon })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setData(cached)
+      return
+    }
+    
     setLoading(true)
     const w = await fetchWind(lat, lon)
     setLoading(false)
-    if (w) setData(w)
-  }, [lat, lon])
+    if (w) {
+      setData(w)
+      // Cache the result
+      setCached(cacheKey, w, config.cacheTimeMs)
+    }
+  }, [lat, lon, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { void refresh() }, [refresh])
 
@@ -161,6 +178,11 @@ export default function WindFocusWidget({ config, onConfigChange }: WidgetProps<
           </div>
         </div>
         <div className="text-xs text-muted-foreground">Data via Open-Meteo (proxied). Coordinates are stored only in this widget's settings.</div>
+        
+        {/* Cache Configuration */}
+        {isEditing && (
+          <CacheConfig config={config} onConfigChange={onConfigChange} />
+        )}
       </div>
     </WidgetShell>
   )

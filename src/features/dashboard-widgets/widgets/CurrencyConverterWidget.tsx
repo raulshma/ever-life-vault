@@ -1,16 +1,18 @@
 import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ArrowLeftRight, RefreshCw, Copy } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { agpFetch } from '@/lib/aggregatorClient'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type CurrencyConfig = {
-  base?: string
-  quote?: string
+type CurrencyConfig = BaseWidgetConfig & {
+  base: string
+  quote: string
 }
 
 type RatesResponse = {
@@ -34,26 +36,45 @@ async function fetchRates(base: string): Promise<RatesResponse | null> {
   }
 }
 
-export default function CurrencyConverterWidget({ config, onConfigChange }: WidgetProps<CurrencyConfig>) {
+export default function CurrencyConverterWidget({ config, onConfigChange, isEditing }: WidgetProps<CurrencyConfig>) {
   const base = config?.base || 'USD'
   const quote = config?.quote || 'EUR'
   const [amount, setAmount] = React.useState('1')
   const [rate, setRate] = React.useState<number | null>(null)
   const [date, setDate] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
+  
+  const { getCached, setCached } = useApiCache<RatesResponse>()
 
   const numeric = Number(amount)
   const valid = !isNaN(numeric)
   const converted = valid && rate != null ? (numeric * rate).toFixed(4) : ''
 
   const refresh = React.useCallback(async () => {
+    // Check cache first
+    const cacheKey = generateCacheKey('currency-rates', { base })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached && cached.rates) {
+      setRate(cached.rates[quote] ?? null)
+      setDate(cached.date || null)
+      return
+    }
+    
     setLoading(true)
-    const data = await fetchRates(base)
-    setLoading(false)
-    if (!data || !data.rates) { setRate(null); return }
-    setRate(data.rates[quote] ?? null)
-    setDate(data.date || null)
-  }, [base, quote])
+    try {
+      const data = await fetchRates(base)
+      if (data && data.rates) {
+        setRate(data.rates[quote] ?? null)
+        setDate(data.date || null)
+        // Cache the result
+        setCached(cacheKey, data, config.cacheTimeMs)
+      } else {
+        setRate(null)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [base, quote, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { refresh() }, [refresh])
 
@@ -123,6 +144,9 @@ export default function CurrencyConverterWidget({ config, onConfigChange }: Widg
             </Tooltip>
           </div>
         </div>
+
+        {/* Cache Configuration */}
+        {isEditing && <CacheConfig config={config} onConfigChange={onConfigChange} />}
 
         <div className="text-xs text-muted-foreground">
           {rate != null ? (

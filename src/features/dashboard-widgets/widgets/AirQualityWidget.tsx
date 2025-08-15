@@ -1,13 +1,15 @@
 import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LocateFixed, RefreshCw } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { agpFetch } from '@/lib/aggregatorClient'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type AQConfig = {
+type AQConfig = BaseWidgetConfig & {
   lat?: number
   lon?: number
   scale?: 'us' // future: 'eu'
@@ -76,20 +78,38 @@ function nearestIndex(isoTimes: string[]): number {
   return best
 }
 
-export default function AirQualityWidget({ config, onConfigChange }: WidgetProps<AQConfig>) {
+export default function AirQualityWidget({ config, onConfigChange, isEditing }: WidgetProps<AQConfig>) {
   const [data, setData] = React.useState<AQData>({})
   const [loading, setLoading] = React.useState(false)
   const lat = typeof config?.lat === 'number' ? config.lat : undefined
   const lon = typeof config?.lon === 'number' ? config.lon : undefined
   const scale = config?.scale || 'us'
+  
+  const { getCached, setCached } = useApiCache<AQData>()
 
   const refresh = React.useCallback(async () => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return
+    
+    // Check cache first
+    const cacheKey = generateCacheKey('air-quality', { lat, lon })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setData(cached)
+      return
+    }
+    
     setLoading(true)
-    const v = await fetchAQ(lat, lon)
-    setLoading(false)
-    if (v) setData(v)
-  }, [lat, lon])
+    try {
+      const v = await fetchAQ(lat, lon)
+      if (v) {
+        setData(v)
+        // Cache the result
+        setCached(cacheKey, v, config.cacheTimeMs)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [lat, lon, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { void refresh() }, [refresh])
 
@@ -165,6 +185,12 @@ export default function AirQualityWidget({ config, onConfigChange }: WidgetProps
           </div>
           <div className="text-xs text-muted-foreground ml-auto">{data.time ? new Date(data.time).toLocaleString() : ''}</div>
         </div>
+        
+        {/* Cache Configuration */}
+        {isEditing && (
+          <CacheConfig config={config} onConfigChange={onConfigChange} />
+        )}
+        
         <div className="text-xs text-muted-foreground">Data via Open-Meteo (proxied). Coordinates are stored only in this widget's settings.</div>
       </div>
     </WidgetShell>

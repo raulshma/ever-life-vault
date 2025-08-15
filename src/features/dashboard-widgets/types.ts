@@ -24,6 +24,11 @@ export type GridRowSpan = 1 | 2 | 3
 
 export type LayoutTree = MosaicTree | GridLayout
 
+// Base configuration for widgets that use external APIs
+export interface BaseWidgetConfig {
+  cacheTimeMs?: number // Cache time in milliseconds, undefined means no caching
+}
+
 export interface WidgetState<TConfig = unknown> {
   type: string
   version: string
@@ -42,6 +47,7 @@ export interface WidgetProps<TConfig> {
   id: WidgetInstanceId
   config: TConfig
   onConfigChange: (next: TConfig) => void
+  isEditing?: boolean
 }
 
 export interface WidgetDefinition<TConfig = unknown> {
@@ -55,6 +61,10 @@ export interface WidgetDefinition<TConfig = unknown> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   configSchema?: any
   component: React.LazyExoticComponent<React.ComponentType<WidgetProps<TConfig>>>
+  // Indicates if this widget uses external APIs and should show cache configuration
+  usesExternalApis?: boolean
+  // Default cache time for this widget (in milliseconds)
+  defaultCacheTimeMs?: number
 }
 
 

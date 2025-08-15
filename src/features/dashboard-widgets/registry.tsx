@@ -149,8 +149,10 @@ export function registerBuiltInWidgets() {
       title: 'Steam Profile',
       category: 'helpers',
       version: '0.1.0',
-      defaultConfig: {},
+      defaultConfig: { cacheTimeMs: 5 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/SteamProfileWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 5 * 60 * 1000,
     })
   } catch {}
   try {
@@ -159,8 +161,10 @@ export function registerBuiltInWidgets() {
       title: 'Steam Recently Played',
       category: 'analytics',
       version: '0.1.0',
-      defaultConfig: { max: 10 },
+      defaultConfig: { max: 10, cacheTimeMs: 5 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/SteamRecentlyPlayedWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 5 * 60 * 1000,
     })
   } catch {}
   try {
@@ -169,8 +173,10 @@ export function registerBuiltInWidgets() {
       title: 'Steam Backlog',
       category: 'analytics',
       version: '0.1.0',
-      defaultConfig: { max: 10 },
+      defaultConfig: { max: 10, cacheTimeMs: 5 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/SteamBacklogWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 5 * 60 * 1000,
     })
   } catch {}
   try {
@@ -179,8 +185,10 @@ export function registerBuiltInWidgets() {
       title: 'Steam Game Detail',
       category: 'helpers',
       version: '0.1.0',
-      defaultConfig: { appid: undefined },
+      defaultConfig: { appid: undefined, cacheTimeMs: 5 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/SteamGameDetailWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 5 * 60 * 1000,
     })
   } catch {}
   try {
@@ -189,8 +197,10 @@ export function registerBuiltInWidgets() {
       title: 'Jellyfin',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: {},
+      defaultConfig: { cacheTimeMs: 30 * 1000 },
       component: React.lazy(() => import('./widgets/JellyfinWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 30 * 1000,
     })
   } catch {}
   try {
@@ -199,8 +209,10 @@ export function registerBuiltInWidgets() {
       title: 'Jellyseerr',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: {},
+      defaultConfig: { cacheTimeMs: 30 * 1000 },
       component: React.lazy(() => import('./widgets/JellyseerrWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 30 * 1000,
     })
   } catch {}
   try {
@@ -209,8 +221,10 @@ export function registerBuiltInWidgets() {
       title: 'Karakeep',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: {},
+      defaultConfig: { cacheTimeMs: 30 * 1000 },
       component: React.lazy(() => import('./widgets/KarakeepWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 30 * 1000,
     })
   } catch {}
   // New utility widgets
@@ -280,8 +294,10 @@ export function registerBuiltInWidgets() {
       title: 'Currency Converter',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { base: 'USD', quote: 'EUR' },
+      defaultConfig: { base: 'USD', quote: 'EUR', cacheTimeMs: 15 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/CurrencyConverterWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 15 * 60 * 1000,
     })
   } catch {}
   try {
@@ -300,8 +316,10 @@ export function registerBuiltInWidgets() {
       title: 'IP & Network',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { redact: true, endpoints: [] },
+      defaultConfig: { redact: true, endpoints: [], cacheTimeMs: 15 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/IPNetworkWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 15 * 60 * 1000,
     })
   } catch {}
   try {
@@ -340,8 +358,10 @@ export function registerBuiltInWidgets() {
       title: 'Quote',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { source: 'local' },
+      defaultConfig: { source: 'local', cacheTimeMs: 30 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/QuotesWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 30 * 60 * 1000,
     })
   } catch {}
   // Weather widgets
@@ -351,8 +371,10 @@ export function registerBuiltInWidgets() {
       title: 'Air Quality',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { lat: undefined, lon: undefined, scale: 'us' },
+      defaultConfig: { lat: undefined, lon: undefined, scale: 'us', cacheTimeMs: 5 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/AirQualityWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 5 * 60 * 1000,
     })
   } catch {}
   try {
@@ -361,8 +383,10 @@ export function registerBuiltInWidgets() {
       title: 'Precip Nowcast',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { lat: undefined, lon: undefined },
+      defaultConfig: { lat: undefined, lon: undefined, cacheTimeMs: 2 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/PrecipNowcastWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 2 * 60 * 1000,
     })
   } catch {}
   // Weather/health utilities
@@ -372,8 +396,10 @@ export function registerBuiltInWidgets() {
       title: 'Sun Phases',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { lat: undefined, lon: undefined, mode: 'official' },
+      defaultConfig: { lat: undefined, lon: undefined, mode: 'official', cacheTimeMs: 60 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/SunPhasesWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 60 * 60 * 1000,
     })
   } catch {}
   try {
@@ -382,8 +408,10 @@ export function registerBuiltInWidgets() {
       title: 'Wind Focus',
       category: 'helpers',
       version: '1.0.0',
-      defaultConfig: { lat: undefined, lon: undefined, units: 'kmh' },
+      defaultConfig: { lat: undefined, lon: undefined, units: 'kmh', cacheTimeMs: 5 * 60 * 1000 },
       component: React.lazy(() => import('./widgets/WindFocusWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 5 * 60 * 1000,
     })
   } catch {}
   try {

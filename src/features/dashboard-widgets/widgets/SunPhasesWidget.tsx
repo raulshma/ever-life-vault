@@ -1,13 +1,15 @@
 import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { LocateFixed } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type SunPhasesConfig = {
+type SunPhasesConfig = BaseWidgetConfig & {
   lat?: number
   lon?: number
   mode?: 'official' | 'civil' | 'nautical' | 'astronomical'
@@ -113,19 +115,32 @@ function formatDuration(ms?: number): string {
   return `${h}h ${m}m`
 }
 
-export default function SunPhasesWidget({ config, onConfigChange }: WidgetProps<SunPhasesConfig>) {
-  const [now, setNow] = React.useState<Date>(new Date())
+export default function SunPhasesWidget({ config, onConfigChange, isEditing }: WidgetProps<SunPhasesConfig>) {
   const [times, setTimes] = React.useState<SunTimes>({})
-  const lat = typeof config?.lat === 'number' ? config.lat : undefined
-  const lon = typeof config?.lon === 'number' ? config.lon : undefined
+  const [now, setNow] = React.useState(new Date())
+  const lat = config?.lat
+  const lon = config?.lon
   const mode = config?.mode || 'official'
+  
+  const { getCached, setCached } = useApiCache<SunTimes>()
 
   const compute = React.useCallback(() => {
-    if (typeof lat !== 'number' || typeof lon !== 'number') { setTimes({}); return }
-    const date = new Date()
-    const utcMid = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-    setTimes(computeSunTimes(utcMid, lat, lon, mode))
-  }, [lat, lon, mode])
+    if (typeof lat !== 'number' || typeof lon !== 'number') return
+    
+    // Check cache first
+    const cacheKey = generateCacheKey('sun-phases', { lat, lon, mode, date: now.toDateString() })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setTimes(cached)
+      return
+    }
+    
+    const result = computeSunTimes(now, lat, lon, mode)
+    setTimes(result)
+    
+    // Cache the result
+    setCached(cacheKey, result, config.cacheTimeMs)
+  }, [lat, lon, mode, now, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { compute() }, [compute])
   React.useEffect(() => {
@@ -219,6 +234,11 @@ export default function SunPhasesWidget({ config, onConfigChange }: WidgetProps<
         </div>
         {(times.polarDay || times.polarNight) && (
           <div className="text-xs text-warning">{times.polarDay ? 'Polar day (no night)' : 'Polar night (no sunrise)'} at this latitude today.</div>
+        )}
+        
+        {/* Cache Configuration */}
+        {isEditing && (
+          <CacheConfig config={config} onConfigChange={onConfigChange} />
         )}
       </div>
     </WidgetShell>

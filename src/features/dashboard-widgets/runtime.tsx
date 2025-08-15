@@ -352,7 +352,7 @@ export function DashboardStackView() {
         return (
           <div key={id} className={`min-w-0 ${spanToClass(currentSpan)} ${rowSpanToClass(currentRowSpan)}`}>
             <React.Suspense fallback={<div className="glass rounded-xl p-4"><div className="space-y-2"><div className="h-5 w-1/3 bg-muted rounded" /><div className="h-4 w-2/3 bg-muted rounded" /></div></div>}>
-              <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} />
+              <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} isEditing={false} />
             </React.Suspense>
           </div>
         )

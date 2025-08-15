@@ -10,6 +10,8 @@ import { useDrag, useDrop, useDragLayer } from 'react-dnd'
 import { Button } from '@/components/ui/button'
 import { GripVertical } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { CacheConfig } from './CacheConfig'
+import type { BaseWidgetConfig } from '../types'
 
 const DND_WIDGET_ITEM = 'dashboard-widget-item'
 
@@ -109,6 +111,9 @@ function EditingStackInner() {
             onSpanChange={(s) => setSpan(id, s)}
             currentRowSpan={currentRowSpan}
             onRowSpanChange={(s) => setRowSpan(id, s)}
+            widgetDef={def}
+            widgetConfig={state.config}
+            onConfigChange={(next) => updateWidgetConfig(id, next)}
           >
             <React.Suspense
               fallback={
@@ -120,7 +125,7 @@ function EditingStackInner() {
                 </div>
               }
             >
-              <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} />
+              <Component id={id} config={state.config} onConfigChange={(next) => updateWidgetConfig(id, next)} isEditing={true} />
             </React.Suspense>
           </SortableWidgetTile>
         )
@@ -148,6 +153,9 @@ function SortableWidgetTile({
   currentRowSpan,
   onRowSpanChange,
   children,
+  widgetDef,
+  widgetConfig,
+  onConfigChange,
 }: {
   id: WidgetInstanceId
   index: number
@@ -160,6 +168,9 @@ function SortableWidgetTile({
   currentRowSpan: GridRowSpan
   onRowSpanChange: (span: GridRowSpan) => void
   children: React.ReactNode
+  widgetDef: any
+  widgetConfig: any
+  onConfigChange: (config: any) => void
 }) {
   const ref = React.useRef<HTMLDivElement | null>(null)
   const [hoverSide, setHoverSide] = React.useState<'top' | 'bottom' | 'left' | 'right' | null>(null)
@@ -268,6 +279,12 @@ function SortableWidgetTile({
               </div>
             </div>
             <div className="ml-auto flex items-center gap-1 sm:gap-2">
+              {/* Cache indicator for widgets with external APIs */}
+              {widgetDef?.usesExternalApis && (
+                <div className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded border border-blue-200 dark:border-blue-800">
+                  Cache {widgetConfig?.cacheTimeMs ? `(${Math.round(widgetConfig.cacheTimeMs / 1000)}s)` : '(off)'}
+                </div>
+              )}
               <Popover>
                 <PopoverTrigger asChild>
                   <Button size="sm" variant="glass" className="h-7 px-2 text-xs">Size</Button>

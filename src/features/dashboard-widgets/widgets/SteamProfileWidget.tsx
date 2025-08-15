@@ -1,28 +1,42 @@
 import React from 'react'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { WidgetShell } from '../components/WidgetShell'
 import { Button } from '@/components/ui/button'
 import { useSteam } from '@/hooks/useSteam'
 import { useAuth } from '@/hooks/useAuth'
 import PrereqGuard from '@/components/PrereqGuard'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type SteamProfileConfig = {}
+type SteamProfileConfig = BaseWidgetConfig & {}
 
-export default function SteamProfileWidget(_props: WidgetProps<SteamProfileConfig>) {
+export default function SteamProfileWidget({ config, onConfigChange, isEditing }: WidgetProps<SteamProfileConfig>) {
   const { startLink, sync, getProfile, loading } = useSteam()
   const [profile, setProfile] = React.useState<any | null>(null)
   const [busy, setBusy] = React.useState(false)
   const { user } = useAuth()
+  
+  const { getCached, setCached } = useApiCache<any>()
 
   const load = React.useCallback(async () => {
+    // Check cache first
+    const cacheKey = generateCacheKey('steam-profile', { userId: user?.id })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setProfile(cached)
+      return
+    }
+    
     setBusy(true)
     try {
       const p = await getProfile()
       setProfile(p)
+      // Cache the result
+      setCached(cacheKey, p, config.cacheTimeMs)
     } finally {
       setBusy(false)
     }
-  }, [getProfile])
+  }, [getProfile, user?.id, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { void load() }, [load])
 
@@ -63,6 +77,11 @@ export default function SteamProfileWidget(_props: WidgetProps<SteamProfileConfi
               <div className="text-xs text-muted-foreground">{profile.country || '—'}</div>
             </div>
           </div>
+        )}
+        
+        {/* Cache Configuration */}
+        {isEditing && (
+          <CacheConfig config={config} onConfigChange={onConfigChange} />
         )}
       </PrereqGuard>
     </WidgetShell>

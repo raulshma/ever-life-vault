@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import { useJellyfin, type JellyfinConfig, type JellyfinSession, type JellyfinSystemInfo } from '@/hooks/useJellyfin'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,12 @@ import { RefreshCw } from 'lucide-react'
 import PrereqGuard from '@/components/PrereqGuard'
 import { useVaultSession } from '@/hooks/useVaultSession'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-export default function JellyfinWidget(_props: WidgetProps<{}>) {
+type JellyfinWidgetConfig = BaseWidgetConfig & {}
+
+export default function JellyfinWidget(_props: WidgetProps<JellyfinWidgetConfig>) {
   const { itemsByType } = useEncryptedVault()
   const jellyfinItem = [...itemsByType.api].find((i) => i.name.toLowerCase() === 'jellyfin')
   const config: JellyfinConfig = { serverUrl: jellyfinItem?.data?.serverUrl || '', apiKey: jellyfinItem?.data?.apiKey || '' }
@@ -18,15 +22,29 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
   const { isUnlocked } = useVaultSession()
   const [info, setInfo] = useState<JellyfinSystemInfo | null>(null)
   const [sessions, setSessions] = useState<JellyfinSession[]>([])
+  
+  const { getCached, setCached } = useApiCache<{ info: JellyfinSystemInfo; sessions: JellyfinSession[] }>()
 
   const load = useCallback(async () => {
     try {
+      // Check cache first
+      const cacheKey = generateCacheKey('jellyfin', { serverUrl: config.serverUrl })
+      const cached = getCached(cacheKey, _props.config.cacheTimeMs)
+      if (cached) {
+        setInfo(cached.info)
+        setSessions(cached.sessions)
+        return
+      }
+      
       const i = await jf.getSystemInfo()
-      setInfo(i)
       const s = await jf.getSessions()
+      setInfo(i)
       setSessions(s)
+      
+      // Cache the result
+      setCached(cacheKey, { info: i, sessions: s }, _props.config.cacheTimeMs)
     } catch {}
-  }, [jf])
+  }, [jf, config.serverUrl, _props.config.cacheTimeMs, getCached, setCached])
 
   useEffect(() => { if (config.serverUrl && config.apiKey) load() }, [config.serverUrl, config.apiKey, load])
 
@@ -39,7 +57,7 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
           { ok: Boolean(config.serverUrl && config.apiKey), label: "Add a Vault API item named 'jellyfin' with serverUrl and apiKey" },
         ]}
       >
-        <div className="space-y-2 text-sm">
+        <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <div>
               {info ? (
@@ -80,6 +98,9 @@ export default function JellyfinWidget(_props: WidgetProps<{}>) {
             )}
             {info && sessions.length === 0 && <li className="text-muted-foreground">No active sessions.</li>}
           </ul>
+          
+          {/* Cache Configuration */}
+          {_props.isEditing && <CacheConfig config={_props.config} onConfigChange={_props.onConfigChange} />}
         </div>
       </PrereqGuard>
     </WidgetShell>

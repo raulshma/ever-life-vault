@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import useKarakeep, { type KarakeepConfig, type KarakeepItem } from '@/hooks/useKarakeep'
 import { Button } from '@/components/ui/button'
@@ -8,21 +8,39 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { RefreshCw } from 'lucide-react'
 import PrereqGuard from '@/components/PrereqGuard'
 import { useVaultSession } from '@/hooks/useVaultSession'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-export default function KarakeepWidget(_props: WidgetProps<{}>) {
+type KarakeepWidgetConfig = BaseWidgetConfig & {}
+
+export default function KarakeepWidget({ config, onConfigChange, isEditing }: WidgetProps<KarakeepWidgetConfig>) {
   const { itemsByType } = useEncryptedVault()
   const { isUnlocked } = useVaultSession()
   const kItem = [...itemsByType.api].find((i) => i.name.toLowerCase() === 'karakeep')
   const cfg: KarakeepConfig = { serverUrl: kItem?.data?.serverUrl || '', apiKey: kItem?.data?.apiKey || '' }
   const kk = useKarakeep(cfg)
   const [items, setItems] = useState<KarakeepItem[]>([])
+  
+  const { getCached, setCached } = useApiCache<KarakeepItem[]>()
 
   const load = useCallback(async () => {
     try {
+      // Check cache first
+      const cacheKey = generateCacheKey('karakeep-items', { serverUrl: cfg.serverUrl })
+      const cached = getCached(cacheKey, config.cacheTimeMs)
+      if (cached) {
+        setItems(cached)
+        return
+      }
+      
       const res = await kk.listItems({ limit: 10 })
-      setItems(res.items || [])
+      const recentItems = res.items || []
+      setItems(recentItems)
+      
+      // Cache the result
+      setCached(cacheKey, recentItems, config.cacheTimeMs)
     } catch {}
-  }, [kk])
+  }, [kk, cfg.serverUrl, config.cacheTimeMs, getCached, setCached])
 
   useEffect(() => { if (cfg.serverUrl && cfg.apiKey) load() }, [cfg.serverUrl, cfg.apiKey, load])
 
@@ -53,6 +71,11 @@ export default function KarakeepWidget(_props: WidgetProps<{}>) {
             ))}
             {items.length === 0 && <li className="text-muted-foreground">No items found.</li>}
           </ul>
+          
+          {/* Cache Configuration */}
+          {isEditing && (
+            <CacheConfig config={config} onConfigChange={onConfigChange} />
+          )}
         </div>
       </PrereqGuard>
     </WidgetShell>

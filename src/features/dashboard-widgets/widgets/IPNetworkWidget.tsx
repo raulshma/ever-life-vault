@@ -1,13 +1,15 @@
 import React from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Activity, Plus, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { agpFetch } from '@/lib/aggregatorClient'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type IPNetConfig = {
+type IPNetConfig = BaseWidgetConfig & {
   redact?: boolean
   endpoints?: string[]
 }
@@ -55,7 +57,7 @@ async function measureLatency(url: string): Promise<number | null> {
   }
 }
 
-export default function IPNetworkWidget({ config, onConfigChange }: WidgetProps<IPNetConfig>) {
+export default function IPNetworkWidget({ config, onConfigChange, isEditing }: WidgetProps<IPNetConfig>) {
   const redact = config?.redact ?? false
   const endpoints = Array.isArray(config?.endpoints) && config.endpoints.length > 0
     ? config.endpoints
@@ -63,11 +65,25 @@ export default function IPNetworkWidget({ config, onConfigChange }: WidgetProps<
   const [info, setInfo] = React.useState<IpInfo | null>(null)
   const [latency, setLatency] = React.useState<Record<string, number | null>>({})
   const [adding, setAdding] = React.useState('')
+  
+  const { getCached, setCached } = useApiCache<IpInfo>()
 
   const refresh = React.useCallback(async () => {
+    // Check cache first
+    const cacheKey = generateCacheKey('ip-info', {})
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setInfo(cached)
+      return
+    }
+    
     const data = await fetchIpInfo()
-    setInfo(data)
-  }, [])
+    if (data) {
+      setInfo(data)
+      // Cache the result
+      setCached(cacheKey, data, config.cacheTimeMs)
+    }
+  }, [config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { refresh() }, [refresh])
 
@@ -115,6 +131,10 @@ export default function IPNetworkWidget({ config, onConfigChange }: WidgetProps<
         <div className="flex items-center gap-2">
           <label className="text-xs flex items-center gap-2"><input type="checkbox" checked={redact} onChange={(e) => onConfigChange({ ...config, redact: e.target.checked })} /> Redact IP</label>
         </div>
+        
+        {/* Cache Configuration */}
+        {isEditing && <CacheConfig config={config} onConfigChange={onConfigChange} />}
+        
         <div className="space-y-2">
           <div className="font-medium">Endpoints</div>
           <ul className="space-y-1">

@@ -1,25 +1,41 @@
 import React from 'react'
-import type { WidgetProps } from '../types'
+import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { WidgetShell } from '../components/WidgetShell'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { useSteam } from '@/hooks/useSteam'
 import { useAuth } from '@/hooks/useAuth'
 import PrereqGuard from '@/components/PrereqGuard'
+import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { CacheConfig } from '../components/CacheConfig'
 
-type SteamDetailConfig = { appid?: number }
+type SteamDetailConfig = BaseWidgetConfig & { appid?: number }
 
-export default function SteamGameDetailWidget({ config, onConfigChange }: WidgetProps<SteamDetailConfig>) {
+export default function SteamGameDetailWidget({ config, onConfigChange, isEditing }: WidgetProps<SteamDetailConfig>) {
   const { getGame } = useSteam()
   const [data, setData] = React.useState<any | null>(null)
   const [appid, setAppid] = React.useState<number | undefined>(config?.appid)
   const { user } = useAuth()
+  
+  const { getCached, setCached } = useApiCache<any>()
 
   const load = React.useCallback(async () => {
     if (!appid) return
+    
+    // Check cache first
+    const cacheKey = generateCacheKey('steam-game-detail', { appid })
+    const cached = getCached(cacheKey, config.cacheTimeMs)
+    if (cached) {
+      setData(cached)
+      return
+    }
+    
     const json = await getGame(appid)
     setData(json)
-  }, [appid, getGame])
+    
+    // Cache the result
+    setCached(cacheKey, json, config.cacheTimeMs)
+  }, [appid, getGame, config.cacheTimeMs, getCached, setCached])
 
   React.useEffect(() => { void load() }, [load])
 
@@ -49,6 +65,11 @@ export default function SteamGameDetailWidget({ config, onConfigChange }: Widget
                 Playtime: {data?.ownership?.playtime_forever_minutes ?? 0} min{data?.ownership?.last_played_at ? ` · Last played ${new Date(data?.ownership?.last_played_at).toLocaleString()}` : ''}
               </div>
             </div>
+          )}
+          
+          {/* Cache Configuration */}
+          {isEditing && (
+            <CacheConfig config={config} onConfigChange={onConfigChange} />
           )}
         </div>
       </PrereqGuard>
