@@ -325,13 +325,19 @@ export function useAggregator() {
 
   const fetchRssItemsInner = useCallback(async (providerLimit: number): Promise<AggregatedItem[]> => {
     const sources = listRssSources()
+    console.log('RSS sources found:', sources)
     const out: AggregatedItem[] = []
     for (const s of sources) {
       try {
+        console.log(`Fetching RSS from: ${s.url}`)
         const res = await dynFetch(s.url)
-        if (!res.ok) continue
+        if (!res.ok) {
+          console.log(`RSS fetch failed for ${s.url}: ${res.status}`)
+          continue
+        }
         const text = await res.text()
         const parsed = parseRss(text)
+        console.log(`Parsed ${parsed.length} RSS items from ${s.url}`)
         const limit = typeof s.limit === 'number' && s.limit > 0 ? s.limit : providerLimit
         for (const it of parsed.slice(0, limit)) {
           out.push({
@@ -344,8 +350,11 @@ export function useAggregator() {
             extra: { source: s.title || s.url },
           })
         }
-      } catch {}
+      } catch (error) {
+        console.error(`Error fetching RSS from ${s.url}:`, error)
+      }
     }
+    console.log(`Total RSS items collected: ${out.length}`)
     return out
   }, [listRssSources])
 
@@ -392,23 +401,75 @@ export function useAggregator() {
 
   const refreshAll = useCallback(async () => {
     if (!isUnlocked) return
+    console.log('Starting refreshAll, isUnlocked:', isUnlocked)
+    console.log('Available providers:', aggregationProviders.map(p => ({ name: p.name, enabled: isProviderEnabled(p.name) })))
+    console.log('Vault items:', vaultItems)
+    
+    // Check if there are any configured providers
+    const hasConfiguredProviders = aggregationProviders.some(p => {
+      if (p.name === 'rss') {
+        const sources = listRssSources()
+        return sources.length > 0
+      }
+      if (p.name === 'twitter' || p.name === 'facebook' || p.name === 'instagram') {
+        const data = getProviderData(p.name)
+        return !!(data.bearer || data.access_token)
+      }
+      if (p.name === 'reddit' || p.name === 'gmail' || p.name === 'outlook' || p.name === 'youtube' || p.name === 'youtubemusic' || p.name === 'spotify') {
+        const data = getProviderData(p.name)
+        return !!(data.access_token || data.refresh_token)
+      }
+      return false
+    })
+    
+    if (!hasConfiguredProviders) {
+      console.log('No configured providers found, skipping refreshAll')
+      setItems([])
+      setLoading(false)
+      return
+    }
+    
     setLoading(true)
     try {
       const results = await Promise.all(aggregationProviders.map(async (p) => {
-        if (!isProviderEnabled(p.name)) return []
+        if (!isProviderEnabled(p.name)) {
+          console.log(`Provider ${p.name} is disabled`)
+          return []
+        }
         const cached = cacheRef.current[p.name]
         const ttl = CACHE_TTLS_MS[p.name]
         const now = Date.now()
         if (cached && now - cached.fetchedAt < ttl) {
+          console.log(`Using cached data for ${p.name}`)
           return cached.items
         }
-        const items = await p.fetch()
-        cacheRef.current[p.name] = { items, fetchedAt: now }
-        return items
+        console.log(`Fetching fresh data for ${p.name}`)
+        try {
+          const items = await p.fetch()
+          console.log(`Fetched ${items.length} items for ${p.name}`)
+          cacheRef.current[p.name] = { items, fetchedAt: now }
+          return items
+        } catch (error) {
+          console.error(`Error fetching from provider ${p.name}:`, error)
+          return []
+        }
       }))
       const combined = results.flat()
+      console.log(`Total items fetched: ${combined.length}`)
       combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       setItems(combined)
+      
+      // If no items were fetched and no providers are configured, log this for debugging
+      if (combined.length === 0) {
+        console.log('No feed items were fetched. This might be normal if no providers are configured.')
+        console.log('Provider status:', aggregationProviders.map(p => ({
+          name: p.name,
+          enabled: isProviderEnabled(p.name),
+          hasData: getProviderData(p.name)
+        })))
+      }
+    } catch (error) {
+      console.error('Error in refreshAll:', error)
     } finally {
       setLoading(false)
     }
@@ -434,6 +495,23 @@ export function useAggregator() {
     if (handoff) completeOAuthFromHandoff(handoff, provider || undefined)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Auto-refresh feeds when vault becomes unlocked (only once, with better protection)
+  const hasAttemptedInitialLoad = useRef(false)
+  const lastRefreshTime = useRef(0)
+  
+  useEffect(() => {
+    if (isUnlocked && !hasAttemptedInitialLoad.current) {
+      const now = Date.now()
+      // Prevent multiple rapid calls
+      if (now - lastRefreshTime.current > 1000) {
+        hasAttemptedInitialLoad.current = true
+        lastRefreshTime.current = now
+        console.log('Initial feed load triggered')
+        refreshAll()
+      }
+    }
+  }, [isUnlocked])
 
   const getProviderData = useCallback((name: 'reddit' | 'twitter' | 'facebook' | 'instagram' | 'gmail' | 'outlook' | 'rss' | 'youtube' | 'youtubemusic' | 'spotify') => {
     const it = getVaultItemByName(name)
