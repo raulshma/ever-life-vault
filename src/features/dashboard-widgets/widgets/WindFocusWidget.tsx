@@ -70,14 +70,14 @@ export default function WindFocusWidget({ config, onConfigChange, isEditing }: W
   const lon = typeof config?.lon === 'number' ? config.lon : undefined
   const units = config?.units || 'kmh'
   
-  const { getCached, setCached } = useApiCache<WindData>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<WindData>()
 
   const refresh = React.useCallback(async () => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return
     
     // Check cache first
     const cacheKey = generateCacheKey('wind-data', { lat, lon })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setData(cached)
       return

@@ -16,12 +16,12 @@ export default function SteamBacklogWidget({ config, onConfigChange, isEditing }
   const [busy, setBusy] = React.useState(false)
   const { user } = useAuth()
   
-  const { getCached, setCached } = useApiCache<Array<{ appid: number; name?: string; score: number }>>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<Array<{ appid: number; name?: string; score: number }>>()
 
   const load = React.useCallback(async () => {
     // Check cache first
     const cacheKey = generateCacheKey('steam-backlog', { userId: user?.id })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setItems(cached)
       return

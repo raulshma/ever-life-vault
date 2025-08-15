@@ -26,7 +26,7 @@ export default function QuotesWidget({ config, onConfigChange, isEditing }: Widg
   const [quote, setQuote] = React.useState<{ q: string; a?: string } | null>(null)
   const [loading, setLoading] = React.useState(false)
   
-  const { getCached, setCached } = useApiCache<{ q: string; a?: string }>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<{ q: string; a?: string }>()
 
   const pickLocal = React.useCallback(() => {
     const i = Math.floor(Math.random() * LOCAL_QUOTES.length)
@@ -36,7 +36,7 @@ export default function QuotesWidget({ config, onConfigChange, isEditing }: Widg
   const fetchRemote = React.useCallback(async () => {
     // Check cache first for remote quotes
     const cacheKey = generateCacheKey('zenquotes', {})
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setQuote(cached)
       return

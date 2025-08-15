@@ -3,11 +3,12 @@ import { WidgetShell } from '../components/WidgetShell'
 import type { WidgetProps, BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { LocateFixed, RefreshCw } from 'lucide-react'
+import { LocateFixed, RefreshCw, Bug } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { agpFetch } from '@/lib/aggregatorClient'
-import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
+import { useApiCache, generateCacheKey, getEffectiveCacheTime, globalCache } from '../hooks/useApiCache'
 import { CacheConfig } from '../components/CacheConfig'
+import { useWidgetRegistry } from '../registry'
 
 type AQConfig = BaseWidgetConfig & {
   lat?: number
@@ -25,6 +26,8 @@ type AQData = {
   co?: number
   time?: string
 }
+
+const defaultData: AQData = {}
 
 function categoryUS(aqi?: number): { label: string; className: string } {
   if (typeof aqi !== 'number') return { label: '—', className: 'text-muted-foreground' }
@@ -78,40 +81,90 @@ function nearestIndex(isoTimes: string[]): number {
   return best
 }
 
-export default function AirQualityWidget({ config, onConfigChange, isEditing }: WidgetProps<AQConfig>) {
-  const [data, setData] = React.useState<AQData>({})
+export default function AirQualityWidget({ config, onConfigChange, isEditing, id }: WidgetProps<AQConfig>) {
+  const { lat, lon, scale = 'us' } = config
+  const registry = useWidgetRegistry()
+  const [data, setData] = React.useState<AQData>(defaultData)
   const [loading, setLoading] = React.useState(false)
-  const lat = typeof config?.lat === 'number' ? config.lat : undefined
-  const lon = typeof config?.lon === 'number' ? config.lon : undefined
-  const scale = config?.scale || 'us'
   
-  const { getCached, setCached } = useApiCache<AQData>()
+  // Store registry in a ref to avoid dependency changes
+  const registryRef = React.useRef(registry)
+  React.useEffect(() => {
+    registryRef.current = registry
+  }, [registry])
+  
+  console.log('[AirQuality] Component render', { lat, lon, scale, config })
+
+  const { getCached, getCachedAsync, setCached } = useApiCache<AQData>()
 
   const refresh = React.useCallback(async () => {
+    console.log('[AirQuality] Refresh function called', { lat, lon })
     if (typeof lat !== 'number' || typeof lon !== 'number') return
+    
+    // Get effective cache time (config or default from registry)
+    const effectiveCacheTime = getEffectiveCacheTime(config, 'air-quality', registryRef.current)
+    console.log('[AirQuality] Cache debug:', {
+      configCacheTime: config.cacheTimeMs,
+      effectiveCacheTime,
+      hasRegistry: !!registryRef.current,
+      widgetType: 'air-quality'
+    })
     
     // Check cache first
     const cacheKey = generateCacheKey('air-quality', { lat, lon })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    console.log('[AirQuality] Cache key generation details:', { 
+      lat, 
+      lon, 
+      latType: typeof lat, 
+      lonType: typeof lat,
+      cacheKey,
+      effectiveCacheTime 
+    })
+    
+    // Debug cache state before lookup
+    console.log('[AirQuality] Cache state before lookup:')
+    globalCache.debug()
+    
+    const cached = await getCachedAsync(cacheKey, effectiveCacheTime)
     if (cached) {
+      console.log('[AirQuality] Using cached data')
       setData(cached)
       return
     }
     
+    console.log('[AirQuality] Fetching fresh data (no cache hit)')
     setLoading(true)
     try {
       const v = await fetchAQ(lat, lon)
       if (v) {
         setData(v)
         // Cache the result
-        setCached(cacheKey, v, config.cacheTimeMs)
+        setCached(cacheKey, v, effectiveCacheTime)
+        console.log('[AirQuality] Data cached with TTL:', effectiveCacheTime)
+        
+        // Debug cache state after caching
+        console.log('[AirQuality] Cache state after caching:')
+        globalCache.debug()
       }
     } finally {
       setLoading(false)
     }
-  }, [lat, lon, config.cacheTimeMs, getCached, setCached])
+  }, [lat, lon, config.cacheTimeMs])
 
-  React.useEffect(() => { void refresh() }, [refresh])
+  React.useEffect(() => {
+    console.log('[AirQuality] Component mounted')
+    return () => {
+      console.log('[AirQuality] Component unmounted')
+    }
+  }, [])
+
+  // Only run refresh when lat/lon change, not on every render
+  React.useEffect(() => { 
+    if (typeof lat === 'number' && typeof lon === 'number') {
+      console.log('[AirQuality] useEffect triggered, calling refresh')
+      void refresh() 
+    }
+  }, [lat, lon, refresh])
 
   const setLat = (v: string) => {
     const n = Number(v)
@@ -161,6 +214,14 @@ export default function AirQualityWidget({ config, onConfigChange, isEditing }: 
               </Button>
             </TooltipTrigger>
             <TooltipContent>Refresh</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" variant="ghost" aria-label="Debug cache" onClick={() => globalCache.debug()}>
+                <Bug className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Debug cache</TooltipContent>
           </Tooltip>
         </div>
       }

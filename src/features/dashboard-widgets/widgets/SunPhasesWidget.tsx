@@ -122,14 +122,14 @@ export default function SunPhasesWidget({ config, onConfigChange, isEditing }: W
   const lon = config?.lon
   const mode = config?.mode || 'official'
   
-  const { getCached, setCached } = useApiCache<SunTimes>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<SunTimes>()
 
-  const compute = React.useCallback(() => {
+  const compute = React.useCallback(async () => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return
     
     // Check cache first
     const cacheKey = generateCacheKey('sun-phases', { lat, lon, mode, date: now.toDateString() })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setTimes(cached)
       return
@@ -140,9 +140,9 @@ export default function SunPhasesWidget({ config, onConfigChange, isEditing }: W
     
     // Cache the result
     setCached(cacheKey, result, config.cacheTimeMs)
-  }, [lat, lon, mode, now, config.cacheTimeMs, getCached, setCached])
+  }, [lat, lon, mode, now, config.cacheTimeMs, getCachedAsync, setCached])
 
-  React.useEffect(() => { compute() }, [compute])
+  React.useEffect(() => { void compute() }, [compute])
   React.useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(id)

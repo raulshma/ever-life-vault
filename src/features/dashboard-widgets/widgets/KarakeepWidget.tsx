@@ -21,13 +21,13 @@ export default function KarakeepWidget({ config, onConfigChange, isEditing }: Wi
   const kk = useKarakeep(cfg)
   const [items, setItems] = useState<KarakeepItem[]>([])
   
-  const { getCached, setCached } = useApiCache<KarakeepItem[]>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<KarakeepItem[]>()
 
   const load = useCallback(async () => {
     try {
       // Check cache first
       const cacheKey = generateCacheKey('karakeep-items', { serverUrl: cfg.serverUrl })
-      const cached = getCached(cacheKey, config.cacheTimeMs)
+      const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
       if (cached) {
         setItems(cached)
         return

@@ -75,7 +75,7 @@ The following widgets support configurable caching and show cache settings only 
 
 The caching system is implemented using:
 
-1. **useApiCache Hook**: A custom React hook that manages cache state
+1. **useApiCache Hook**: A custom React hook that manages cache state with in-memory + IndexedDB persistence
 2. **CacheConfig Component**: A reusable UI component for cache configuration
 3. **BaseWidgetConfig Interface**: Extends widget configurations with cache settings
 
@@ -90,29 +90,29 @@ type MyWidgetConfig = BaseWidgetConfig & {
 }
 
 export default function MyWidget({ config, onConfigChange }: WidgetProps<MyWidgetConfig>) {
-  const { getCached, setCached } = useApiCache<MyDataType>()
-  
+  const { getCachedAsync, setCached } = useApiCache<MyDataType>()
+
   const refresh = useCallback(async () => {
-    // Check cache first
+    // Check cache first (IndexedDB-backed)
     const cacheKey = generateCacheKey('my-widget', { param: value })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setData(cached)
       return
     }
-    
+
     // Fetch fresh data
     const data = await fetchData()
     setData(data)
-    
-    // Cache the result
+
+    // Cache the result (persists to IndexedDB)
     setCached(cacheKey, data, config.cacheTimeMs)
-  }, [config.cacheTimeMs, getCached, setCached])
-  
+  }, [config.cacheTimeMs, getCachedAsync, setCached])
+
   return (
     <WidgetShell title="My Widget">
       {/* Widget content */}
-      
+
       {/* Cache Configuration */}
       <CacheConfig config={config} onConfigChange={onConfigChange} />
     </WidgetShell>

@@ -17,14 +17,14 @@ export default function SteamGameDetailWidget({ config, onConfigChange, isEditin
   const [appid, setAppid] = React.useState<number | undefined>(config?.appid)
   const { user } = useAuth()
   
-  const { getCached, setCached } = useApiCache<any>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<any>()
 
   const load = React.useCallback(async () => {
     if (!appid) return
     
     // Check cache first
     const cacheKey = generateCacheKey('steam-game-detail', { appid })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setData(cached)
       return

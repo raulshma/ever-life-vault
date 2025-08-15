@@ -1,35 +1,42 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { WidgetShell } from '../components/WidgetShell'
-import type { WidgetProps, BaseWidgetConfig } from '../types'
+import { CacheConfig } from '../components/CacheConfig'
+import { useApiCache, generateCacheKey, getEffectiveCacheTime } from '../hooks/useApiCache'
+import { useWidgetRegistry } from '../registry'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
-import { useJellyfin, type JellyfinConfig, type JellyfinSession, type JellyfinSystemInfo } from '@/hooks/useJellyfin'
+import { useJellyfin } from '@/hooks/useJellyfin'
+import { useVaultSession } from '@/hooks/useVaultSession'
+import type { JellyfinConfig, JellyfinSystemInfo, JellyfinSession } from '@/hooks/useJellyfin'
+import type { WidgetProps } from '../types'
+import type { BaseWidgetConfig } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { RefreshCw } from 'lucide-react'
 import PrereqGuard from '@/components/PrereqGuard'
-import { useVaultSession } from '@/hooks/useVaultSession'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
-import { CacheConfig } from '../components/CacheConfig'
 
 type JellyfinWidgetConfig = BaseWidgetConfig & {}
 
-export default function JellyfinWidget(_props: WidgetProps<JellyfinWidgetConfig>) {
+export default function JellyfinWidget({ config, onConfigChange, isEditing, id }: WidgetProps<JellyfinWidgetConfig>) {
   const { itemsByType } = useEncryptedVault()
   const jellyfinItem = [...itemsByType.api].find((i) => i.name.toLowerCase() === 'jellyfin')
-  const config: JellyfinConfig = { serverUrl: jellyfinItem?.data?.serverUrl || '', apiKey: jellyfinItem?.data?.apiKey || '' }
-  const jf = useJellyfin(config)
+  const jellyfinConfig: JellyfinConfig = { serverUrl: jellyfinItem?.data?.serverUrl || '', apiKey: jellyfinItem?.data?.apiKey || '' }
+  const jf = useJellyfin(jellyfinConfig)
   const { isUnlocked } = useVaultSession()
   const [info, setInfo] = useState<JellyfinSystemInfo | null>(null)
   const [sessions, setSessions] = useState<JellyfinSession[]>([])
+  const registry = useWidgetRegistry()
   
-  const { getCached, setCached } = useApiCache<{ info: JellyfinSystemInfo; sessions: JellyfinSession[] }>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<{ info: JellyfinSystemInfo; sessions: JellyfinSession[] }>()
 
   const load = useCallback(async () => {
     try {
+      // Get effective cache time (config or default from registry)
+      const effectiveCacheTime = getEffectiveCacheTime(config, 'jellyfin', registry)
+      
       // Check cache first
-      const cacheKey = generateCacheKey('jellyfin', { serverUrl: config.serverUrl })
-      const cached = getCached(cacheKey, _props.config.cacheTimeMs)
+      const cacheKey = generateCacheKey('jellyfin', { serverUrl: jellyfinConfig.serverUrl })
+      const cached = await getCachedAsync(cacheKey, effectiveCacheTime)
       if (cached) {
         setInfo(cached.info)
         setSessions(cached.sessions)
@@ -42,11 +49,11 @@ export default function JellyfinWidget(_props: WidgetProps<JellyfinWidgetConfig>
       setSessions(s)
       
       // Cache the result
-      setCached(cacheKey, { info: i, sessions: s }, _props.config.cacheTimeMs)
+      setCached(cacheKey, { info: i, sessions: s }, effectiveCacheTime)
     } catch {}
-  }, [jf, config.serverUrl, _props.config.cacheTimeMs, getCached, setCached])
+  }, [jf, jellyfinConfig, config, registry, getCached, setCached])
 
-  useEffect(() => { if (config.serverUrl && config.apiKey) load() }, [config.serverUrl, config.apiKey, load])
+  useEffect(() => { if (jellyfinConfig.serverUrl && jellyfinConfig.apiKey) load() }, [jellyfinConfig.serverUrl, jellyfinConfig.apiKey, load])
 
   return (
     <WidgetShell title="Jellyfin">
@@ -54,7 +61,7 @@ export default function JellyfinWidget(_props: WidgetProps<JellyfinWidgetConfig>
         title="Jellyfin prerequisites"
         checks={[
           { ok: isUnlocked, label: 'Unlock your secure vault', actionLabel: 'Open Vault', onAction: () => (window.location.href = '/vault') },
-          { ok: Boolean(config.serverUrl && config.apiKey), label: "Add a Vault API item named 'jellyfin' with serverUrl and apiKey" },
+          { ok: Boolean(jellyfinConfig.serverUrl && jellyfinConfig.apiKey), label: "Add a Vault API item named 'jellyfin' with serverUrl and apiKey" },
         ]}
       >
         <div className="space-y-3 text-sm">
@@ -100,7 +107,7 @@ export default function JellyfinWidget(_props: WidgetProps<JellyfinWidgetConfig>
           </ul>
           
           {/* Cache Configuration */}
-          {_props.isEditing && <CacheConfig config={_props.config} onConfigChange={_props.onConfigChange} />}
+          {isEditing && <CacheConfig config={config} onConfigChange={onConfigChange} />}
         </div>
       </PrereqGuard>
     </WidgetShell>

@@ -16,12 +16,12 @@ export default function SteamRecentlyPlayedWidget({ config, onConfigChange, isEd
   const [busy, setBusy] = React.useState(false)
   const { user } = useAuth()
   
-  const { getCached, setCached } = useApiCache<Array<{ appid: number; name?: string; playtime_2weeks_minutes: number; last_played_at?: string | null }>>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<Array<{ appid: number; name?: string; playtime_2weeks_minutes: number; last_played_at?: string | null }>>()
 
   const load = React.useCallback(async () => {
     // Check cache first
     const cacheKey = generateCacheKey('steam-recent', { userId: user?.id })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setItems(cached)
       return

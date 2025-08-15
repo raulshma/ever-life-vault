@@ -44,7 +44,7 @@ export default function CurrencyConverterWidget({ config, onConfigChange, isEdit
   const [date, setDate] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(false)
   
-  const { getCached, setCached } = useApiCache<RatesResponse>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<RatesResponse>()
 
   const numeric = Number(amount)
   const valid = !isNaN(numeric)
@@ -53,7 +53,7 @@ export default function CurrencyConverterWidget({ config, onConfigChange, isEdit
   const refresh = React.useCallback(async () => {
     // Check cache first
     const cacheKey = generateCacheKey('currency-rates', { base })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached && cached.rates) {
       setRate(cached.rates[quote] ?? null)
       setDate(cached.date || null)

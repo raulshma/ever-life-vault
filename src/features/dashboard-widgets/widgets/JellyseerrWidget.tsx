@@ -22,13 +22,13 @@ export default function JellyseerrWidget({ config, onConfigChange, isEditing }: 
   const [requests, setRequests] = useState<MediaRequest[]>([])
   const { isUnlocked } = useVaultSession()
   
-  const { getCached, setCached } = useApiCache<MediaRequest[]>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<MediaRequest[]>()
 
   const load = useCallback(async () => {
     try {
       // Check cache first
       const cacheKey = generateCacheKey('jellyseerr-requests', { serverUrl: cfg.serverUrl })
-      const cached = getCached(cacheKey, config.cacheTimeMs)
+      const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
       if (cached) {
         setRequests(cached)
         return

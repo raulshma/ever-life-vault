@@ -43,14 +43,14 @@ export default function PrecipNowcastWidget({ config, onConfigChange, isEditing 
   const lat = typeof config?.lat === 'number' ? config.lat : undefined
   const lon = typeof config?.lon === 'number' ? config.lon : undefined
   
-  const { getCached, setCached } = useApiCache<MinutePrecip[]>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<MinutePrecip[]>()
 
   const refresh = React.useCallback(async () => {
     if (typeof lat !== 'number' || typeof lon !== 'number') return
     
     // Check cache first
     const cacheKey = generateCacheKey('precip-nowcast', { lat, lon })
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setPoints(cached)
       return

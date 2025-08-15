@@ -66,12 +66,12 @@ export default function IPNetworkWidget({ config, onConfigChange, isEditing }: W
   const [latency, setLatency] = React.useState<Record<string, number | null>>({})
   const [adding, setAdding] = React.useState('')
   
-  const { getCached, setCached } = useApiCache<IpInfo>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<IpInfo>()
 
   const refresh = React.useCallback(async () => {
     // Check cache first
     const cacheKey = generateCacheKey('ip-info', {})
-    const cached = getCached(cacheKey, config.cacheTimeMs)
+    const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
     if (cached) {
       setInfo(cached)
       return
