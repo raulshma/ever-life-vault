@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import PageHeader from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,16 +30,20 @@ export default function Feeds() {
     setRedditSettings,
     setRssSourceLimit,
   } = useAggregator()
+  
   const [rssUrl, setRssUrl] = useState('')
   const [twitterBearer, setTwitterBearer] = useState(() => (getProviderData('twitter').bearer as string) || '')
   const [facebookToken, setFacebookToken] = useState(() => (getProviderData('facebook').access_token as string) || '')
   const [instagramToken, setInstagramToken] = useState(() => (getProviderData('instagram').access_token as string) || '')
   const [loadingTimeout, setLoadingTimeout] = useState(false)
+  const hasAttemptedInitialLoad = useRef(false)
   
   // Show debug info in development mode
   const isDevelopment = import.meta.env.DEV
   
-  const sources = listRssSources()
+  // Memoize expensive computations
+  const sources = useMemo(() => listRssSources(), [listRssSources])
+  
   const grouped = useMemo(() => {
     const m = new Map<string, ReturnType<typeof Array.prototype.slice>>()
     for (const it of items) {
@@ -50,22 +54,7 @@ export default function Feeds() {
     return m
   }, [items])
 
-
-
-  // Handle loading timeout
-  useEffect(() => {
-    if (loading && items.length === 0) {
-      const timer = setTimeout(() => {
-        setLoadingTimeout(true)
-      }, 10000) // 10 second timeout
-      
-      return () => clearTimeout(timer)
-    } else {
-      setLoadingTimeout(false)
-    }
-  }, [loading, items.length])
-
-  // Check if there are any configured providers to prevent infinite loops
+  // Memoize provider configuration check to prevent recalculation
   const hasConfiguredProviders = useMemo(() => {
     if (!isUnlocked) return false
     
@@ -89,10 +78,88 @@ export default function Feeds() {
     return hasSocialProviders || hasEmailProviders
   }, [isUnlocked, sources.length, getProviderData])
 
+  // Memoize the initial load effect to prevent double execution
+  const shouldTriggerInitialLoad = useMemo(() => {
+    return isUnlocked && hasConfiguredProviders && !loading
+  }, [isUnlocked, hasConfiguredProviders, loading])
+
+  // Reset initial load flag when vault is locked
+  useEffect(() => {
+    if (!isUnlocked) {
+      hasAttemptedInitialLoad.current = false
+    }
+  }, [isUnlocked])
+
+  // Memoize callback functions to prevent recreation
+  const handleRefreshAll = useCallback(() => {
+    refreshAll()
+  }, [refreshAll])
+
+  const handleAddRssSource = useCallback(async () => {
+    if (rssUrl) {
+      await addRssSource(rssUrl)
+      setRssUrl('')
+      await refreshProvider('rss')
+    }
+  }, [rssUrl, addRssSource, refreshProvider])
+
+  const handleRemoveRssSource = useCallback(async (id: string) => {
+    await removeRssSource(id)
+    await refreshProvider('rss')
+  }, [removeRssSource, refreshProvider])
+
+  const handleSetRssSourceLimit = useCallback(async (id: string, limit: number) => {
+    await setRssSourceLimit(id, limit)
+    await refreshProvider('rss')
+  }, [setRssSourceLimit, refreshProvider])
+
+  const handleProviderToggle = useCallback(async (provider: string, enabled: boolean) => {
+    await setProviderEnabled(provider as any, enabled)
+    await refreshAll()
+  }, [setProviderEnabled, refreshAll])
+
+  const handleProviderLimitChange = useCallback(async (provider: string, limit: number) => {
+    await setProviderLimit(provider as any, limit)
+    await refreshAll()
+  }, [setProviderLimit, refreshAll])
+
+  const handleRedditSettingsChange = useCallback(async (settings: { subLimit?: number; postsPerSub?: number }) => {
+    await setRedditSettings(settings)
+  }, [setRedditSettings])
+
+  const handleSaveTwitterToken = useCallback(async () => {
+    await saveManualToken('twitter', { bearer: twitterBearer })
+    await refreshAll()
+  }, [saveManualToken, twitterBearer, refreshAll])
+
+  const handleSaveFacebookToken = useCallback(async () => {
+    await saveManualToken('facebook', { access_token: facebookToken })
+    await refreshAll()
+  }, [saveManualToken, facebookToken, refreshAll])
+
+  const handleSaveInstagramToken = useCallback(async () => {
+    await saveManualToken('instagram', { access_token: instagramToken })
+    await refreshAll()
+  }, [saveManualToken, instagramToken, refreshAll])
+
+  // Handle loading timeout
+  useEffect(() => {
+    if (loading && items.length === 0) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true)
+      }, 10000) // 10 second timeout
+      
+      return () => clearTimeout(timer)
+    } else {
+      setLoadingTimeout(false)
+    }
+  }, [loading, items.length])
+
   useEffect(() => {
     // Load initial feed items when opening the page or when vault becomes unlocked
     // Only if there are configured providers to prevent infinite loops
-    if (isUnlocked && hasConfiguredProviders) {
+    if (shouldTriggerInitialLoad && !hasAttemptedInitialLoad.current) {
+      hasAttemptedInitialLoad.current = true
       console.log('Feeds: Initial load triggered with configured providers')
       refreshAll()
     } else if (isUnlocked && !hasConfiguredProviders) {
@@ -101,7 +168,7 @@ export default function Feeds() {
       // This will show the "Get Started" message instead of loading state
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isUnlocked, hasConfiguredProviders])
+  }, [shouldTriggerInitialLoad, isUnlocked, hasConfiguredProviders])
 
   // Show vault locked message if vault is not unlocked
   if (!isUnlocked) {
@@ -197,7 +264,7 @@ export default function Feeds() {
         description="Aggregated social, RSS, and email updates"
         icon={Earth}
       >
-        <Button variant="outline" onClick={() => refreshAll()} disabled={loading || !isUnlocked} title={!isUnlocked ? "Vault must be unlocked to refresh feeds" : undefined}>
+        <Button variant="outline" onClick={handleRefreshAll} disabled={loading || !isUnlocked} title={!isUnlocked ? "Vault must be unlocked to refresh feeds" : undefined}>
           {loading ? <span className="inline-flex items-center"><span className="w-3.5 h-3.5 mr-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />Refreshing</span> : 'Refresh'}
         </Button>
       </PageHeader>
@@ -247,9 +314,9 @@ export default function Feeds() {
                     key={p}
                     label={p}
                     enabled={isProviderEnabled(p as any)}
-                    onToggle={async (v) => { await setProviderEnabled(p as any, v); await refreshAll(); }}
+                    onToggle={(v) => handleProviderToggle(p, v)}
                     limit={getProviderLimit(p as any)}
-                    onLimitChange={async (n) => { await setProviderLimit(p as any, n); await refreshAll(); }}
+                    onLimitChange={(n) => handleProviderLimitChange(p, n)}
                     disabled={!isUnlocked}
                   />
                 ))}
@@ -264,7 +331,7 @@ export default function Feeds() {
                     type="number"
                     min={1}
                     defaultValue={getRedditSettings().subLimit}
-                    onBlur={async (e) => { await setRedditSettings({ subLimit: Number(e.target.value) }) }}
+                    onBlur={(e) => handleRedditSettingsChange({ subLimit: Number(e.target.value) })}
                     disabled={!isUnlocked}
                   />
                   <small className="text-muted-foreground">Posts/sub:</small>
@@ -273,7 +340,7 @@ export default function Feeds() {
                     type="number"
                     min={1}
                     defaultValue={getRedditSettings().postsPerSub}
-                    onBlur={async (e) => { await setRedditSettings({ postsPerSub: Number(e.target.value) }) }}
+                    onBlur={(e) => handleRedditSettingsChange({ postsPerSub: Number(e.target.value) })}
                     disabled={!isUnlocked}
                   />
                 </div>
@@ -286,21 +353,21 @@ export default function Feeds() {
                     <label className="text-xs text-muted-foreground">Twitter/X Bearer token</label>
                     <div className="flex gap-2 mt-1">
                       <Input placeholder="Bearer ..." value={twitterBearer} onChange={(e) => setTwitterBearer(e.target.value)} disabled={!isUnlocked} />
-                      <Button onClick={async () => { await saveManualToken('twitter', { bearer: twitterBearer }); await refreshAll(); }} size="sm" disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to save tokens" : undefined}>Save</Button>
+                      <Button onClick={handleSaveTwitterToken} size="sm" disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to save tokens" : undefined}>Save</Button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Facebook Graph API token</label>
                     <div className="flex gap-2 mt-1">
                       <Input placeholder="EAAB..." value={facebookToken} onChange={(e) => setFacebookToken(e.target.value)} disabled={!isUnlocked} />
-                      <Button onClick={async () => { await saveManualToken('facebook', { access_token: facebookToken }); await refreshAll(); }} size="sm" disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to save tokens" : undefined}>Save</Button>
+                      <Button onClick={handleSaveFacebookToken} size="sm" disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to save tokens" : undefined}>Save</Button>
                     </div>
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground">Instagram API token</label>
                     <div className="flex gap-2 mt-1">
                       <Input placeholder="IGQV..." value={instagramToken} onChange={(e) => setInstagramToken(e.target.value)} disabled={!isUnlocked} />
-                      <Button onClick={async () => { await saveManualToken('instagram', { access_token: instagramToken }); await refreshAll(); }} size="sm" disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to save tokens" : undefined}>Save</Button>
+                      <Button onClick={handleSaveInstagramToken} size="sm" disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to save tokens" : undefined}>Save</Button>
                     </div>
                   </div>
                 </div>
@@ -342,7 +409,7 @@ export default function Feeds() {
             <CardContent>
               <div className="flex gap-2 mb-3">
                 <Input placeholder="https://example.com/feed.xml" value={rssUrl} onChange={(e) => setRssUrl(e.target.value)} disabled={!isUnlocked} />
-                <Button onClick={async () => { if (rssUrl) { await addRssSource(rssUrl); setRssUrl(''); await refreshProvider('rss'); } }} disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to add RSS sources" : undefined}><Rss className="h-4 w-4 mr-1"/>Add</Button>
+                <Button onClick={handleAddRssSource} disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to add RSS sources" : undefined}><Rss className="h-4 w-4 mr-1"/>Add</Button>
               </div>
               {sources.length === 0 ? (
                 <p className="text-muted-foreground text-sm">
@@ -355,8 +422,8 @@ export default function Feeds() {
                       <a href={s.url} target="_blank" className="truncate hover:underline">{s.title || s.url}</a>
                       <div className="flex items-center gap-2">
                         <small className="text-muted-foreground">Limit</small>
-                        <Input className="w-20" type="number" min={1} defaultValue={s.limit || 20} onBlur={async (e) => { await setRssSourceLimit(s.id, Number(e.target.value)); await refreshProvider('rss'); }} disabled={!isUnlocked} />
-                        <Button variant="ghost" size="sm" onClick={async () => { await removeRssSource(s.id); await refreshProvider('rss'); }} disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to modify RSS sources" : undefined}>Remove</Button>
+                        <Input className="w-20" type="number" min={1} defaultValue={s.limit || 20} onBlur={(e) => handleSetRssSourceLimit(s.id, Number(e.target.value))} disabled={!isUnlocked} />
+                        <Button variant="ghost" size="sm" onClick={() => handleRemoveRssSource(s.id)} disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to modify RSS sources" : undefined}>Remove</Button>
                       </div>
                     </li>
                   ))}
@@ -374,7 +441,7 @@ export default function Feeds() {
                 </p>
                 <div className="flex gap-2 justify-center">
                   <Input placeholder="https://example.com/feed.xml" value={rssUrl} onChange={(e) => setRssUrl(e.target.value)} className="w-64" />
-                  <Button onClick={async () => { if (rssUrl) { await addRssSource(rssUrl); setRssUrl(''); await refreshProvider('rss'); } }}><Rss className="h-4 w-4 mr-1"/>Add</Button>
+                  <Button onClick={handleAddRssSource}><Rss className="h-4 w-4 mr-1"/>Add</Button>
                 </div>
               </CardContent>
             </Card>
@@ -435,7 +502,8 @@ export default function Feeds() {
   )
 }
 
-function ProviderToggle({ label, enabled, onToggle, limit, onLimitChange, disabled }: { label: string; enabled: boolean; onToggle: (v: boolean) => void | Promise<void>; limit: number; onLimitChange: (n: number) => void | Promise<void>; disabled?: boolean }) {
+// Memoize child components to prevent unnecessary re-renders
+const ProviderToggle = React.memo(({ label, enabled, onToggle, limit, onLimitChange, disabled }: { label: string; enabled: boolean; onToggle: (v: boolean) => void | Promise<void>; limit: number; onLimitChange: (n: number) => void | Promise<void>; disabled?: boolean }) => {
   return (
     <div className="border rounded p-2 space-y-2">
       <div className="flex items-center justify-between">
@@ -451,9 +519,9 @@ function ProviderToggle({ label, enabled, onToggle, limit, onLimitChange, disabl
       </div>
     </div>
   )
-}
+})
 
-function FeedList({ items, emptyLabel }: { items: ReturnType<typeof Array.prototype.slice>, emptyLabel: string }) {
+const FeedList = React.memo(({ items, emptyLabel }: { items: ReturnType<typeof Array.prototype.slice>, emptyLabel: string }) => {
   if (!items || items.length === 0) {
     return <p className="text-muted-foreground text-sm">{emptyLabel}</p>
   }
@@ -484,9 +552,9 @@ function FeedList({ items, emptyLabel }: { items: ReturnType<typeof Array.protot
       ))}
     </div>
   )
-}
+})
 
-function ProviderBadge({ provider }: { provider: string }) {
+const ProviderBadge = React.memo(({ provider }: { provider: string }) => {
   const map: Record<string, React.ReactNode> = {
     reddit: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Reddit</span>,
     twitter: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Twitter</span>,
@@ -500,6 +568,6 @@ function ProviderBadge({ provider }: { provider: string }) {
     spotify: <span className="px-2 py-0.5 rounded bg-secondary text-secondary-foreground text-[11px]">Spotify</span>,
   }
   return <>{map[provider] || <span className="px-2 py-0.5 rounded bg-muted text-foreground/60 text-[11px]">{provider}</span>}</>
-}
+})
 
 

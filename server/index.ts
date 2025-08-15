@@ -122,6 +122,47 @@ export async function buildServer(): Promise<FastifyInstance> {
   // Clips (cl1p-like) routes (minimal helper; primary operations via Supabase RPCs)
   registerClipRoutes(server)
 
+  // RSS proxy route to avoid CORS issues (always available)
+  server.get('/rss-proxy', async (request, reply) => {
+    try {
+      const { url } = request.query as { url: string }
+      
+      // Basic URL validation
+      if (!url || !url.startsWith('http://') && !url.startsWith('https://')) {
+        return reply.status(400).send({ error: 'Invalid URL scheme' })
+      }
+      
+      // Fetch the RSS feed
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Ever-Life-Vault/1.0 (RSS-Proxy)',
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*'
+        }
+      })
+      
+      if (!response.ok) {
+        return reply.status(response.status).send({ 
+          error: `Failed to fetch RSS feed: ${response.statusText}` 
+        })
+      }
+      
+      const contentType = response.headers.get('content-type') || ''
+      const content = await response.text()
+      
+      // Set appropriate headers
+      reply.header('Content-Type', contentType)
+      reply.header('Cache-Control', 'public, max-age=300') // Cache for 5 minutes
+      
+      return reply.send(content)
+    } catch (error: any) {
+      server.log.error({ err: error, url: (request.query as any)?.url }, 'RSS proxy error')
+      return reply.status(500).send({ 
+        error: 'Failed to fetch RSS feed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      })
+    }
+  })
+
   // Infrastructure management routes
   if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
     registerInfrastructureRoutes(server, {

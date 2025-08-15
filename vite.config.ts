@@ -65,6 +65,22 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:8787",
         changeOrigin: true,
       },
+      "/rss-proxy": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+      "/steam": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+      "/mal": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+      "/infrastructure": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
     },
     headers: {
       // Enforce frame-ancestors via server header (meta tag can't enforce it)

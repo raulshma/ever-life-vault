@@ -107,6 +107,8 @@ function makeSupabaseForRequest(options: { SUPABASE_URL: string; SUPABASE_ANON_K
   })
 }
 
+
+
 export function registerInfrastructureRoutes(
   server: FastifyInstance,
   options: {
@@ -848,4 +850,6 @@ export function registerInfrastructureRoutes(
       return reply.code(500).send({ error: 'Failed to export secrets', details: errorMessage })
     }
   })
+
+
 }
