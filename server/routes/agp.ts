@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { buildForwardHeaders, prepareBody, sendUpstreamResponse, sanitizeRequestBody, validateUrl, checkRateLimit } from './shared.js'
+import { buildForwardHeaders, prepareBody, sendUpstreamResponse, sanitizeRequestBody, checkRateLimit } from './shared.js'
 
 export function registerAgpRoute(
   server: FastifyInstance,
@@ -27,8 +27,10 @@ export function registerAgpRoute(
       return reply.code(400).send({ error: 'Missing url query parameter' })
     }
     
-    // Validate URL format and prevent SSRF
-    if (!validateUrl(targetUrl, ['localhost', '127.0.0.1', '::1'])) {
+    // Basic URL format validation
+    try {
+      new URL(targetUrl)
+    } catch {
       return reply.code(400).send({ error: 'Invalid URL format' })
     }
     
@@ -58,9 +60,9 @@ export function registerAgpRoute(
       const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as any })
       clearTimeout(to)
       return sendUpstreamResponse(reply, res)
-    } catch (e) {
+    } catch (e: unknown) {
       clearTimeout(to)
-      if (e.name === 'AbortError') {
+      if (e instanceof Error && e.name === 'AbortError') {
         return reply.code(504).send({ error: 'Request timeout' })
       }
       return reply.code(500).send({ error: 'Upstream request failed' })
