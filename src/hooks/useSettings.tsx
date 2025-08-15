@@ -35,7 +35,23 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [sidebarOrder, setSidebarOrderState] = useState<SidebarOrder>(() => {
     try {
       const raw = localStorage.getItem('sidebarOrder');
-      return raw ? (JSON.parse(raw) as SidebarOrder) : {};
+      if (!raw) return {};
+      
+      const parsed = JSON.parse(raw) as SidebarOrder;
+      
+      // Migration: convert old category names to new ones
+      const migrated: SidebarOrder = {};
+      if (parsed.daily) migrated.productivity = parsed.daily;
+      if (parsed.share) migrated.media = parsed.share;
+      if (parsed.homelab) migrated.infrastructure = parsed.homelab;
+      if (parsed.account) migrated.account = parsed.account;
+      
+      // Save migrated data back to localStorage
+      if (Object.keys(migrated).length > 0) {
+        localStorage.setItem('sidebarOrder', JSON.stringify(migrated));
+      }
+      
+      return migrated;
     } catch {
       return {};
     }

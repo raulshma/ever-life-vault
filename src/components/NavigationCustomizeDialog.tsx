@@ -23,9 +23,9 @@ type GroupKey = typeof orderedGroupTitles[number]["key"];
 
 function getDefaultOrder(): Record<GroupKey, string[]> {
   return {
-    daily: moduleCategories.daily.map((i) => i.path),
-    share: moduleCategories.share.map((i) => i.path),
-    homelab: moduleCategories.homelab.map((i) => i.path),
+    productivity: moduleCategories.productivity.map((i) => i.path),
+    media: moduleCategories.media.map((i) => i.path),
+    infrastructure: moduleCategories.infrastructure.map((i) => i.path),
     account: moduleCategories.account.map((i) => i.path),
   };
 }
@@ -59,9 +59,9 @@ export const NavigationCustomizeDialog: React.FC<Props> = ({ open, onOpenChange 
   const initialOrder: Record<GroupKey, string[]> = useMemo(() => {
     const defaults = getDefaultOrder();
     return {
-      daily: (sidebarOrder["daily"] as string[] | undefined) ?? defaults.daily,
-      share: (sidebarOrder["share"] as string[] | undefined) ?? defaults.share,
-      homelab: (sidebarOrder["homelab"] as string[] | undefined) ?? defaults.homelab,
+      productivity: (sidebarOrder["productivity"] as string[] | undefined) ?? defaults.productivity,
+      media: (sidebarOrder["media"] as string[] | undefined) ?? defaults.media,
+      infrastructure: (sidebarOrder["infrastructure"] as string[] | undefined) ?? defaults.infrastructure,
       account: (sidebarOrder["account"] as string[] | undefined) ?? defaults.account,
     };
   }, [sidebarOrder]);

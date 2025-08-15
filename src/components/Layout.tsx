@@ -95,9 +95,9 @@ const SidebarNavigation: React.FC<{
   const navigate = useNavigate();
   const { sidebarOrder, autoCategorizeSidebar } = useSettings();
   const groupMap = {
-    Daily: "daily",
-    Share: "share",
-    Homelab: "homelab",
+    Productivity: "productivity",
+    "Media & Entertainment": "media",
+    Infrastructure: "infrastructure",
     Account: "account",
   } as const;
 
@@ -443,8 +443,8 @@ export const Layout: React.FC = React.memo(() => {
         />
         <CommandList className="max-h-[60vh] md:max-h-[400px]">
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Daily">
-            {moduleCategories.daily.map((m) => (
+          <CommandGroup heading="Productivity">
+            {moduleCategories.productivity.map((m) => (
               <CommandItem
                 key={m.path}
                 onSelect={() => {
@@ -458,8 +458,8 @@ export const Layout: React.FC = React.memo(() => {
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandGroup heading="Share">
-            {moduleCategories.share.map((m) => (
+          <CommandGroup heading="Media & Entertainment">
+            {moduleCategories.media.map((m) => (
               <CommandItem
                 key={m.path}
                 onSelect={() => {
@@ -473,8 +473,8 @@ export const Layout: React.FC = React.memo(() => {
               </CommandItem>
             ))}
           </CommandGroup>
-          <CommandGroup heading="Homelab">
-            {moduleCategories.homelab.map((m) => (
+          <CommandGroup heading="Infrastructure">
+            {moduleCategories.infrastructure.map((m) => (
               <CommandItem
                 key={m.path}
                 onSelect={() => {
