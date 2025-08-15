@@ -15,6 +15,7 @@ import { HelpTooltip, HelpSection, HELP_CONTENT } from "@/features/infrastructur
 import { ResponsiveLayout, ResponsiveText, ResponsiveButtonGroup } from "@/features/infrastructure/components/ResponsiveLayout";
 import { useScreenSize } from "@/features/infrastructure/utils/responsive";
 import type { DockerComposeConfig } from "@/features/infrastructure/types";
+import { ConfigurationsList } from "@/features/infrastructure/components/ConfigurationsList";
 import { configsApi } from "@/features/infrastructure/services/configsApi";
 
 const Infrastructure: React.FC = () => {
@@ -287,21 +288,7 @@ const Infrastructure: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <ResponsiveText variant="h3" className="mb-2">No configurations yet</ResponsiveText>
-                  <ResponsiveText variant="body" className="mb-4">
-                    Create your first Docker Compose configuration to get started.
-                  </ResponsiveText>
-                  <Button
-                    onClick={handleCreateNew}
-                    size={isMobile ? "sm" : "default"}
-                    className="flex items-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Create First Configuration
-                  </Button>
-                </div>
+                <ConfigurationsList onEdit={handleEditConfig} />
               </CardContent>
             </Card>
 
