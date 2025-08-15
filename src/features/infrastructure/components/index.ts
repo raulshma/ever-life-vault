@@ -12,6 +12,8 @@ export { SecretsManagementPage } from './SecretsManagementPage';
 export { BackupManager } from './BackupManager';
 export { BackupExport } from './BackupExport';
 export { BackupImport } from './BackupImport';
+export { DockerImportDialog } from './DockerImportDialog';
+export { DockerImportDemo } from './DockerImportDemo';
 export { InfrastructureErrorBoundary } from './ErrorBoundary';
 export { ErrorDisplay, ErrorList, useErrorState } from './ErrorDisplay';
 export { HelpTooltip, HelpIcon, HelpSection } from './HelpTooltips';

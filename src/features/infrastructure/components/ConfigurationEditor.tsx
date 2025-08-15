@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Save, Eye, FileText, CheckCircle, AlertCircle, ArrowLeft, HelpCircle } from "lucide-react";
+import { Plus, Save, Eye, FileText, CheckCircle, AlertCircle, ArrowLeft, HelpCircle, Upload } from "lucide-react";
 import { ServiceDefinitionForm } from "./ServiceDefinitionForm";
 import { VolumeConfigurationForm } from "./VolumeConfigurationForm";
 import { NetworkConfigurationForm } from "./NetworkConfigurationForm";
@@ -16,6 +16,7 @@ import { ResponsiveLayout, ResponsiveText, ResponsiveButtonGroup } from "./Respo
 import { useKeyboardShortcuts, createInfrastructureShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useScreenSize } from "../utils/responsive";
 import { useValidation, useServerValidation } from "../hooks/useValidation";
+import { DockerImportDialog } from "./DockerImportDialog";
 import type { DockerComposeConfig, ServiceDefinition, VolumeDefinition, NetworkDefinition } from "../types";
 
 interface ConfigurationEditorProps {
@@ -185,6 +186,24 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
     setDismissedWarnings(prev => [...prev, index]);
   }, []);
 
+  const handleImport = useCallback((importedConfig: Partial<DockerComposeConfig>) => {
+    if (importedConfig.name) {
+      setName(importedConfig.name);
+    }
+    if (importedConfig.description) {
+      setDescription(importedConfig.description);
+    }
+    if (importedConfig.metadata?.services) {
+      setServices(importedConfig.metadata.services);
+    }
+    if (importedConfig.metadata?.volumes) {
+      setVolumes(importedConfig.metadata.volumes);
+    }
+    if (importedConfig.metadata?.networks) {
+      setNetworks(importedConfig.metadata.networks);
+    }
+  }, []);
+
   const isValid = validation.isValid && name.trim() !== "" && services.length > 0;
   const filteredWarnings = validation.warnings.filter((_, index) => !dismissedWarnings.includes(index));
 
@@ -230,6 +249,8 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
         </div>
         
         <ResponsiveButtonGroup>
+          <DockerImportDialog onImport={handleImport} />
+          
           <HelpTooltip content={showPreview ? "Switch to form editor" : "Preview YAML output"}>
             <Button
               variant="outline"
@@ -250,7 +271,7 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
               className="flex items-center gap-2"
             >
               {serverValidation.isValidating ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full rounded-full animate-spin" />
               ) : isValid ? (
                 <CheckCircle className="h-4 w-4" />
               ) : (

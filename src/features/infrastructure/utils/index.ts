@@ -14,3 +14,14 @@ export {
   COMPONENT_RESPONSIVE
 } from './responsive';
 export type { Breakpoint } from './responsive';
+
+// Docker utilities
+export { 
+  parseDockerCommand, 
+  importDockerCompose, 
+  generateDockerComposeYaml 
+} from './dockerUtils';
+export type { 
+  DockerCommandParseResult, 
+  DockerComposeImportResult 
+} from './dockerUtils';
