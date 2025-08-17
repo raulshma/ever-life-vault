@@ -101,6 +101,7 @@ start_containers() {
     docker run -d \
         --name "${APP_NAME}_backend_1" \
         --network "${APP_NAME}_app-network" \
+        --network-alias backend \
         --restart unless-stopped \
         --expose 8787 \
         $ENV_ARGS \
@@ -117,6 +118,7 @@ start_containers() {
     docker run -d \
         --name "${APP_NAME}_web_1" \
         --network "${APP_NAME}_app-network" \
+        --network-alias web \
         --restart unless-stopped \
         -p "${WEB_PORT:-8080}:80" \
         $ENV_ARGS \

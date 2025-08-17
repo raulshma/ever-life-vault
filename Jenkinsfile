@@ -89,43 +89,46 @@ pipeline {
     stage('Deploy') {
       steps {
         script {
-          // Helper function to safely get credentials
-          def getCredentialSafely = { credId ->
+          // Helper: safely resolve a Jenkins Secret Text credential
+          def readSecret = { credId ->
+            def value = ''
             try {
-              return credentials(credId)
+              withCredentials([string(credentialsId: credId, variable: 'CVAL')]) {
+                value = env.CVAL
+              }
             } catch (Exception e) {
               echo "Warning: Credential '${credId}' not found, using empty value"
-              return ''
             }
+            return value
           }
           
-          // Load credentials safely
-          def supabaseUrl = getCredentialSafely('supabase-url')
-          def supabaseAnonKey = getCredentialSafely('supabase-anon-key')
-          def supabaseServiceRoleKey = getCredentialSafely('supabase-service-role-key')
-          def redditClientId = getCredentialSafely('reddit-client-id')
-          def redditClientSecret = getCredentialSafely('reddit-client-secret')
-          def redditRedirectUri = getCredentialSafely('reddit-redirect-uri')
-          def googleClientId = getCredentialSafely('google-client-id')
-          def googleClientSecret = getCredentialSafely('google-client-secret')
-          def googleRedirectUri = getCredentialSafely('google-redirect-uri')
-          def msClientId = getCredentialSafely('ms-client-id')
-          def msClientSecret = getCredentialSafely('ms-client-secret')
-          def msRedirectUri = getCredentialSafely('ms-redirect-uri')
-          def ytClientId = getCredentialSafely('yt-client-id')
-          def ytClientSecret = getCredentialSafely('yt-client-secret')
-          def ytRedirectUri = getCredentialSafely('yt-redirect-uri')
-          def ytmClientId = getCredentialSafely('ytm-client-id')
-          def ytmClientSecret = getCredentialSafely('ytm-client-secret')
-          def ytmRedirectUri = getCredentialSafely('ytm-redirect-uri')
-          def spotifyClientId = getCredentialSafely('spotify-client-id')
-          def spotifyClientSecret = getCredentialSafely('spotify-client-secret')
-          def spotifyRedirectUri = getCredentialSafely('spotify-redirect-uri')
-          def steamWebApiKey = getCredentialSafely('steam-web-api-key')
-          def malClientId = getCredentialSafely('mal-client-id')
-          def malClientSecret = getCredentialSafely('mal-client-secret')
-          def malRedirectUri = getCredentialSafely('mal-redirect-uri')
-          def malTokensSecret = getCredentialSafely('mal-tokens-secret')
+          // Load credentials using bindings (each one optional)
+          def supabaseUrl = readSecret('supabase-url')
+          def supabaseAnonKey = readSecret('supabase-anon-key')
+          def supabaseServiceRoleKey = readSecret('supabase-service-role-key')
+          def redditClientId = readSecret('reddit-client-id')
+          def redditClientSecret = readSecret('reddit-client-secret')
+          def redditRedirectUri = readSecret('reddit-redirect-uri')
+          def googleClientId = readSecret('google-client-id')
+          def googleClientSecret = readSecret('google-client-secret')
+          def googleRedirectUri = readSecret('google-redirect-uri')
+          def msClientId = readSecret('ms-client-id')
+          def msClientSecret = readSecret('ms-client-secret')
+          def msRedirectUri = readSecret('ms-redirect-uri')
+          def ytClientId = readSecret('yt-client-id')
+          def ytClientSecret = readSecret('yt-client-secret')
+          def ytRedirectUri = readSecret('yt-redirect-uri')
+          def ytmClientId = readSecret('ytm-client-id')
+          def ytmClientSecret = readSecret('ytm-client-secret')
+          def ytmRedirectUri = readSecret('ytm-redirect-uri')
+          def spotifyClientId = readSecret('spotify-client-id')
+          def spotifyClientSecret = readSecret('spotify-client-secret')
+          def spotifyRedirectUri = readSecret('spotify-redirect-uri')
+          def steamWebApiKey = readSecret('steam-web-api-key')
+          def malClientId = readSecret('mal-client-id')
+          def malClientSecret = readSecret('mal-client-secret')
+          def malRedirectUri = readSecret('mal-redirect-uri')
+          def malTokensSecret = readSecret('mal-tokens-secret')
           
           // Auto-fill PUBLIC_BASE_URL and ALLOWED_ORIGINS if not provided
           if (!env.PUBLIC_BASE_URL?.trim()) {
@@ -144,6 +147,8 @@ pipeline {
           writeFile file: "${DEPLOY_DIR}/.env", text: """WEB_PORT=${WEB_PORT}
 PUBLIC_BASE_URL=${env.PUBLIC_BASE_URL}
 ALLOWED_ORIGINS=${env.ALLOWED_ORIGINS}
+ALLOWED_TARGET_HOSTS=${env.ALLOWED_TARGET_HOSTS ?: 'backend,localhost,127.0.0.1'}
+OAUTH_REDIRECT_BASE_URL=${env.PUBLIC_BASE_URL}
 SUPABASE_URL=${supabaseUrl}
 SUPABASE_ANON_KEY=${supabaseAnonKey}
 SUPABASE_SERVICE_ROLE_KEY=${supabaseServiceRoleKey}
