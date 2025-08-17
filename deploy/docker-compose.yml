@@ -1,5 +1,4 @@
-# Compose v2 format (omit version field)
-name: ever-life-vault
+version: '3.8'
 
 services:
   backend:
@@ -79,7 +78,6 @@ services:
 
 networks:
   app-network:
-    name: ever-life-vault-net
     driver: bridge
 
 

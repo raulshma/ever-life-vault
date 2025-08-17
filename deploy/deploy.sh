@@ -58,7 +58,7 @@ rollback() {
         cp "$LATEST_ENV" "$DEPLOY_DIR/.env"
         
         cd "$DEPLOY_DIR"
-        docker compose --env-file .env up -d --remove-orphans
+        docker-compose --env-file .env up -d --remove-orphans
         
         log "Rollback completed"
     else
@@ -73,7 +73,7 @@ wait_for_health() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if docker compose --env-file .env ps | grep -q "healthy"; then
+        if docker-compose --env-file .env ps | grep -q "healthy"; then
             log "Services are healthy"
             return 0
         fi
@@ -128,11 +128,11 @@ deploy() {
     
     # Stop existing services
     log "Stopping existing services..."
-    docker compose --env-file .env down --remove-orphans || warn "Failed to stop existing services"
+    docker-compose --env-file .env down --remove-orphans || warn "Failed to stop existing services"
     
     # Start new deployment
     log "Starting new deployment..."
-    if ! docker compose --env-file .env up -d --remove-orphans; then
+    if ! docker-compose --env-file .env up -d --remove-orphans; then
         rollback
         exit 1
     fi
@@ -145,7 +145,7 @@ deploy() {
     
     # Show deployment status
     log "Deployment completed successfully!"
-    docker compose --env-file .env ps
+    docker-compose --env-file .env ps
     
     # Cleanup
     cleanup_backups
