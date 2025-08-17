@@ -13,12 +13,21 @@ import { registerSteamRoutes } from './routes/steam.js'
 import { registerMALRoutes } from './routes/mal.js'
 import { registerClipRoutes } from './routes/clips.js'
 import { registerInfrastructureRoutes } from './routes/infrastructure.js'
+import authRoutes from './routes/auth.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
 
   await registerCors(server, env.ALLOWED_ORIGINS)
   await registerPerfPlugins(server)
+
+  // Register auth routes (including Turnstile verification)
+  if (env.TURNSTILE_SECRET_KEY) {
+    await server.register(authRoutes, { prefix: '/auth' })
+    server.log.info('Turnstile auth routes registered')
+  } else {
+    server.log.warn('TURNSTILE_SECRET_KEY not set. Turnstile verification will be disabled.')
+  }
 
   const targets: Record<string, string | undefined> = {
     jellyseerr: env.JELLYSEERR_BASE,

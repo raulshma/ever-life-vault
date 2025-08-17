@@ -97,17 +97,28 @@ pipeline {
           sh 'docker image prune -f --filter "dangling=true"'
           
           // Build images with error handling from workspace root
-          sh '''
+          def turnstileSiteKey = ''
+          try {
+            withCredentials([string(credentialsId: 'turnstile-site-key', variable: 'TS_SITE_KEY')]) {
+              turnstileSiteKey = env.TS_SITE_KEY ?: ''
+            }
+          } catch (Exception e) {
+            echo "Warning: Credential 'turnstile-site-key' not found, proceeding without it"
+          }
+
+          sh """
             set -e
             echo "Building backend image..."
             docker build -t ${APP_NAME}/backend:latest -f server/Dockerfile server
             
             echo "Building web image..."
-            docker build -t ${APP_NAME}/web:latest -f Dockerfile .
+            docker build \
+              --build-arg VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey} \
+              -t ${APP_NAME}/web:latest -f Dockerfile .
             
             echo "Images built successfully"
             docker images | grep ${APP_NAME}
-          '''
+          """
         }
       }
     }
@@ -178,6 +189,10 @@ pipeline {
             def malRedirectUri = readSecret('mal-redirect-uri')
             def malTokensSecret = readSecret('mal-tokens-secret')
             
+            // Load Turnstile credentials
+            def turnstileSiteKey = readSecret('turnstile-site-key')
+            def turnstileSecretKey = readSecret('turnstile-secret-key')
+            
             // Auto-fill PUBLIC_BASE_URL and ALLOWED_ORIGINS if not provided
             if (!env.PUBLIC_BASE_URL?.trim()) {
               env.PUBLIC_BASE_URL = "http://192.168.1.169:${env.WEB_PORT ?: '8080'}"
@@ -224,6 +239,10 @@ MAL_CLIENT_ID=${malClientId}
 MAL_CLIENT_SECRET=${malClientSecret}
 MAL_REDIRECT_URI=${malRedirectUri}
 MAL_TOKENS_SECRET=${malTokensSecret}
+# Cloudflare Turnstile Configuration
+TURNSTILE_SITE_KEY=${turnstileSiteKey}
+TURNSTILE_SECRET_KEY=${turnstileSecretKey}
+VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
 """
 
             // Make deployment script executable and run it

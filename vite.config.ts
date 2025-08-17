@@ -83,12 +83,13 @@ export default defineConfig(({ mode }) => ({
     },
     headers: {
       // Enforce frame-ancestors via server header (meta tag can't enforce it)
-      "Content-Security-Policy": "frame-ancestors 'none'",
+      "Content-Security-Policy": "frame-ancestors 'none'; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com 'unsafe-inline';",
     },
   },
   preview: {
     headers: {
-      "Content-Security-Policy": "frame-ancestors 'none'",
+      // Enforce frame-ancestors via server header (meta tag can't enforce it)
+      "Content-Security-Policy": "frame-ancestors 'none'; frame-src https://challenges.cloudflare.com; script-src 'self' https://challenges.cloudflare.com 'unsafe-inline';",
     },
   },
   plugins: [

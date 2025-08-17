@@ -57,6 +57,9 @@ services:
       - MAL_CLIENT_SECRET
       - MAL_REDIRECT_URI
       - MAL_TOKENS_SECRET
+      # Cloudflare Turnstile
+      - TURNSTILE_SITE_KEY
+      - TURNSTILE_SECRET_KEY
     restart: unless-stopped
 
   web:
@@ -73,6 +76,11 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+    environment:
+      # Frontend environment variables
+      - NODE_ENV=production
+      # Turnstile site key for client-side
+      - VITE_TURNSTILE_SITE_KEY
     restart: unless-stopped
 
 networks:

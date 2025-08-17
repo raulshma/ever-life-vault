@@ -55,6 +55,9 @@ export const env = {
   MAL_CLIENT_SECRET: process.env.MAL_CLIENT_SECRET,
   MAL_REDIRECT_URI: process.env.MAL_REDIRECT_URI,
   MAL_TOKENS_SECRET: process.env.MAL_TOKENS_SECRET,
+  // Cloudflare Turnstile
+  TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
+  TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
 } as const
 
 export type Env = typeof env

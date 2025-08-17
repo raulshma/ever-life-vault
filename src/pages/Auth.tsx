@@ -8,6 +8,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Shield, Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { supabase, SUPABASE_NO_REMEMBER_FLAG_KEY } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Turnstile } from '@/components/Turnstile';
+import { turnstileService } from '@/services/turnstileService';
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -20,6 +22,8 @@ export default function Auth() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -32,19 +36,61 @@ export default function Auth() {
       }
     };
     checkUser();
+    
     // Listen for password recovery event when visiting from email link
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         setIsResettingPassword(true);
       }
     });
+
+    // Check if Turnstile service is available AND a site key is present at build time
+    const checkTurnstile = async () => {
+      const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+      const hasSiteKey = typeof siteKey === 'string' && siteKey.trim().length > 0;
+      if (!hasSiteKey) {
+        setTurnstileEnabled(false);
+        return;
+      }
+      try {
+        const isHealthy = await turnstileService.isHealthy();
+        setTurnstileEnabled(!!isHealthy && hasSiteKey);
+      } catch (error) {
+        console.warn('Turnstile service not available:', error);
+        setTurnstileEnabled(false);
+      }
+    };
+    checkTurnstile();
+
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  const handleTurnstileVerify = (token: string) => {
+    setTurnstileToken(token);
+    setError(''); // Clear any previous errors
+  };
+
+  const handleTurnstileError = () => {
+    setTurnstileToken(null);
+    setError('Verification failed. Please try again.');
+  };
+
+  const handleTurnstileExpire = () => {
+    setTurnstileToken(null);
+    setError('Verification expired. Please complete the challenge again.');
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    // Verify Turnstile token if enabled
+    if (turnstileEnabled && !turnstileToken) {
+      setError('Please complete the verification challenge.');
+      setLoading(false);
+      return;
+    }
 
     try {
       if (isLogin) {
@@ -162,6 +208,11 @@ export default function Auth() {
     }
   };
 
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setError('');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-hero flex items-center justify-center p-6">
       <div className="absolute inset-0 bg-foreground/20"></div>
@@ -243,6 +294,28 @@ export default function Auth() {
               </div>
             </div>
 
+            {/* Turnstile Widget */}
+            {turnstileEnabled && (
+              <div className="space-y-2">
+                <Label>Security Verification</Label>
+                <Turnstile
+                  siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY || ''}
+                  onVerify={handleTurnstileVerify}
+                  onError={handleTurnstileError}
+                  onExpire={handleTurnstileExpire}
+                  theme="auto"
+                  size="normal"
+                  appearance="always"
+                  className="mt-2"
+                />
+                {turnstileToken && (
+                  <p className="text-xs text-green-600 dark:text-green-400">
+                    ✓ Verification completed
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="flex items-center justify-between gap-2">
               <label className="flex items-center gap-2 text-sm text-muted-foreground select-none">
                 <input
@@ -269,7 +342,7 @@ export default function Auth() {
             <Button 
               type="submit" 
               className="w-full" 
-              disabled={loading}
+              disabled={loading || (turnstileEnabled && !turnstileToken)}
               size="lg"
             >
               {loading ? (
@@ -334,6 +407,7 @@ export default function Auth() {
                 onClick={() => {
                   setIsLogin(!isLogin);
                   setError('');
+                  resetTurnstile();
                 }}
               >
                 {isLogin ? 'Sign up' : 'Sign in'}

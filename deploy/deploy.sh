@@ -41,6 +41,28 @@ info() {
     echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] INFO: $1${NC}"
 }
 
+# Function to validate Turnstile configuration
+validate_turnstile_config() {
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Revert mode - skipping Turnstile validation"
+        return 0
+    fi
+    
+    if [ -z "${TURNSTILE_SECRET_KEY:-}" ]; then
+        warn "TURNSTILE_SECRET_KEY not set - Turnstile verification will be disabled"
+        return 0
+    fi
+    
+    if [ -z "${TURNSTILE_SITE_KEY:-}" ]; then
+        warn "TURNSTILE_SITE_KEY not set - Turnstile widget will not render"
+        return 0
+    fi
+    
+    log "✓ Turnstile configuration validated"
+    log "  Site Key: ${TURNSTILE_SITE_KEY:0:8}..."
+    log "  Secret Key: ${TURNSTILE_SECRET_KEY:0:8}..."
+}
+
 # Function to create backup
 create_backup() {
     if [ "$REVERT_MODE" = "true" ]; then
@@ -218,6 +240,36 @@ test_ssl() {
     fi
 }
 
+# Function to test Turnstile service
+test_turnstile() {
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Revert mode - skipping Turnstile testing"
+        return 0
+    fi
+    
+    if [ -z "${TURNSTILE_SECRET_KEY:-}" ]; then
+        log "Turnstile not configured - skipping test"
+        return 0
+    fi
+    
+    log "Testing Turnstile service..."
+    
+    # Wait for backend to be fully ready
+    sleep 5
+    
+    if command -v curl &> /dev/null; then
+        log "Testing Turnstile health endpoint..."
+        health_response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${BACKEND_PORT}/auth/turnstile-health" || echo "000")
+        if [ "$health_response" = "200" ]; then
+            log "✓ Turnstile service is healthy"
+        else
+            warn "Turnstile service may not be working (response: $health_response)"
+        fi
+    else
+        warn "curl not available - Turnstile testing skipped"
+    fi
+}
+
 # Function to cleanup old backups (keep last 5)
 cleanup_backups() {
     if [ "$REVERT_MODE" = "true" ]; then
@@ -283,6 +335,20 @@ show_summary() {
         echo "  ✓ HTTP to HTTPS redirect"
         echo "  ✓ crypto.subtle API available (vault unlock will work)"
         echo ""
+        
+        # Show Turnstile status
+        if [ -n "${TURNSTILE_SECRET_KEY:-}" ] && [ -n "${TURNSTILE_SITE_KEY:-}" ]; then
+            echo "🛡️  Turnstile Protection:"
+            echo "  ✓ Bot protection enabled for authentication"
+            echo "  ✓ Server-side verification configured"
+            echo "  ✓ Client-side widget will render"
+        else
+            echo "⚠️  Turnstile Protection:"
+            echo "  - Bot protection disabled (keys not configured)"
+            echo "  - Authentication forms will work without verification"
+        fi
+        
+        echo ""
         echo "⚠️  Important Notes:"
         echo "  - Browser will show security warning for self-signed certificate"
         echo "  - Click 'Advanced' → 'Proceed to localhost (unsafe)' to continue"
@@ -313,6 +379,9 @@ deploy() {
     mkdir -p "$DEPLOY_DIR"
     cd "$DEPLOY_DIR"
     
+    # Validate Turnstile configuration
+    validate_turnstile_config
+    
     # Create backup before deployment (unless in revert mode)
     create_backup
     
@@ -340,6 +409,7 @@ deploy() {
     # Test SSL functionality (skip in revert mode if SSL config might be different)
     if [ "$REVERT_MODE" = "false" ]; then
         test_ssl
+        test_turnstile
     fi
     
     # Show deployment summary

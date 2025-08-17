@@ -5,6 +5,10 @@ WORKDIR /app
 ENV COREPACK_ENABLE_STRICT=0
 RUN corepack enable
 
+# Optional Turnstile site key for Vite build-time injection
+ARG VITE_TURNSTILE_SITE_KEY=
+ENV VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
+
 # Copy only files needed for install first (better layer caching)
 COPY package.json pnpm-lock.yaml ./
 COPY tsconfig.json tsconfig.app.json tsconfig.node.json ./
