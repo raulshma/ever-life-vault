@@ -10,8 +10,10 @@ interface TurnstileVerifyRequest {
 }
 
 export default async function authRoutes(fastify: FastifyInstance) {
-  // Initialize Turnstile service
-  const turnstileService = new TurnstileService(env.TURNSTILE_SECRET_KEY);
+  // Initialize Turnstile service only if secret key is configured
+  const turnstileService = env.TURNSTILE_SECRET_KEY 
+    ? new TurnstileService(env.TURNSTILE_SECRET_KEY)
+    : null;
 
   // Verify Turnstile token
   fastify.post<TurnstileVerifyRequest>('/verify-turnstile', {
@@ -43,6 +45,14 @@ export default async function authRoutes(fastify: FastifyInstance) {
     }
   }, async (request: FastifyRequest<TurnstileVerifyRequest>, reply: FastifyReply) => {
     try {
+      // Check if Turnstile service is configured
+      if (!turnstileService) {
+        return reply.status(503).send({
+          success: false,
+          error: 'Turnstile service is not configured'
+        });
+      }
+
       const { token, action } = request.body;
       
       if (!token) {
@@ -56,7 +66,8 @@ export default async function authRoutes(fastify: FastifyInstance) {
       const ip = request.ip || 
                  request.headers['x-forwarded-for']?.toString() || 
                  request.headers['cf-connecting-ip']?.toString() ||
-                 request.socket.remoteAddress;
+                 request.socket.remoteAddress ||
+                 '';
 
       // Verify the token
       const result = await turnstileService.verifyTokenWithValidation(
@@ -90,7 +101,7 @@ export default async function authRoutes(fastify: FastifyInstance) {
     try {
       return reply.send({
         success: true,
-        message: 'Turnstile service is healthy',
+        message: turnstileService ? 'Turnstile service is healthy' : 'Turnstile service is not configured',
         configured: !!env.TURNSTILE_SECRET_KEY
       });
     } catch (error) {
