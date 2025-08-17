@@ -15,24 +15,30 @@ pipeline {
   options {
     skipDefaultCheckout(true)
     timestamps()
+    retry(2)
   }
 
   stages {
     stage('Checkout') {
       steps {
-        checkout([
-          $class: 'GitSCM',
-          branches: [[name: '*/main']],
-          doGenerateSubmoduleConfigurations: false,
-          extensions: [
-            [$class: 'CloneOption', shallow: true, depth: 2, noTags: false, reference: '']
-          ],
-          submoduleCfg: [],
-          userRemoteConfigs: [[
-            url: env.GIT_URL ?: 'git@github.com:your-org/ever-life-vault.git',
-            credentialsId: env.GIT_CREDENTIALS_ID ?: 'github-ssh'
-          ]]
-        ])
+        script {
+          // Ensure workspace directory exists and is writable
+          sh 'mkdir -p ${WORKSPACE} && ls -la ${WORKSPACE}'
+          
+          checkout([
+            $class: 'GitSCM',
+            branches: [[name: '*/main']],
+            doGenerateSubmoduleConfigurations: false,
+            extensions: [
+              [$class: 'CloneOption', shallow: true, depth: 2, noTags: false, reference: '']
+            ],
+            submoduleCfg: [],
+            userRemoteConfigs: [[
+              url: env.GIT_URL ?: 'https://github.com/raulshma/ever-life-vault.git',
+              credentialsId: env.GIT_CREDENTIALS_ID ?: 'github-ssh'
+            ]]
+          ])
+        }
       }
     }
 
