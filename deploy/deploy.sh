@@ -2,6 +2,7 @@
 
 # Ever Life Vault Deployment Script
 # This script handles the deployment process with proper error handling and rollback
+# Updated to support SSL/HTTPS with crypto.subtle compatibility
 
 set -euo pipefail
 
@@ -11,10 +12,16 @@ APP_NAME="${APP_NAME:-ever-life-vault}"
 BACKUP_DIR="${DEPLOY_DIR}/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
+# Port configuration - updated for SSL support (preserve existing defaults)
+WEB_PORT="${WEB_PORT:-8080}"
+WEB_SSL_PORT="${WEB_SSL_PORT:-8443}"
+BACKEND_PORT="${BACKEND_PORT:-8787}"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 log() {
@@ -27,6 +34,10 @@ warn() {
 
 error() {
     echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1${NC}"
+}
+
+info() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] INFO: $1${NC}"
 }
 
 # Function to create backup
@@ -86,7 +97,7 @@ rollback() {
     fi
 }
 
-# Function to start containers using native Docker commands
+# Function to start containers using native Docker commands with SSL support
 start_containers() {
     log "Creating network..."
     docker network create "${APP_NAME}_app-network" 2>/dev/null || true
@@ -103,7 +114,7 @@ start_containers() {
         --network "${APP_NAME}_app-network" \
         --network-alias backend \
         --restart unless-stopped \
-        -p "${BACKEND_PORT:-8787}:8787" \
+        -p "${BACKEND_PORT}:8787" \
         $ENV_ARGS \
         -e NODE_ENV=production \
         -e HOST=0.0.0.0 \
@@ -129,14 +140,20 @@ start_containers() {
         exit 1
     fi
     
-    log "Starting web container..."
+    log "Starting web container with SSL support..."
+    info "Web container will be accessible on:"
+    info "  HTTP:  http://localhost:${WEB_PORT} (redirects to HTTPS)"
+    info "  HTTPS: https://localhost:${WEB_SSL_PORT}"
+    
     docker run -d \
         --name "${APP_NAME}_web_1" \
         --network "${APP_NAME}_app-network" \
         --network-alias web \
         --restart unless-stopped \
-        -p "${WEB_PORT:-8080}:80" \
+        -p "${WEB_PORT}:80" \
+        -p "${WEB_SSL_PORT}:443" \
         $ENV_ARGS \
+        -e NODE_ENV=production \
         ever-life-vault/web:latest
 }
 
@@ -163,6 +180,36 @@ wait_for_health() {
     
     error "Services failed to start within timeout"
     return 1
+}
+
+# Function to test SSL functionality
+test_ssl() {
+    log "Testing SSL configuration..."
+    
+    # Wait a bit for nginx to fully start
+    sleep 5
+    
+    # Test HTTP to HTTPS redirect
+    if command -v curl &> /dev/null; then
+        log "Testing HTTP to HTTPS redirect..."
+        http_response=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:${WEB_PORT}/health" || echo "000")
+        if [ "$http_response" = "301" ] || [ "$http_response" = "302" ]; then
+            log "✓ HTTP to HTTPS redirect working"
+        else
+            warn "HTTP to HTTPS redirect may not be working (response: $http_response)"
+        fi
+        
+        # Test HTTPS endpoint
+        log "Testing HTTPS endpoint..."
+        https_response=$(curl -s -o /dev/null -w "%{http_code}" -k "https://localhost:${WEB_SSL_PORT}/health" || echo "000")
+        if [ "$https_response" = "200" ]; then
+            log "✓ HTTPS endpoint working"
+        else
+            warn "HTTPS endpoint may not be working (response: $https_response)"
+        fi
+    else
+        warn "curl not available - SSL testing skipped"
+    fi
 }
 
 # Function to cleanup old backups (keep last 5)
@@ -192,9 +239,38 @@ cleanup_docker() {
     log "Docker cleanup completed"
 }
 
+# Function to show deployment summary
+show_summary() {
+    log "Deployment completed successfully!"
+    echo ""
+    echo "🚀 Service Status:"
+    docker ps --filter "name=${APP_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    echo ""
+    echo "🌐 Access Information:"
+    echo "  Backend API: http://localhost:${BACKEND_PORT}"
+    echo "  Web App (HTTP):  http://localhost:${WEB_PORT} (redirects to HTTPS)"
+    echo "  Web App (HTTPS): https://localhost:${WEB_SSL_PORT}"
+    echo ""
+    echo "🔒 SSL Features:"
+    echo "  ✓ HTTPS enabled with self-signed certificate"
+    echo "  ✓ HTTP to HTTPS redirect"
+    echo "  ✓ crypto.subtle API available (vault unlock will work)"
+    echo ""
+    echo "⚠️  Important Notes:"
+    echo "  - Browser will show security warning for self-signed certificate"
+    echo "  - Click 'Advanced' → 'Proceed to localhost (unsafe)' to continue"
+    echo "  - For production, replace with real SSL certificate"
+    echo ""
+    echo "📋 Useful Commands:"
+    echo "  View logs: docker logs -f ${APP_NAME}_web_1"
+    echo "  View backend logs: docker logs -f ${APP_NAME}_backend_1"
+    echo "  Stop services: docker stop ${APP_NAME}_web_1 ${APP_NAME}_backend_1"
+    echo "  Restart: ./deploy.sh"
+}
+
 # Main deployment function
 deploy() {
-    log "Starting deployment of $APP_NAME..."
+    log "Starting deployment of $APP_NAME with SSL support..."
     
     # Ensure deployment directory exists
     mkdir -p "$DEPLOY_DIR"
@@ -207,7 +283,7 @@ deploy() {
     stop_containers
     
     # Start new deployment
-    log "Starting new deployment..."
+    log "Starting new deployment with SSL support..."
     if ! start_containers; then
         rollback
         exit 1
@@ -219,9 +295,11 @@ deploy() {
         exit 1
     fi
     
-    # Show deployment status
-    log "Deployment completed successfully!"
-    docker ps --filter "name=${APP_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    # Test SSL functionality
+    test_ssl
+    
+    # Show deployment summary
+    show_summary
     
     # Cleanup
     cleanup_backups

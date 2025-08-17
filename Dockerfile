@@ -21,8 +21,18 @@ FROM nginx:alpine AS runner
 
 # Use existing nginx user (no need to create new user)
 
-# Install wget for health checks
-RUN apk add --no-cache wget
+# Install wget for health checks and openssl for certificate generation
+RUN apk add --no-cache wget openssl
+
+# Create SSL directory and generate self-signed certificate with better configuration
+RUN mkdir -p /etc/nginx/ssl && \
+    openssl req -x509 -nodes -days 365 -newkey rsa:4096 \
+    -keyout /etc/nginx/ssl/key.pem \
+    -out /etc/nginx/ssl/cert.pem \
+    -subj "/C=US/ST=State/L=City/O=Organization/OU=IT/CN=localhost" \
+    -addext "subjectAltName=DNS:localhost,DNS:*.localhost,IP:127.0.0.1,IP:0.0.0.0" \
+    -addext "extendedKeyUsage=serverAuth" \
+    -addext "keyUsage=digitalSignature,keyEncipherment"
 
 # Copy nginx configuration and build output
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
@@ -33,19 +43,23 @@ RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /var/log/nginx && \
     chown -R nginx:nginx /etc/nginx/conf.d && \
+    chown -R nginx:nginx /etc/nginx/ssl && \
     touch /var/run/nginx.pid && \
     chown -R nginx:nginx /var/run/nginx.pid
 
 # Switch to non-root user
 USER nginx
 
-EXPOSE 80
+EXPOSE 80 443
 
-# Health check
+# Health check - use HTTPS to verify SSL is working
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:80/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider --no-check-certificate https://localhost:443/health || exit 1
 
 CMD ["nginx", "-g", "daemon off;"]
+
+# Tag the image for the deploy script
+# This will be built as: docker build -t ever-life-vault/web:latest .
 
 
 
