@@ -15,7 +15,6 @@ pipeline {
   options {
     skipDefaultCheckout(true)
     timestamps()
-    ansiColor('xterm')
   }
 
   stages {
