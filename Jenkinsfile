@@ -11,12 +11,14 @@ pipeline {
   parameters {
     string(name: 'WEB_PORT', defaultValue: '8080', description: 'Host port to expose the web UI (avoid 80 due to AdGuard).')
     string(name: 'BACKEND_PORT', defaultValue: '8787', description: 'Host port to expose the backend API.')
+    booleanParam(name: 'REVERT_TO_LAST_BUILD', defaultValue: false, description: 'Revert to the last successful build instead of deploying new version.')
   }
 
   options {
     skipDefaultCheckout(true)
     timestamps()
     retry(2)
+    buildDiscarder(logRotator(numToKeepStr: '10'))
   }
 
   stages {
@@ -65,7 +67,30 @@ pipeline {
       }
     }
 
+    stage('Revert Check') {
+      when {
+        expression { params.REVERT_TO_LAST_BUILD == true }
+      }
+      steps {
+        script {
+          echo "Revert mode enabled - will revert to last successful build"
+          
+          // Find the last successful build
+          def lastSuccessfulBuild = currentBuild.getPreviousSuccessfulBuild()
+          if (lastSuccessfulBuild) {
+            echo "Last successful build: #${lastSuccessfulBuild.number}"
+            env.LAST_SUCCESSFUL_BUILD = lastSuccessfulBuild.number.toString()
+          } else {
+            error "No previous successful build found to revert to"
+          }
+        }
+      }
+    }
+
     stage('Build images') {
+      when {
+        expression { params.REVERT_TO_LAST_BUILD == false }
+      }
       steps {
         script {
           // Clean up old images to save space
@@ -90,62 +115,84 @@ pipeline {
     stage('Deploy') {
       steps {
         script {
-          // Helper: safely resolve a Jenkins Secret Text credential
-          def readSecret = { credId ->
-            def value = ''
-            try {
-              withCredentials([string(credentialsId: credId, variable: 'CVAL')]) {
-                value = env.CVAL
+          if (params.REVERT_TO_LAST_BUILD) {
+            // Revert mode - restore from last successful build
+            echo "Reverting to last successful build #${env.LAST_SUCCESSFUL_BUILD}"
+            
+            // Copy deployment files from last successful build
+            sh """
+              cp -r /home/jenkins/workspace/${env.JOB_NAME}/builds/${env.LAST_SUCCESSFUL_BUILD}/archive/deploy/* ${DEPLOY_DIR}/
+              echo "Restored deployment files from build #${env.LAST_SUCCESSFUL_BUILD}"
+            """
+            
+            // Run deployment script in revert mode
+            sh """
+              chmod +x ${DEPLOY_DIR}/deploy.sh
+              export DEPLOY_DIR=${DEPLOY_DIR}
+              export APP_NAME=${APP_NAME}
+              export WEB_PORT=${WEB_PORT}
+              export BACKEND_PORT=${BACKEND_PORT}
+              export REVERT_MODE=true
+              ${DEPLOY_DIR}/deploy.sh
+            """
+          } else {
+            // Normal deployment mode
+            // Helper: safely resolve a Jenkins Secret Text credential
+            def readSecret = { credId ->
+              def value = ''
+              try {
+                withCredentials([string(credentialsId: credId, variable: 'CVAL')]) {
+                  value = env.CVAL
+                }
+              } catch (Exception e) {
+                echo "Warning: Credential '${credId}' not found, using empty value"
               }
-            } catch (Exception e) {
-              echo "Warning: Credential '${credId}' not found, using empty value"
+              return value
             }
-            return value
-          }
-          
-          // Load credentials using bindings (each one optional)
-          def supabaseUrl = readSecret('supabase-url')
-          def supabaseAnonKey = readSecret('supabase-anon-key')
-          def supabaseServiceRoleKey = readSecret('supabase-service-role-key')
-          def redditClientId = readSecret('reddit-client-id')
-          def redditClientSecret = readSecret('reddit-client-secret')
-          def redditRedirectUri = readSecret('reddit-redirect-uri')
-          def googleClientId = readSecret('google-client-id')
-          def googleClientSecret = readSecret('google-client-secret')
-          def googleRedirectUri = readSecret('google-redirect-uri')
-          def msClientId = readSecret('ms-client-id')
-          def msClientSecret = readSecret('ms-client-secret')
-          def msRedirectUri = readSecret('ms-redirect-uri')
-          def ytClientId = readSecret('yt-client-id')
-          def ytClientSecret = readSecret('yt-client-secret')
-          def ytRedirectUri = readSecret('yt-redirect-uri')
-          def ytmClientId = readSecret('ytm-client-id')
-          def ytmClientSecret = readSecret('ytm-client-secret')
-          def ytmRedirectUri = readSecret('ytm-redirect-uri')
-          def spotifyClientId = readSecret('spotify-client-id')
-          def spotifyClientSecret = readSecret('spotify-client-secret')
-          def spotifyRedirectUri = readSecret('spotify-redirect-uri')
-          def steamWebApiKey = readSecret('steam-web-api-key')
-          def malClientId = readSecret('mal-client-id')
-          def malClientSecret = readSecret('mal-client-secret')
-          def malRedirectUri = readSecret('mal-redirect-uri')
-          def malTokensSecret = readSecret('mal-tokens-secret')
-          
-          // Auto-fill PUBLIC_BASE_URL and ALLOWED_ORIGINS if not provided
-          if (!env.PUBLIC_BASE_URL?.trim()) {
-            env.PUBLIC_BASE_URL = "http://192.168.1.169:${env.WEB_PORT ?: '8080'}"
-          }
-          if (!env.ALLOWED_ORIGINS?.trim()) {
-            env.ALLOWED_ORIGINS = env.PUBLIC_BASE_URL
-          }
-          
-          // Ensure deployment directory exists on agent
-          sh "mkdir -p ${DEPLOY_DIR}"
-          // Copy compose and config into place
-          sh "cp -r deploy/* ${DEPLOY_DIR}/"
+            
+            // Load credentials using bindings (each one optional)
+            def supabaseUrl = readSecret('supabase-url')
+            def supabaseAnonKey = readSecret('supabase-anon-key')
+            def supabaseServiceRoleKey = readSecret('supabase-service-role-key')
+            def redditClientId = readSecret('reddit-client-id')
+            def redditClientSecret = readSecret('reddit-client-secret')
+            def redditRedirectUri = readSecret('reddit-redirect-uri')
+            def googleClientId = readSecret('google-client-id')
+            def googleClientSecret = readSecret('google-client-secret')
+            def googleRedirectUri = readSecret('google-redirect-uri')
+            def msClientId = readSecret('ms-client-id')
+            def msClientSecret = readSecret('ms-client-secret')
+            def msRedirectUri = readSecret('ms-redirect-uri')
+            def ytClientId = readSecret('yt-client-id')
+            def ytClientSecret = readSecret('yt-client-secret')
+            def ytRedirectUri = readSecret('yt-redirect-uri')
+            def ytmClientId = readSecret('ytm-client-id')
+            def ytmClientSecret = readSecret('ytm-client-secret')
+            def ytmRedirectUri = readSecret('ytm-redirect-uri')
+            def spotifyClientId = readSecret('spotify-client-id')
+            def spotifyClientSecret = readSecret('spotify-client-secret')
+            def spotifyRedirectUri = readSecret('spotify-redirect-uri')
+            def steamWebApiKey = readSecret('steam-web-api-key')
+            def malClientId = readSecret('mal-client-id')
+            def malClientSecret = readSecret('mal-client-secret')
+            def malRedirectUri = readSecret('mal-redirect-uri')
+            def malTokensSecret = readSecret('mal-tokens-secret')
+            
+            // Auto-fill PUBLIC_BASE_URL and ALLOWED_ORIGINS if not provided
+            if (!env.PUBLIC_BASE_URL?.trim()) {
+              env.PUBLIC_BASE_URL = "http://192.168.1.169:${env.WEB_PORT ?: '8080'}"
+            }
+            if (!env.ALLOWED_ORIGINS?.trim()) {
+              env.ALLOWED_ORIGINS = env.PUBLIC_BASE_URL
+            }
+            
+            // Ensure deployment directory exists on agent
+            sh "mkdir -p ${DEPLOY_DIR}"
+            // Copy compose and config into place
+            sh "cp -r deploy/* ${DEPLOY_DIR}/"
 
-          // Write .env from Jenkins credentials/params if provided
-          writeFile file: "${DEPLOY_DIR}/.env", text: """WEB_PORT=${WEB_PORT}
+            // Write .env from Jenkins credentials/params if provided
+            writeFile file: "${DEPLOY_DIR}/.env", text: """WEB_PORT=${WEB_PORT}
 BACKEND_PORT=${BACKEND_PORT}
 PUBLIC_BASE_URL=${env.PUBLIC_BASE_URL}
 ALLOWED_ORIGINS=${env.ALLOWED_ORIGINS}
@@ -179,15 +226,16 @@ MAL_REDIRECT_URI=${malRedirectUri}
 MAL_TOKENS_SECRET=${malTokensSecret}
 """
 
-          // Make deployment script executable and run it
-          sh """
-            chmod +x ${DEPLOY_DIR}/deploy.sh
-            export DEPLOY_DIR=${DEPLOY_DIR}
-            export APP_NAME=${APP_NAME}
-            export WEB_PORT=${WEB_PORT}
-            export BACKEND_PORT=${BACKEND_PORT}
-            ${DEPLOY_DIR}/deploy.sh
-          """
+            // Make deployment script executable and run it
+            sh """
+              chmod +x ${DEPLOY_DIR}/deploy.sh
+              export DEPLOY_DIR=${DEPLOY_DIR}
+              export APP_NAME=${APP_NAME}
+              export WEB_PORT=${WEB_PORT}
+              export BACKEND_PORT=${BACKEND_PORT}
+              ${DEPLOY_DIR}/deploy.sh
+            """
+          }
         }
       }
     }
@@ -195,10 +243,37 @@ MAL_TOKENS_SECRET=${malTokensSecret}
 
   post {
     failure {
-      echo 'Deployment failed.'
+      script {
+        echo 'Deployment failed.'
+        
+        // Offer automatic rollback option
+        if (!params.REVERT_TO_LAST_BUILD) {
+          echo 'Consider running the build again with REVERT_TO_LAST_BUILD=true to rollback to the previous version.'
+          
+          // Check if we have a previous successful build
+          def lastSuccessfulBuild = currentBuild.getPreviousSuccessfulBuild()
+          if (lastSuccessfulBuild) {
+            echo "Previous successful build available: #${lastSuccessfulBuild.number}"
+            echo "To revert, run: build(job: '${env.JOB_NAME}', parameters: [booleanParam(name: 'REVERT_TO_LAST_BUILD', value: true)])"
+          }
+        }
+      }
     }
     success {
-      echo 'Deployment succeeded.'
+      script {
+        if (params.REVERT_TO_LAST_BUILD) {
+          echo 'Revert to last build completed successfully.'
+        } else {
+          echo 'Deployment succeeded.'
+        }
+      }
+    }
+    always {
+      // Archive deployment files for potential rollback
+      archiveArtifacts artifacts: 'deploy/**/*', fingerprint: true
+      
+      // Clean up workspace
+      cleanWs()
     }
   }
 }

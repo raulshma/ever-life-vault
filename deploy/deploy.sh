@@ -2,7 +2,7 @@
 
 # Ever Life Vault Deployment Script
 # This script handles the deployment process with proper error handling and rollback
-# Updated to support SSL/HTTPS with crypto.subtle compatibility
+# Updated to support SSL/HTTPS with crypto.subtle compatibility and revert mode
 
 set -euo pipefail
 
@@ -11,6 +11,7 @@ DEPLOY_DIR="${DEPLOY_DIR:-/home/raulshma/apps/ever-life-vault}"
 APP_NAME="${APP_NAME:-ever-life-vault}"
 BACKUP_DIR="${DEPLOY_DIR}/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+REVERT_MODE="${REVERT_MODE:-false}"
 
 # Port configuration - updated for SSL support (preserve existing defaults)
 WEB_PORT="${WEB_PORT:-8080}"
@@ -42,6 +43,11 @@ info() {
 
 # Function to create backup
 create_backup() {
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Revert mode - skipping backup creation"
+        return 0
+    fi
+    
     log "Creating backup..."
     mkdir -p "$BACKUP_DIR"
     
@@ -214,6 +220,11 @@ test_ssl() {
 
 # Function to cleanup old backups (keep last 5)
 cleanup_backups() {
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Revert mode - skipping backup cleanup"
+        return 0
+    fi
+    
     log "Cleaning up old backups..."
     
     # Keep only the 5 most recent backups
@@ -225,6 +236,11 @@ cleanup_backups() {
 
 # Function to cleanup old Docker images
 cleanup_docker() {
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Revert mode - skipping Docker cleanup"
+        return 0
+    fi
+    
     log "Cleaning up old Docker images..."
     
     # Remove dangling images
@@ -241,7 +257,12 @@ cleanup_docker() {
 
 # Function to show deployment summary
 show_summary() {
-    log "Deployment completed successfully!"
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Revert to last build completed successfully!"
+    else
+        log "Deployment completed successfully!"
+    fi
+    
     echo ""
     echo "🚀 Service Status:"
     docker ps --filter "name=${APP_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
@@ -251,39 +272,60 @@ show_summary() {
     echo "  Web App (HTTP):  http://localhost:${WEB_PORT} (redirects to HTTPS)"
     echo "  Web App (HTTPS): https://localhost:${WEB_SSL_PORT}"
     echo ""
-    echo "🔒 SSL Features:"
-    echo "  ✓ HTTPS enabled with self-signed certificate"
-    echo "  ✓ HTTP to HTTPS redirect"
-    echo "  ✓ crypto.subtle API available (vault unlock will work)"
-    echo ""
-    echo "⚠️  Important Notes:"
-    echo "  - Browser will show security warning for self-signed certificate"
-    echo "  - Click 'Advanced' → 'Proceed to localhost (unsafe)' to continue"
-    echo "  - For production, replace with real SSL certificate"
+    
+    if [ "$REVERT_MODE" = "true" ]; then
+        echo "🔄 Revert Information:"
+        echo "  ✓ Successfully reverted to previous deployment"
+        echo "  ✓ Services restored from last successful build"
+    else
+        echo "🔒 SSL Features:"
+        echo "  ✓ HTTPS enabled with self-signed certificate"
+        echo "  ✓ HTTP to HTTPS redirect"
+        echo "  ✓ crypto.subtle API available (vault unlock will work)"
+        echo ""
+        echo "⚠️  Important Notes:"
+        echo "  - Browser will show security warning for self-signed certificate"
+        echo "  - Click 'Advanced' → 'Proceed to localhost (unsafe)' to continue"
+        echo "  - For production, replace with real SSL certificate"
+    fi
+    
     echo ""
     echo "📋 Useful Commands:"
     echo "  View logs: docker logs -f ${APP_NAME}_web_1"
     echo "  View backend logs: docker logs -f ${APP_NAME}_backend_1"
     echo "  Stop services: docker stop ${APP_NAME}_web_1 ${APP_NAME}_backend_1"
     echo "  Restart: ./deploy.sh"
+    
+    if [ "$REVERT_MODE" = "true" ]; then
+        echo "  Note: This is a revert deployment - new changes will require a fresh build"
+    fi
 }
 
 # Main deployment function
 deploy() {
-    log "Starting deployment of $APP_NAME with SSL support..."
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Starting revert to last build for $APP_NAME..."
+    else
+        log "Starting deployment of $APP_NAME with SSL support..."
+    fi
     
     # Ensure deployment directory exists
     mkdir -p "$DEPLOY_DIR"
     cd "$DEPLOY_DIR"
     
-    # Create backup before deployment
+    # Create backup before deployment (unless in revert mode)
     create_backup
     
     # Stop existing services
     stop_containers
     
     # Start new deployment
-    log "Starting new deployment with SSL support..."
+    if [ "$REVERT_MODE" = "true" ]; then
+        log "Starting revert deployment..."
+    else
+        log "Starting new deployment with SSL support..."
+    fi
+    
     if ! start_containers; then
         rollback
         exit 1
@@ -295,13 +337,15 @@ deploy() {
         exit 1
     fi
     
-    # Test SSL functionality
-    test_ssl
+    # Test SSL functionality (skip in revert mode if SSL config might be different)
+    if [ "$REVERT_MODE" = "false" ]; then
+        test_ssl
+    fi
     
     # Show deployment summary
     show_summary
     
-    # Cleanup
+    # Cleanup (skip in revert mode)
     cleanup_backups
     cleanup_docker
     
