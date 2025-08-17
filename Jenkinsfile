@@ -6,6 +6,8 @@ pipeline {
     APP_NAME = "ever-life-vault"
     DOCKER_BUILDKIT = '1'
     DEPLOY_DIR = "${env.DEPLOY_BASE_DIR ?: '/home/raulshma/apps'}/ever-life-vault"
+    // Use Secret Text credential id 'github-pat' for private repo access
+    GITHUB_PAT = credentials('github-pat')
   }
 
   parameters {
@@ -34,10 +36,11 @@ pipeline {
             # Ensure we're working from /home/jenkins
             cd /home/jenkins
             
-            # Set workspace to /home/jenkins/workspace if not already set
-            if [[ "${WORKSPACE}" != "/home/jenkins"* ]]; then
-              export WORKSPACE="/home/jenkins/workspace/$(basename ${JOB_NAME})"
-            fi
+            # Set workspace to /home/jenkins/workspace if not already set (POSIX shell)
+            case "${WORKSPACE}" in
+              /home/jenkins*) ;;
+              *) export WORKSPACE="/home/jenkins/workspace/$(basename ${JOB_NAME})" ;;
+            esac
             
             echo "Workspace: ${WORKSPACE}"
             echo "Checking workspace permissions..."
@@ -50,6 +53,21 @@ pipeline {
             ls -la ${WORKSPACE}
           '''
           
+          // Build an HTTPS URL with embedded token when available
+          def rawUrl = env.GIT_URL ?: 'https://github.com/raulshma/ever-life-vault.git'
+          def toHttps = { String url ->
+            if (url?.startsWith('git@github.com:')) {
+              return url.replace('git@github.com:', 'https://github.com/')
+            }
+            return url
+          }
+          def httpsUrl = toHttps(rawUrl)
+          def repoUrl = httpsUrl
+          if (env.GITHUB_PAT?.trim()) {
+            // Use PAT as password with a fixed username; Jenkins will mask the token in logs
+            repoUrl = httpsUrl.replace('https://', "https://git:${env.GITHUB_PAT}@")
+          }
+
           checkout([
             $class: 'GitSCM',
             branches: [[name: '*/main']],
@@ -59,8 +77,7 @@ pipeline {
             ],
             submoduleCfg: [],
             userRemoteConfigs: [[
-              url: env.GIT_URL ?: 'https://github.com/raulshma/ever-life-vault.git',
-              credentialsId: env.GIT_CREDENTIALS_ID ?: 'github-ssh'
+              url: repoUrl
             ]]
           ])
         }
