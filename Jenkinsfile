@@ -49,7 +49,7 @@ pipeline {
           
           checkout([
             $class: 'GitSCM',
-            branches: [[name: '*/main']],
+            branches: [[name: '*/jenkins']],
             doGenerateSubmoduleConfigurations: false,
             extensions: [
               [$class: 'CloneOption', shallow: true, depth: 2, noTags: false, reference: '']
