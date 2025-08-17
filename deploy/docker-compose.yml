@@ -1,0 +1,85 @@
+# Compose v2 format (omit version field)
+name: ever-life-vault
+
+services:
+  backend:
+    image: ever-life-vault/backend:latest
+    expose:
+      - "8787"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    environment:
+      # Network / runtime
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=8787
+      # App config (override via .env or Jenkins)
+      - OAUTH_REDIRECT_BASE_URL=${PUBLIC_BASE_URL:-http://localhost:8080}
+      - OAUTH_REDIRECT_PATH=/steam
+      # Allowed origins for CORS (comma separated)
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080}
+      - ALLOWED_TARGET_HOSTS=${ALLOWED_TARGET_HOSTS:-localhost,127.0.0.1}
+      # Downstream proxy targets (optional)
+      - JELLYSEERR_BASE
+      - JELLYFIN_BASE
+      - KARAKEEP_BASE
+      # Supabase
+      - SUPABASE_URL
+      - SUPABASE_ANON_KEY
+      - SUPABASE_SERVICE_ROLE_KEY
+      # OAuth providers (optional)
+      - REDDIT_CLIENT_ID
+      - REDDIT_CLIENT_SECRET
+      - REDDIT_REDIRECT_URI
+      - GOOGLE_CLIENT_ID
+      - GOOGLE_CLIENT_SECRET
+      - GOOGLE_REDIRECT_URI
+      - MS_CLIENT_ID
+      - MS_CLIENT_SECRET
+      - MS_REDIRECT_URI
+      - YT_CLIENT_ID
+      - YT_CLIENT_SECRET
+      - YT_REDIRECT_URI
+      - YTM_CLIENT_ID
+      - YTM_CLIENT_SECRET
+      - YTM_REDIRECT_URI
+      - SPOTIFY_CLIENT_ID
+      - SPOTIFY_CLIENT_SECRET
+      - SPOTIFY_REDIRECT_URI
+      - STEAM_WEB_API_KEY
+      # MAL (optional)
+      - MAL_CLIENT_ID
+      - MAL_CLIENT_SECRET
+      - MAL_REDIRECT_URI
+      - MAL_TOKENS_SECRET
+    restart: unless-stopped
+
+  web:
+    image: ever-life-vault/web:latest
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+networks:
+  app-network:
+    name: ever-life-vault-net
+    driver: bridge
+
+
