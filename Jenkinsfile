@@ -6,36 +6,6 @@ pipeline {
     APP_NAME = "ever-life-vault"
     DOCKER_BUILDKIT = '1'
     DEPLOY_DIR = "${env.DEPLOY_BASE_DIR ?: '/home/raulshma/apps'}/ever-life-vault"
-    
-    // Supabase configuration
-    SUPABASE_URL = credentials('supabase-url')
-    SUPABASE_ANON_KEY = credentials('supabase-anon-key')
-    SUPABASE_SERVICE_ROLE_KEY = credentials('supabase-service-role-key')
-    
-    // OAuth configurations
-    REDDIT_CLIENT_ID = credentials('reddit-client-id')
-    REDDIT_CLIENT_SECRET = credentials('reddit-client-secret')
-    REDDIT_REDIRECT_URI = credentials('reddit-redirect-uri')
-    GOOGLE_CLIENT_ID = credentials('google-client-id')
-    GOOGLE_CLIENT_SECRET = credentials('google-client-secret')
-    GOOGLE_REDIRECT_URI = credentials('google-redirect-uri')
-    MS_CLIENT_ID = credentials('ms-client-id')
-    MS_CLIENT_SECRET = credentials('ms-client-secret')
-    MS_REDIRECT_URI = credentials('ms-redirect-uri')
-    YT_CLIENT_ID = credentials('yt-client-id')
-    YT_CLIENT_SECRET = credentials('yt-client-secret')
-    YT_REDIRECT_URI = credentials('yt-redirect-uri')
-    YTM_CLIENT_ID = credentials('ytm-client-id')
-    YTM_CLIENT_SECRET = credentials('ytm-client-secret')
-    YTM_REDIRECT_URI = credentials('ytm-redirect-uri')
-    SPOTIFY_CLIENT_ID = credentials('spotify-client-id')
-    SPOTIFY_CLIENT_SECRET = credentials('spotify-client-secret')
-    SPOTIFY_REDIRECT_URI = credentials('spotify-redirect-uri')
-    STEAM_WEB_API_KEY = credentials('steam-web-api-key')
-    MAL_CLIENT_ID = credentials('mal-client-id')
-    MAL_CLIENT_SECRET = credentials('mal-client-secret')
-    MAL_REDIRECT_URI = credentials('mal-redirect-uri')
-    MAL_TOKENS_SECRET = credentials('mal-tokens-secret')
   }
 
   parameters {
@@ -119,6 +89,44 @@ pipeline {
     stage('Deploy') {
       steps {
         script {
+          // Helper function to safely get credentials
+          def getCredentialSafely = { credId ->
+            try {
+              return credentials(credId)
+            } catch (Exception e) {
+              echo "Warning: Credential '${credId}' not found, using empty value"
+              return ''
+            }
+          }
+          
+          // Load credentials safely
+          def supabaseUrl = getCredentialSafely('supabase-url')
+          def supabaseAnonKey = getCredentialSafely('supabase-anon-key')
+          def supabaseServiceRoleKey = getCredentialSafely('supabase-service-role-key')
+          def redditClientId = getCredentialSafely('reddit-client-id')
+          def redditClientSecret = getCredentialSafely('reddit-client-secret')
+          def redditRedirectUri = getCredentialSafely('reddit-redirect-uri')
+          def googleClientId = getCredentialSafely('google-client-id')
+          def googleClientSecret = getCredentialSafely('google-client-secret')
+          def googleRedirectUri = getCredentialSafely('google-redirect-uri')
+          def msClientId = getCredentialSafely('ms-client-id')
+          def msClientSecret = getCredentialSafely('ms-client-secret')
+          def msRedirectUri = getCredentialSafely('ms-redirect-uri')
+          def ytClientId = getCredentialSafely('yt-client-id')
+          def ytClientSecret = getCredentialSafely('yt-client-secret')
+          def ytRedirectUri = getCredentialSafely('yt-redirect-uri')
+          def ytmClientId = getCredentialSafely('ytm-client-id')
+          def ytmClientSecret = getCredentialSafely('ytm-client-secret')
+          def ytmRedirectUri = getCredentialSafely('ytm-redirect-uri')
+          def spotifyClientId = getCredentialSafely('spotify-client-id')
+          def spotifyClientSecret = getCredentialSafely('spotify-client-secret')
+          def spotifyRedirectUri = getCredentialSafely('spotify-redirect-uri')
+          def steamWebApiKey = getCredentialSafely('steam-web-api-key')
+          def malClientId = getCredentialSafely('mal-client-id')
+          def malClientSecret = getCredentialSafely('mal-client-secret')
+          def malRedirectUri = getCredentialSafely('mal-redirect-uri')
+          def malTokensSecret = getCredentialSafely('mal-tokens-secret')
+          
           // Auto-fill PUBLIC_BASE_URL and ALLOWED_ORIGINS if not provided
           if (!env.PUBLIC_BASE_URL?.trim()) {
             env.PUBLIC_BASE_URL = "http://192.168.1.169:${env.WEB_PORT ?: '8080'}"
@@ -126,43 +134,43 @@ pipeline {
           if (!env.ALLOWED_ORIGINS?.trim()) {
             env.ALLOWED_ORIGINS = env.PUBLIC_BASE_URL
           }
+          
           // Ensure deployment directory exists on agent
           sh "mkdir -p ${DEPLOY_DIR}"
           // Copy compose and config into place
           sh "cp -r deploy/* ${DEPLOY_DIR}/"
 
-          // Write .env from Jenkins credentials/params if provided (expand shell env)
-          sh """cat > ${DEPLOY_DIR}/.env << 'EOF'
-WEB_PORT=${WEB_PORT}
-PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
-ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
-SUPABASE_URL=${SUPABASE_URL ?: ''}
-SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY ?: ''}
-SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY ?: ''}
-REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID ?: ''}
-REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET ?: ''}
-REDDIT_REDIRECT_URI=${REDDIT_REDIRECT_URI ?: ''}
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID ?: ''}
-GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET ?: ''}
-GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI ?: ''}
-MS_CLIENT_ID=${MS_CLIENT_ID ?: ''}
-MS_CLIENT_SECRET=${MS_CLIENT_SECRET ?: ''}
-MS_REDIRECT_URI=${MS_REDIRECT_URI ?: ''}
-YT_CLIENT_ID=${YT_CLIENT_ID ?: ''}
-YT_CLIENT_SECRET=${YT_CLIENT_SECRET ?: ''}
-YT_REDIRECT_URI=${YT_REDIRECT_URI ?: ''}
-YTM_CLIENT_ID=${YTM_CLIENT_ID ?: ''}
-YTM_CLIENT_SECRET=${YTM_CLIENT_SECRET ?: ''}
-YTM_REDIRECT_URI=${YTM_REDIRECT_URI ?: ''}
-SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID ?: ''}
-SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET ?: ''}
-SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI ?: ''}
-STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY ?: ''}
-MAL_CLIENT_ID=${MAL_CLIENT_ID ?: ''}
-MAL_CLIENT_SECRET=${MAL_CLIENT_SECRET ?: ''}
-MAL_REDIRECT_URI=${MAL_REDIRECT_URI ?: ''}
-MAL_TOKENS_SECRET=${MAL_TOKENS_SECRET ?: ''}
-EOF"""
+          // Write .env from Jenkins credentials/params if provided
+          writeFile file: "${DEPLOY_DIR}/.env", text: """WEB_PORT=${WEB_PORT}
+PUBLIC_BASE_URL=${env.PUBLIC_BASE_URL}
+ALLOWED_ORIGINS=${env.ALLOWED_ORIGINS}
+SUPABASE_URL=${supabaseUrl}
+SUPABASE_ANON_KEY=${supabaseAnonKey}
+SUPABASE_SERVICE_ROLE_KEY=${supabaseServiceRoleKey}
+REDDIT_CLIENT_ID=${redditClientId}
+REDDIT_CLIENT_SECRET=${redditClientSecret}
+REDDIT_REDIRECT_URI=${redditRedirectUri}
+GOOGLE_CLIENT_ID=${googleClientId}
+GOOGLE_CLIENT_SECRET=${googleClientSecret}
+GOOGLE_REDIRECT_URI=${googleRedirectUri}
+MS_CLIENT_ID=${msClientId}
+MS_CLIENT_SECRET=${msClientSecret}
+MS_REDIRECT_URI=${msRedirectUri}
+YT_CLIENT_ID=${ytClientId}
+YT_CLIENT_SECRET=${ytClientSecret}
+YT_REDIRECT_URI=${ytRedirectUri}
+YTM_CLIENT_ID=${ytmClientId}
+YTM_CLIENT_SECRET=${ytmClientSecret}
+YTM_REDIRECT_URI=${ytmRedirectUri}
+SPOTIFY_CLIENT_ID=${spotifyClientId}
+SPOTIFY_CLIENT_SECRET=${spotifyClientSecret}
+SPOTIFY_REDIRECT_URI=${spotifyRedirectUri}
+STEAM_WEB_API_KEY=${steamWebApiKey}
+MAL_CLIENT_ID=${malClientId}
+MAL_CLIENT_SECRET=${malClientSecret}
+MAL_REDIRECT_URI=${malRedirectUri}
+MAL_TOKENS_SECRET=${malTokensSecret}
+"""
 
           // Make deployment script executable and run it
           sh """
