@@ -22,9 +22,20 @@ pipeline {
     stage('Checkout') {
       steps {
         script {
-          // Ensure workspace directory exists and is writable
+          // Ensure we're working in /home/jenkins and workspace directory exists
           sh '''
             echo "Current user: $(whoami)"
+            echo "Current directory: $(pwd)"
+            echo "Home directory: $HOME"
+            
+            # Ensure we're working from /home/jenkins
+            cd /home/jenkins
+            
+            # Set workspace to /home/jenkins/workspace if not already set
+            if [[ "${WORKSPACE}" != "/home/jenkins"* ]]; then
+              export WORKSPACE="/home/jenkins/workspace/$(basename ${JOB_NAME})"
+            fi
+            
             echo "Workspace: ${WORKSPACE}"
             echo "Checking workspace permissions..."
             ls -la $(dirname ${WORKSPACE}) || true
