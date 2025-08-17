@@ -103,7 +103,7 @@ start_containers() {
         --network "${APP_NAME}_app-network" \
         --network-alias backend \
         --restart unless-stopped \
-        --expose 8787 \
+        -p "${BACKEND_PORT:-8787}:8787" \
         $ENV_ARGS \
         -e NODE_ENV=production \
         -e HOST=0.0.0.0 \

@@ -10,6 +10,7 @@ pipeline {
 
   parameters {
     string(name: 'WEB_PORT', defaultValue: '8080', description: 'Host port to expose the web UI (avoid 80 due to AdGuard).')
+    string(name: 'BACKEND_PORT', defaultValue: '8787', description: 'Host port to expose the backend API.')
   }
 
   options {
@@ -145,6 +146,7 @@ pipeline {
 
           // Write .env from Jenkins credentials/params if provided
           writeFile file: "${DEPLOY_DIR}/.env", text: """WEB_PORT=${WEB_PORT}
+BACKEND_PORT=${BACKEND_PORT}
 PUBLIC_BASE_URL=${env.PUBLIC_BASE_URL}
 ALLOWED_ORIGINS=${env.ALLOWED_ORIGINS}
 ALLOWED_TARGET_HOSTS=${env.ALLOWED_TARGET_HOSTS ?: 'backend,localhost,127.0.0.1'}
@@ -182,6 +184,8 @@ MAL_TOKENS_SECRET=${malTokensSecret}
             chmod +x ${DEPLOY_DIR}/deploy.sh
             export DEPLOY_DIR=${DEPLOY_DIR}
             export APP_NAME=${APP_NAME}
+            export WEB_PORT=${WEB_PORT}
+            export BACKEND_PORT=${BACKEND_PORT}
             ${DEPLOY_DIR}/deploy.sh
           """
         }
