@@ -63,9 +63,17 @@ pipeline {
           }
           def httpsUrl = toHttps(rawUrl)
           def repoUrl = httpsUrl
-          if (env.GITHUB_PAT?.trim()) {
-            // Use PAT as password with a fixed username; Jenkins will mask the token in logs
-            repoUrl = httpsUrl.replace('https://', "https://git:${env.GITHUB_PAT}@")
+          def patRaw = env.GITHUB_PAT?.trim()
+          if (patRaw) {
+            // Support both formats: 'token' and 'username:token'
+            def username = 'git'
+            def tokenOnly = patRaw
+            if (patRaw.contains(':')) {
+              def parts = patRaw.split(':', 2)
+              if (parts[0]) { username = parts[0] }
+              tokenOnly = parts.length > 1 ? parts[1] : ''
+            }
+            repoUrl = httpsUrl.replace('https://', "https://${username}:${tokenOnly}@")
           }
 
           checkout([
