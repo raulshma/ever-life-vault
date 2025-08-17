@@ -6,6 +6,36 @@ pipeline {
     APP_NAME = "ever-life-vault"
     DOCKER_BUILDKIT = '1'
     DEPLOY_DIR = "${env.DEPLOY_BASE_DIR ?: '/home/raulshma/apps'}/ever-life-vault"
+    
+    // Supabase configuration
+    SUPABASE_URL = credentials('supabase-url')
+    SUPABASE_ANON_KEY = credentials('supabase-anon-key')
+    SUPABASE_SERVICE_ROLE_KEY = credentials('supabase-service-role-key')
+    
+    // OAuth configurations
+    REDDIT_CLIENT_ID = credentials('reddit-client-id')
+    REDDIT_CLIENT_SECRET = credentials('reddit-client-secret')
+    REDDIT_REDIRECT_URI = credentials('reddit-redirect-uri')
+    GOOGLE_CLIENT_ID = credentials('google-client-id')
+    GOOGLE_CLIENT_SECRET = credentials('google-client-secret')
+    GOOGLE_REDIRECT_URI = credentials('google-redirect-uri')
+    MS_CLIENT_ID = credentials('ms-client-id')
+    MS_CLIENT_SECRET = credentials('ms-client-secret')
+    MS_REDIRECT_URI = credentials('ms-redirect-uri')
+    YT_CLIENT_ID = credentials('yt-client-id')
+    YT_CLIENT_SECRET = credentials('yt-client-secret')
+    YT_REDIRECT_URI = credentials('yt-redirect-uri')
+    YTM_CLIENT_ID = credentials('ytm-client-id')
+    YTM_CLIENT_SECRET = credentials('ytm-client-secret')
+    YTM_REDIRECT_URI = credentials('ytm-redirect-uri')
+    SPOTIFY_CLIENT_ID = credentials('spotify-client-id')
+    SPOTIFY_CLIENT_SECRET = credentials('spotify-client-secret')
+    SPOTIFY_REDIRECT_URI = credentials('spotify-redirect-uri')
+    STEAM_WEB_API_KEY = credentials('steam-web-api-key')
+    MAL_CLIENT_ID = credentials('mal-client-id')
+    MAL_CLIENT_SECRET = credentials('mal-client-secret')
+    MAL_REDIRECT_URI = credentials('mal-redirect-uri')
+    MAL_TOKENS_SECRET = credentials('mal-tokens-secret')
   }
 
   parameters {
@@ -106,32 +136,32 @@ pipeline {
 WEB_PORT=${WEB_PORT}
 PUBLIC_BASE_URL=${PUBLIC_BASE_URL}
 ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
-SUPABASE_URL=${SUPABASE_URL}
-SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
-REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID}
-REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET}
-REDDIT_REDIRECT_URI=${REDDIT_REDIRECT_URI}
-GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
-MS_CLIENT_ID=${MS_CLIENT_ID}
-MS_CLIENT_SECRET=${MS_CLIENT_SECRET}
-MS_REDIRECT_URI=${MS_REDIRECT_URI}
-YT_CLIENT_ID=${YT_CLIENT_ID}
-YT_CLIENT_SECRET=${YT_CLIENT_SECRET}
-YT_REDIRECT_URI=${YT_REDIRECT_URI}
-YTM_CLIENT_ID=${YTM_CLIENT_ID}
-YTM_CLIENT_SECRET=${YTM_CLIENT_SECRET}
-YTM_REDIRECT_URI=${YTM_REDIRECT_URI}
-SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
-SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
-SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI}
-STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY}
-MAL_CLIENT_ID=${MAL_CLIENT_ID}
-MAL_CLIENT_SECRET=${MAL_CLIENT_SECRET}
-MAL_REDIRECT_URI=${MAL_REDIRECT_URI}
-MAL_TOKENS_SECRET=${MAL_TOKENS_SECRET}
+SUPABASE_URL=${SUPABASE_URL ?: ''}
+SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY ?: ''}
+SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY ?: ''}
+REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID ?: ''}
+REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET ?: ''}
+REDDIT_REDIRECT_URI=${REDDIT_REDIRECT_URI ?: ''}
+GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID ?: ''}
+GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET ?: ''}
+GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI ?: ''}
+MS_CLIENT_ID=${MS_CLIENT_ID ?: ''}
+MS_CLIENT_SECRET=${MS_CLIENT_SECRET ?: ''}
+MS_REDIRECT_URI=${MS_REDIRECT_URI ?: ''}
+YT_CLIENT_ID=${YT_CLIENT_ID ?: ''}
+YT_CLIENT_SECRET=${YT_CLIENT_SECRET ?: ''}
+YT_REDIRECT_URI=${YT_REDIRECT_URI ?: ''}
+YTM_CLIENT_ID=${YTM_CLIENT_ID ?: ''}
+YTM_CLIENT_SECRET=${YTM_CLIENT_SECRET ?: ''}
+YTM_REDIRECT_URI=${YTM_REDIRECT_URI ?: ''}
+SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID ?: ''}
+SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET ?: ''}
+SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI ?: ''}
+STEAM_WEB_API_KEY=${STEAM_WEB_API_KEY ?: ''}
+MAL_CLIENT_ID=${MAL_CLIENT_ID ?: ''}
+MAL_CLIENT_SECRET=${MAL_CLIENT_SECRET ?: ''}
+MAL_REDIRECT_URI=${MAL_REDIRECT_URI ?: ''}
+MAL_TOKENS_SECRET=${MAL_TOKENS_SECRET ?: ''}
 EOF"""
 
           // Make deployment script executable and run it
