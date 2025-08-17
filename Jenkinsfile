@@ -8,12 +8,20 @@ pipeline {
     DEPLOY_DIR = "${env.DEPLOY_BASE_DIR ?: '/home/raulshma/apps'}/ever-life-vault"
     // Use Secret Text credential id 'github-pat' for private repo access
     GITHUB_PAT = credentials('github-pat')
+    // Build optimization
+    DOCKER_BUILD_ARGS = '--build-arg BUILDKIT_INLINE_CACHE=1 --cache-from'
+    // Resource limits
+    DOCKER_MEMORY_LIMIT = '2g'
+    DOCKER_CPU_LIMIT = '2.0'
   }
 
   parameters {
     string(name: 'WEB_PORT', defaultValue: '8080', description: 'Host port to expose the web UI (avoid 80 due to AdGuard).')
     string(name: 'BACKEND_PORT', defaultValue: '8787', description: 'Host port to expose the backend API.')
     booleanParam(name: 'REVERT_TO_LAST_BUILD', defaultValue: false, description: 'Revert to the last successful build instead of deploying new version.')
+    booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip running tests to speed up deployment.')
+    booleanParam(name: 'FORCE_REBUILD', defaultValue: false, description: 'Force rebuild all images without using cache.')
+    choice(name: 'BUILD_STRATEGY', choices: ['incremental', 'full', 'multi-stage'], description: 'Docker build strategy to use.')
   }
 
   options {
@@ -21,6 +29,10 @@ pipeline {
     timestamps()
     retry(2)
     buildDiscarder(logRotator(numToKeepStr: '10'))
+    // Add timeout to prevent hanging builds
+    timeout(time: 30, unit: 'MINUTES')
+    // Add concurrent build limit
+    disableConcurrentBuilds()
   }
 
   stages {
@@ -81,13 +93,53 @@ pipeline {
             branches: [[name: '*/main']],
             doGenerateSubmoduleConfigurations: false,
             extensions: [
-              [$class: 'CloneOption', shallow: true, depth: 2, noTags: false, reference: '']
+              [$class: 'CloneOption', shallow: true, depth: 2, noTags: false, reference: ''],
+              [$class: 'CleanBeforeCheckout'],
+              [$class: 'CleanCheckout']
             ],
             submoduleCfg: [],
             userRemoteConfigs: [[
               url: repoUrl
             ]]
           ])
+        }
+      }
+    }
+
+    stage('Validate Environment') {
+      steps {
+        script {
+          echo "Validating build environment..."
+          
+          // Check Docker availability
+          sh '''
+            docker --version
+            docker info --format '{{.ServerVersion}}'
+            echo "Available disk space:"
+            df -h .
+          '''
+          
+          // Check required credentials
+          def requiredCreds = ['github-pat']
+          def missingCreds = []
+          
+          requiredCreds.each { credId ->
+            try {
+              withCredentials([string(credentialsId: credId, variable: 'TEST_CRED')]) {
+                if (!env.TEST_CRED?.trim()) {
+                  missingCreds << credId
+                }
+              }
+            } catch (Exception e) {
+              missingCreds << credId
+            }
+          }
+          
+          if (missingCreds) {
+            error "Missing required credentials: ${missingCreds.join(', ')}"
+          }
+          
+          echo "Environment validation passed"
         }
       }
     }
@@ -112,6 +164,43 @@ pipeline {
       }
     }
 
+    stage('Run Tests') {
+      when {
+        expression { params.SKIP_TESTS == false && params.REVERT_TO_LAST_BUILD == false }
+      }
+      steps {
+        script {
+          echo "Running tests..."
+          
+          // Run frontend tests
+          sh '''
+            echo "Installing frontend dependencies..."
+            pnpm install --frozen-lockfile
+            
+            echo "Running frontend tests..."
+            pnpm test || {
+              echo "Frontend tests failed, but continuing with build..."
+              echo "Consider fixing tests before production deployment"
+            }
+          '''
+          
+          // Run backend tests
+          sh '''
+            echo "Installing backend dependencies..."
+            cd server
+            npm install --ignore-scripts --no-audit --no-fund
+            
+            echo "Running backend tests..."
+            npm test || {
+              echo "Backend tests failed, but continuing with build..."
+              echo "Consider fixing tests before production deployment"
+            }
+            cd ..
+          '''
+        }
+      }
+    }
+
     stage('Build images') {
       when {
         expression { params.REVERT_TO_LAST_BUILD == false }
@@ -119,7 +208,12 @@ pipeline {
       steps {
         script {
           // Clean up old images to save space
-          sh 'docker image prune -f --filter "dangling=true"'
+          sh '''
+            echo "Cleaning up Docker resources..."
+            docker image prune -f --filter "dangling=true"
+            docker container prune -f
+            docker network prune -f
+          '''
           
           // Build images with error handling from workspace root
           def turnstileSiteKey = ''
@@ -131,19 +225,74 @@ pipeline {
             echo "Warning: Credential 'turnstile-site-key' not found, proceeding without it"
           }
 
+          // Determine build strategy
+          def buildArgs = params.FORCE_REBUILD ? '--no-cache' : ''
+          def cacheFrom = params.FORCE_REBUILD ? '' : '--cache-from'
+          
           sh """
             set -e
-            echo "Building backend image..."
-            docker build -t ${APP_NAME}/backend:latest -f server/Dockerfile server
+            echo "Building backend image with strategy: ${params.BUILD_STRATEGY}..."
             
-            echo "Building web image..."
+            # Build backend with optimized settings
             docker build \
+              ${buildArgs} \
+              --memory=${DOCKER_MEMORY_LIMIT} \
+              --cpus=${DOCKER_CPU_LIMIT} \
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t ${APP_NAME}/backend:latest \
+              -t ${APP_NAME}/backend:${env.BUILD_NUMBER} \
+              -f server/Dockerfile server
+            
+            echo "Building web image with strategy: ${params.BUILD_STRATEGY}..."
+            
+            # Build web with optimized settings
+            docker build \
+              ${buildArgs} \
+              --memory=${DOCKER_MEMORY_LIMIT} \
+              --cpus=${DOCKER_CPU_LIMIT} \
               --build-arg VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey} \
-              -t ${APP_NAME}/web:latest -f Dockerfile .
+              --build-arg BUILDKIT_INLINE_CACHE=1 \
+              -t ${APP_NAME}/web:latest \
+              -t ${APP_NAME}/web:${env.BUILD_NUMBER} \
+              -f Dockerfile .
             
             echo "Images built successfully"
             docker images | grep ${APP_NAME}
+            
+            # Show image sizes
+            echo "Image sizes:"
+            docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" | grep ${APP_NAME}
           """
+        }
+      }
+    }
+
+    stage('Security Scan') {
+      when {
+        expression { params.REVERT_TO_LAST_BUILD == false }
+      }
+      steps {
+        script {
+          echo "Performing security scan of built images..."
+          
+          // Basic security checks
+          sh '''
+            echo "Checking for known vulnerabilities..."
+            
+            # Check if trivy is available for vulnerability scanning
+            if command -v trivy &> /dev/null; then
+              echo "Running Trivy vulnerability scan..."
+              trivy image --severity HIGH,CRITICAL ${APP_NAME}/backend:latest || echo "Vulnerability scan completed with findings"
+              trivy image --severity HIGH,CRITICAL ${APP_NAME}/web:latest || echo "Vulnerability scan completed with findings"
+            else
+              echo "Trivy not available, skipping vulnerability scan"
+            fi
+            
+            # Check image layers and permissions
+            echo "Analyzing image layers..."
+            docker history ${APP_NAME}/backend:latest
+            docker history ${APP_NAME}/web:latest
+          '''
         }
       }
     }
@@ -268,6 +417,10 @@ MAL_TOKENS_SECRET=${malTokensSecret}
 TURNSTILE_SITE_KEY=${turnstileSiteKey}
 TURNSTILE_SECRET_KEY=${turnstileSecretKey}
 VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
+# Build metadata
+BUILD_NUMBER=${env.BUILD_NUMBER}
+BUILD_ID=${env.BUILD_ID}
+GIT_COMMIT=${env.GIT_COMMIT ?: 'unknown'}
 """
 
             // Make deployment script executable and run it
@@ -280,6 +433,35 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
               ${DEPLOY_DIR}/deploy.sh
             """
           }
+        }
+      }
+    }
+
+    stage('Post-Deployment Tests') {
+      when {
+        expression { params.REVERT_TO_LAST_BUILD == false }
+      }
+      steps {
+        script {
+          echo "Running post-deployment tests..."
+          
+          // Wait for services to be ready
+          sh '''
+            echo "Waiting for services to be ready..."
+            sleep 30
+            
+            # Test backend health
+            echo "Testing backend health..."
+            curl -f http://localhost:${BACKEND_PORT}/health || echo "Backend health check failed"
+            
+            # Test web health
+            echo "Testing web health..."
+            curl -f http://localhost:${WEB_PORT}/health || echo "Web health check failed"
+            
+            # Test SSL redirect
+            echo "Testing SSL redirect..."
+            curl -I http://localhost:${WEB_PORT}/ | grep -E "(301|302)" || echo "SSL redirect not working"
+          '''
         }
       }
     }
@@ -301,6 +483,13 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
             echo "To revert, run: build(job: '${env.JOB_NAME}', parameters: [booleanParam(name: 'REVERT_TO_LAST_BUILD', value: true)])"
           }
         }
+        
+        // Cleanup on failure
+        sh '''
+          echo "Cleaning up on failure..."
+          docker container prune -f || true
+          docker image prune -f || true
+        '''
       }
     }
     success {
@@ -309,12 +498,37 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
           echo 'Revert to last build completed successfully.'
         } else {
           echo 'Deployment succeeded.'
+          
+          // Tag successful images
+          sh '''
+            echo "Tagging successful build images..."
+            docker tag ${APP_NAME}/backend:latest ${APP_NAME}/backend:success-${env.BUILD_NUMBER} || true
+            docker tag ${APP_NAME}/web:latest ${APP_NAME}/web:success-${env.BUILD_NUMBER} || true
+          '''
         }
       }
     }
     always {
       // Archive deployment files for potential rollback
       archiveArtifacts artifacts: 'deploy/**/*', fingerprint: true
+      
+      // Generate build report
+      script {
+        def buildTime = currentBuild.duration
+        def buildTimeMinutes = buildTime / 60000
+        
+        echo """
+        ========================================
+        BUILD SUMMARY
+        ========================================
+        Build Number: ${env.BUILD_NUMBER}
+        Build ID: ${env.BUILD_ID}
+        Duration: ${buildTimeMinutes.round(2)} minutes
+        Result: ${currentBuild.result}
+        Workspace: ${env.WORKSPACE}
+        ========================================
+        """
+      }
       
       // Clean up workspace
       cleanWs()

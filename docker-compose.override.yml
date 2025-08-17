@@ -1,0 +1,112 @@
+version: '3.8'
+
+# Development and testing override configuration
+# This file extends the base docker-compose.yml with development-specific settings
+
+services:
+  frontend:
+    build:
+      context: .
+      target: builder  # Use builder stage for development
+      args:
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
+        NODE_ENV: development
+    ports:
+      - "3000:3000"  # Development server port
+      - "8080:80"    # Production build port
+      - "8443:443"   # SSL port
+    environment:
+      - NODE_ENV=development
+      - VITE_DEV_SERVER=true
+    volumes:
+      - ./src:/app/src:ro  # Mount source for hot reloading
+      - ./public:/app/public:ro
+    command: ["pnpm", "dev"]  # Use development server
+    profiles:
+      - dev
+      - test
+
+  backend:
+    build:
+      context: ./server
+      target: builder  # Use builder stage for development
+      args:
+        NODE_ENV: development
+    ports:
+      - "8787:8787"
+      - "9229:9229"  # Node.js debug port
+    environment:
+      - NODE_ENV=development
+      - DEBUG=*  # Enable debug logging
+      - PORT=8787
+    volumes:
+      - ./server/src:/app/src:ro  # Mount source for hot reloading
+      - ./server/dist:/app/dist:ro
+    command: ["npm", "run", "dev"]  # Use development script
+    profiles:
+      - dev
+      - test
+
+  # Development database (if needed)
+  postgres-dev:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=ever_life_vault_dev
+      - POSTGRES_USER=dev_user
+      - POSTGRES_PASSWORD=dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    profiles:
+      - dev
+      - test
+
+  # Redis for development (if needed)
+  redis-dev:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    profiles:
+      - dev
+      - test
+
+  # Development monitoring
+  prometheus-dev:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles:
+      - dev
+      - monitoring
+
+  grafana-dev:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_dev_data:/var/lib/grafana
+    profiles:
+      - dev
+      - monitoring
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+  grafana_dev_data:
+
+networks:
+  app-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: ever-life-vault_dev_net
+    ipam:
+      config:
+        - subnet: 172.21.0.0/16
+          gateway: 172.21.0.1

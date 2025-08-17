@@ -25,20 +25,75 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Logging configuration
+LOG_FILE="${DEPLOY_DIR}/deploy.log"
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
+
 log() {
-    echo -e "${GREEN}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
+    local level="INFO"
+    local message="$1"
+    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+    
+    echo -e "${GREEN}[${timestamp}] $1${NC}"
+    echo "[${timestamp}] [${level}] $1" >> "$LOG_FILE"
 }
 
 warn() {
-    echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING: $1${NC}"
+    local level="WARN"
+    local message="$1"
+    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+    
+    echo -e "${YELLOW}[${timestamp}] WARNING: $1${NC}"
+    echo "[${timestamp}] [${level}] WARNING: $1" >> "$LOG_FILE"
 }
 
 error() {
-    echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR: $1${NC}"
+    local level="ERROR"
+    local message="$1"
+    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+    
+    echo -e "${RED}[${timestamp}] ERROR: $1${NC}"
+    echo "[${timestamp}] [${level}] ERROR: $1" >> "$LOG_FILE"
 }
 
 info() {
-    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] INFO: $1${NC}"
+    local level="INFO"
+    local message="$1"
+    local timestamp=$(date +'%Y-%m-%d %H:%M:%S')
+    
+    echo -e "${BLUE}[${timestamp}] INFO: $1${NC}"
+    echo "[${timestamp}] [${level}] INFO: $1" >> "$LOG_FILE"
+}
+
+# Function to check system requirements
+check_system_requirements() {
+    log "Checking system requirements..."
+    
+    # Check Docker availability
+    if ! command -v docker &> /dev/null; then
+        error "Docker is not installed or not in PATH"
+        exit 1
+    fi
+    
+    # Check Docker daemon
+    if ! docker info &> /dev/null; then
+        error "Docker daemon is not running"
+        exit 1
+    fi
+    
+    # Check available disk space (require at least 2GB free)
+    local available_space=$(df -BG . | awk 'NR==2 {print $4}' | sed 's/G//')
+    if [ "$available_space" -lt 2 ]; then
+        warn "Low disk space: ${available_space}GB available (recommended: 2GB+)"
+    fi
+    
+    # Check available memory (require at least 1GB free)
+    local available_memory=$(free -m | awk 'NR==2 {print $7}')
+    if [ "$available_memory" -lt 1024 ]; then
+        warn "Low memory: ${available_memory}MB available (recommended: 1GB+)"
+    fi
+    
+    log "System requirements check passed"
 }
 
 # Function to validate Turnstile configuration
@@ -63,6 +118,38 @@ validate_turnstile_config() {
     log "  Secret Key: ${TURNSTILE_SECRET_KEY:0:8}..."
 }
 
+# Function to validate Docker images
+validate_docker_images() {
+    log "Validating Docker images..."
+    
+    # Check if required images exist
+    if ! docker image inspect "${APP_NAME}/backend:latest" &> /dev/null; then
+        error "Backend image not found: ${APP_NAME}/backend:latest"
+        exit 1
+    fi
+    
+    if ! docker image inspect "${APP_NAME}/web:latest" &> /dev/null; then
+        error "Web image not found: ${APP_NAME}/web:latest"
+        exit 1
+    fi
+    
+    # Show image information
+    log "Docker images validated:"
+    docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" | grep "$APP_NAME"
+    
+    # Check image sizes (warn if too large)
+    local backend_size=$(docker images --format "{{.Size}}" "${APP_NAME}/backend:latest" | sed 's/[^0-9]//g')
+    local web_size=$(docker images --format "{{.Size}}" "${APP_NAME}/web:latest" | sed 's/[^0-9]//g')
+    
+    if [ "$backend_size" -gt 500 ]; then
+        warn "Backend image is large: ${backend_size}MB (consider optimizing)"
+    fi
+    
+    if [ "$web_size" -gt 300 ]; then
+        warn "Web image is large: ${web_size}MB (consider optimizing)"
+    fi
+}
+
 # Function to create backup
 create_backup() {
     if [ "$REVERT_MODE" = "true" ]; then
@@ -82,6 +169,17 @@ create_backup() {
         cp "$DEPLOY_DIR/.env" "$BACKUP_DIR/.env.$TIMESTAMP"
         log "Backed up .env file"
     fi
+    
+    # Create backup manifest
+    cat > "$BACKUP_DIR/backup-manifest.$TIMESTAMP" << EOF
+Backup created: $TIMESTAMP
+Deployment: $APP_NAME
+Files:
+- docker-compose.yml.$TIMESTAMP
+- .env.$TIMESTAMP
+EOF
+    
+    log "Backup completed: $TIMESTAMP"
 }
 
 # Function to stop containers
@@ -89,16 +187,24 @@ stop_containers() {
     log "Stopping existing containers..."
     
     # Stop and remove containers with our app name
-    docker ps -a --filter "name=${APP_NAME}" --format "{{.Names}}" | while read container; do
-        if [ -n "$container" ]; then
-            log "Stopping container: $container"
-            docker stop "$container" || warn "Failed to stop $container"
-            docker rm "$container" || warn "Failed to remove $container"
-        fi
-    done
+    local containers=$(docker ps -a --filter "name=${APP_NAME}" --format "{{.Names}}")
+    
+    if [ -n "$containers" ]; then
+        echo "$containers" | while read container; do
+            if [ -n "$container" ]; then
+                log "Stopping container: $container"
+                docker stop "$container" || warn "Failed to stop $container"
+                docker rm "$container" || warn "Failed to remove $container"
+            fi
+        done
+    else
+        log "No existing containers found"
+    fi
     
     # Remove network if it exists
     docker network rm "${APP_NAME}_app-network" 2>/dev/null || true
+    
+    log "Container cleanup completed"
 }
 
 # Function to rollback
@@ -113,15 +219,17 @@ rollback() {
     LATEST_ENV=$(ls -t "$BACKUP_DIR"/.env.* 2>/dev/null | head -n1 || echo "")
     
     if [ -n "$LATEST_COMPOSE" ] && [ -n "$LATEST_ENV" ]; then
+        log "Restoring from backup..."
         cp "$LATEST_COMPOSE" "$DEPLOY_DIR/docker-compose.yml"
         cp "$LATEST_ENV" "$DEPLOY_DIR/.env"
         
         cd "$DEPLOY_DIR"
         start_containers
         
-        log "Rollback completed"
+        log "Rollback completed successfully"
     else
         error "No backup found for rollback"
+        exit 1
     fi
 }
 
@@ -147,6 +255,13 @@ start_containers() {
         -e NODE_ENV=production \
         -e HOST=0.0.0.0 \
         -e PORT=8787 \
+        --memory="1g" \
+        --cpus="1.0" \
+        --security-opt no-new-privileges \
+        --cap-drop=ALL \
+        --cap-add=CHOWN \
+        --cap-add=SETGID \
+        --cap-add=SETUID \
         ever-life-vault/backend:latest
     
     # Wait for backend healthcheck to be healthy (max ~60s)
@@ -182,6 +297,14 @@ start_containers() {
         -p "${WEB_SSL_PORT}:443" \
         $ENV_ARGS \
         -e NODE_ENV=production \
+        --memory="512m" \
+        --cpus="0.5" \
+        --security-opt no-new-privileges \
+        --cap-drop=ALL \
+        --cap-add=CHOWN \
+        --cap-add=SETGID \
+        --cap-add=SETUID \
+        --cap-add=NET_BIND_SERVICE \
         ever-life-vault/web:latest
 }
 
@@ -235,6 +358,15 @@ test_ssl() {
         else
             warn "HTTPS endpoint may not be working (response: $https_response)"
         fi
+        
+        # Test security headers
+        log "Testing security headers..."
+        security_headers=$(curl -s -I -k "https://localhost:${WEB_SSL_PORT}/" | grep -E "(X-Frame-Options|X-Content-Type-Options|X-XSS-Protection|Strict-Transport-Security)" || echo "")
+        if [ -n "$security_headers" ]; then
+            log "✓ Security headers present"
+        else
+            warn "Security headers may be missing"
+        fi
     else
         warn "curl not available - SSL testing skipped"
     fi
@@ -282,6 +414,7 @@ cleanup_backups() {
     # Keep only the 5 most recent backups
     ls -t "$BACKUP_DIR"/docker-compose.yml.* 2>/dev/null | tail -n +6 | xargs rm -f || true
     ls -t "$BACKUP_DIR"/.env.* 2>/dev/null | tail -n +6 | xargs rm -f || true
+    ls -t "$BACKUP_DIR"/backup-manifest.* 2>/dev/null | tail -n +6 | xargs rm -f || true
     
     log "Backup cleanup completed"
 }
@@ -361,10 +494,34 @@ show_summary() {
     echo "  View backend logs: docker logs -f ${APP_NAME}_backend_1"
     echo "  Stop services: docker stop ${APP_NAME}_web_1 ${APP_NAME}_backend_1"
     echo "  Restart: ./deploy.sh"
+    echo "  View deployment log: tail -f ${LOG_FILE}"
     
     if [ "$REVERT_MODE" = "true" ]; then
         echo "  Note: This is a revert deployment - new changes will require a fresh build"
     fi
+}
+
+# Function to monitor deployment
+monitor_deployment() {
+    log "Starting deployment monitoring..."
+    
+    # Monitor container logs for errors
+    (
+        docker logs -f "${APP_NAME}_backend_1" 2>&1 | grep -i "error\|fatal\|exception" | head -10 &
+        docker logs -f "${APP_NAME}_web_1" 2>&1 | grep -i "error\|fatal\|exception" | head -10 &
+        wait
+    ) &
+    
+    # Monitor resource usage
+    (
+        while true; do
+            echo "Resource usage:"
+            docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" | grep "$APP_NAME" || true
+            sleep 30
+        done
+    ) &
+    
+    log "Monitoring started (will continue in background)"
 }
 
 # Main deployment function
@@ -375,12 +532,23 @@ deploy() {
         log "Starting deployment of $APP_NAME with SSL support..."
     fi
     
+    # Initialize logging
+    mkdir -p "$(dirname "$LOG_FILE")"
+    echo "=== Deployment started at $(date) ===" > "$LOG_FILE"
+    
     # Ensure deployment directory exists
     mkdir -p "$DEPLOY_DIR"
     cd "$DEPLOY_DIR"
     
-    # Validate Turnstile configuration
+    # System checks
+    check_system_requirements
+    
+    # Validate configuration
     validate_turnstile_config
+    
+    if [ "$REVERT_MODE" = "false" ]; then
+        validate_docker_images
+    fi
     
     # Create backup before deployment (unless in revert mode)
     create_backup
@@ -412,6 +580,9 @@ deploy() {
         test_turnstile
     fi
     
+    # Start monitoring
+    monitor_deployment
+    
     # Show deployment summary
     show_summary
     
@@ -420,6 +591,7 @@ deploy() {
     cleanup_docker
     
     log "All cleanup completed"
+    echo "=== Deployment completed at $(date) ===" >> "$LOG_FILE"
 }
 
 # Trap to handle errors
