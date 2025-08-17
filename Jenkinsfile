@@ -67,23 +67,21 @@ pipeline {
     stage('Build images') {
       steps {
         script {
-          dir('deploy') {
-            // Clean up old images to save space
-            sh 'docker image prune -f --filter "dangling=true"'
+          // Clean up old images to save space
+          sh 'docker image prune -f --filter "dangling=true"'
+          
+          // Build images with error handling from workspace root
+          sh '''
+            set -e
+            echo "Building backend image..."
+            docker build -t ${APP_NAME}/backend:latest -f server/Dockerfile server
             
-            // Build images with error handling
-            sh '''
-              set -e
-              echo "Building backend image..."
-              docker build -t ${APP_NAME}/backend:latest -f ../server/Dockerfile ../server
-              
-              echo "Building web image..."
-              docker build -t ${APP_NAME}/web:latest -f ../Dockerfile ..
-              
-              echo "Images built successfully"
-              docker images | grep ${APP_NAME}
-            '''
-          }
+            echo "Building web image..."
+            docker build -t ${APP_NAME}/web:latest -f Dockerfile .
+            
+            echo "Images built successfully"
+            docker images | grep ${APP_NAME}
+          '''
         }
       }
     }
