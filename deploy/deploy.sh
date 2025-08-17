@@ -45,9 +45,29 @@ create_backup() {
     fi
 }
 
+# Function to stop containers
+stop_containers() {
+    log "Stopping existing containers..."
+    
+    # Stop and remove containers with our app name
+    docker ps -a --filter "name=${APP_NAME}" --format "{{.Names}}" | while read container; do
+        if [ -n "$container" ]; then
+            log "Stopping container: $container"
+            docker stop "$container" || warn "Failed to stop $container"
+            docker rm "$container" || warn "Failed to remove $container"
+        fi
+    done
+    
+    # Remove network if it exists
+    docker network rm "${APP_NAME}_app-network" 2>/dev/null || true
+}
+
 # Function to rollback
 rollback() {
     error "Deployment failed. Attempting rollback..."
+    
+    # Stop current containers
+    stop_containers
     
     # Find the most recent backup
     LATEST_COMPOSE=$(ls -t "$BACKUP_DIR"/docker-compose.yml.* 2>/dev/null | head -n1 || echo "")
@@ -58,12 +78,49 @@ rollback() {
         cp "$LATEST_ENV" "$DEPLOY_DIR/.env"
         
         cd "$DEPLOY_DIR"
-        docker compose up -d --remove-orphans
+        start_containers
         
         log "Rollback completed"
     else
         error "No backup found for rollback"
     fi
+}
+
+# Function to start containers using native Docker commands
+start_containers() {
+    log "Creating network..."
+    docker network create "${APP_NAME}_app-network" 2>/dev/null || true
+    
+    # Load environment variables from .env file if it exists
+    ENV_ARGS=""
+    if [ -f "$DEPLOY_DIR/.env" ]; then
+        ENV_ARGS="--env-file $DEPLOY_DIR/.env"
+    fi
+    
+    log "Starting backend container..."
+    docker run -d \
+        --name "${APP_NAME}_backend_1" \
+        --network "${APP_NAME}_app-network" \
+        --restart unless-stopped \
+        --expose 8787 \
+        $ENV_ARGS \
+        -e NODE_ENV=production \
+        -e HOST=0.0.0.0 \
+        -e PORT=8787 \
+        ever-life-vault/backend:latest
+    
+    # Wait for backend to be ready
+    log "Waiting for backend to be ready..."
+    sleep 10
+    
+    log "Starting web container..."
+    docker run -d \
+        --name "${APP_NAME}_web_1" \
+        --network "${APP_NAME}_app-network" \
+        --restart unless-stopped \
+        -p "${WEB_PORT:-8080}:80" \
+        $ENV_ARGS \
+        ever-life-vault/web:latest
 }
 
 # Function to wait for services to be healthy
@@ -73,17 +130,21 @@ wait_for_health() {
     local attempt=1
     
     while [ $attempt -le $max_attempts ]; do
-        if docker compose ps | grep -q "healthy"; then
-            log "Services are healthy"
+        # Check if both containers are running
+        backend_running=$(docker ps --filter "name=${APP_NAME}_backend_1" --filter "status=running" --format "{{.Names}}" | wc -l)
+        web_running=$(docker ps --filter "name=${APP_NAME}_web_1" --filter "status=running" --format "{{.Names}}" | wc -l)
+        
+        if [ "$backend_running" -eq 1 ] && [ "$web_running" -eq 1 ]; then
+            log "Services are running"
             return 0
         fi
         
-        log "Attempt $attempt/$max_attempts: Services not yet healthy, waiting..."
+        log "Attempt $attempt/$max_attempts: Services not yet ready, waiting..."
         sleep 5
         ((attempt++))
     done
     
-    error "Services failed to become healthy within timeout"
+    error "Services failed to start within timeout"
     return 1
 }
 
@@ -103,13 +164,12 @@ cleanup_docker() {
     log "Cleaning up old Docker images..."
     
     # Remove dangling images
-    docker image prune -f --filter "dangling=true" || warn "Failed to prune dangling images"
+    docker image prune -f || warn "Failed to prune dangling images"
     
     # Remove old versions of our app images (keep last 3)
-    docker images --format "table {{.Repository}}:{{.Tag}}\t{{.CreatedAt}}" | \
+    docker images --format "{{.Repository}}:{{.Tag}}" | \
         grep "$APP_NAME" | \
         tail -n +4 | \
-        awk '{print $1}' | \
         xargs -r docker rmi || warn "Failed to remove old app images"
     
     log "Docker cleanup completed"
@@ -127,12 +187,11 @@ deploy() {
     create_backup
     
     # Stop existing services
-    log "Stopping existing services..."
-    docker compose down --remove-orphans || warn "Failed to stop existing services"
+    stop_containers
     
     # Start new deployment
     log "Starting new deployment..."
-    if ! docker compose up -d --remove-orphans; then
+    if ! start_containers; then
         rollback
         exit 1
     fi
@@ -145,7 +204,7 @@ deploy() {
     
     # Show deployment status
     log "Deployment completed successfully!"
-    docker compose ps
+    docker ps --filter "name=${APP_NAME}" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
     
     # Cleanup
     cleanup_backups

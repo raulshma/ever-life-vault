@@ -62,8 +62,7 @@ services:
   web:
     image: ever-life-vault/web:latest
     depends_on:
-      backend:
-        condition: service_healthy
+      - backend
     ports:
       - "${WEB_PORT:-8080}:80"
     networks:
