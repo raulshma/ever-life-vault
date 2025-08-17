@@ -372,14 +372,14 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       if (stale) score += 0.2
       return { appid: o.appid, score }
     })
-    const top = items.filter((i) => i.score > 0).sort((a, b) => b.score - a.score).slice(0, 10)
-    const ids = top.map((t) => t.appid)
+    const top = items.filter((i: any) => i.score > 0).sort((a: any, b: any) => b.score - a.score).slice(0, 10)
+    const ids = top.map((t: any) => t.appid)
     const { data: games } = await supabase
       .from('steam_games')
       .select('appid, name')
       .in('appid', ids.length ? ids : [-1])
     const nameById = Object.fromEntries((games || []).map((g: any) => [g.appid, g.name]))
-    const withNames = top.map((t) => ({ ...t, name: nameById[t.appid] || String(t.appid) }))
+    const withNames = top.map((t: any) => ({ ...t, name: nameById[t.appid] || String(t.appid) }))
 
     return reply.send({ items: withNames })
   })

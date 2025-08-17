@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, type MockedFunction } from 'vitest'
 import { BackupService } from '../services/BackupService.js'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { BackupData, DockerComposeConfig } from '../../src/features/infrastructure/types.js'
+import type { BackupData, DockerComposeConfig } from '../types/infrastructure.js'
 
 // Mock dependencies
 vi.mock('../services/DockerService.js')

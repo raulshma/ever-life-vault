@@ -6,7 +6,7 @@ import type {
   RestoreOptions, 
   RestoreResult,
   DockerComposeConfig 
-} from '../../src/features/infrastructure/types.js'
+} from '../types/infrastructure.js'
 
 export interface BackupExportOptions {
   config_ids?: string[]
@@ -238,8 +238,8 @@ export class BackupService {
 
     const existingNames = new Set((existingConfigs || []).map(c => c.name))
     return backupData.configurations
-      .map(c => c.name)
-      .filter(name => existingNames.has(name))
+      .map((c: any) => c.name)
+      .filter((name: any) => existingNames.has(name))
   }
 
   /**

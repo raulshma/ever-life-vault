@@ -8,7 +8,7 @@ import {
   CreateDirectoryRequest,
   SetPermissionsRequest,
   OperationResult
-} from '../../src/features/infrastructure/types.js';
+} from '../types/infrastructure.js';
 
 const execAsync = promisify(exec);
 
@@ -28,7 +28,7 @@ export class FileSystemService {
     try {
       // Normalize and resolve the path to prevent traversal attacks
       const normalizedPath = path.resolve(targetPath);
-      
+
       // Check for path traversal attempts
       if (this.containsPathTraversal(targetPath)) {
         return {
@@ -109,7 +109,7 @@ export class FileSystemService {
         valid: true,
         exists,
         writable,
-        message: exists 
+        message: exists
           ? (writable ? 'Path exists and is writable' : 'Path exists but is not writable')
           : 'Path does not exist but can be created',
         suggested_permissions: suggestedPermissions
@@ -276,17 +276,17 @@ export class FileSystemService {
       try {
         await fs.access(normalizedPath, fs.constants.R_OK);
         readable = true;
-      } catch {}
+      } catch { }
 
       try {
         await fs.access(normalizedPath, fs.constants.W_OK);
         writable = true;
-      } catch {}
+      } catch { }
 
       try {
         await fs.access(normalizedPath, fs.constants.X_OK);
         executable = true;
-      } catch {}
+      } catch { }
 
       return {
         uid,
@@ -297,7 +297,7 @@ export class FileSystemService {
         executable
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Return default values if path doesn't exist or can't be accessed
       return {
         uid: 0,
@@ -316,13 +316,13 @@ export class FileSystemService {
   async getDiskUsage(targetPath: string): Promise<{ total: number; used: number; available: number } | null> {
     try {
       const normalizedPath = path.resolve(targetPath);
-      
+
       if (this.isWindows) {
         // Use PowerShell on Windows
         const { stdout } = await execAsync(
           `powershell "Get-WmiObject -Class Win32_LogicalDisk | Where-Object {$_.DeviceID -eq '${path.parse(normalizedPath).root.replace('\\', '')}'} | Select-Object Size,FreeSpace | ConvertTo-Json"`
         );
-        
+
         const diskInfo = JSON.parse(stdout);
         return {
           total: parseInt(diskInfo.Size),
@@ -333,7 +333,7 @@ export class FileSystemService {
         // Use df on Unix-like systems
         const { stdout } = await execAsync(`df -B1 "${normalizedPath}" | tail -1`);
         const parts = stdout.trim().split(/\s+/);
-        
+
         return {
           total: parseInt(parts[1]),
           used: parseInt(parts[2]),
@@ -389,10 +389,10 @@ export class FileSystemService {
         throw new Error('Path traversal detected in path segments');
       }
     }
-    
+
     const joined = path.join(...segments);
     const resolved = path.resolve(joined);
-    
+
     return resolved;
   }
 
@@ -403,8 +403,9 @@ export class FileSystemService {
     try {
       const tempDir = await fs.mkdtemp(path.join(this.isWindows ? process.env.TEMP || 'C:\\temp' : '/tmp', prefix));
       return tempDir;
-    } catch (error: any) {
-      throw new Error(`Failed to create temporary directory: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to create temporary directory: ${errorMessage}`);
     }
   }
 
@@ -414,9 +415,10 @@ export class FileSystemService {
   async cleanupTempDirectory(tempDir: string): Promise<void> {
     try {
       await fs.rm(tempDir, { recursive: true, force: true });
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Log error but don't throw - cleanup failures shouldn't break the main operation
-      console.warn(`Failed to cleanup temporary directory ${tempDir}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.warn(`Failed to cleanup temporary directory ${tempDir}: ${errorMessage}`);
     }
   }
 }

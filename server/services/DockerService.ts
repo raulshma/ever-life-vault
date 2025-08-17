@@ -3,7 +3,7 @@ import {
   ValidationResult,
   ValidationError,
   ValidationWarning
-} from '../../src/features/infrastructure/types.js';
+} from '../types/infrastructure.js';
 
 export class DockerService {
   constructor() {
