@@ -110,9 +110,24 @@ start_containers() {
         -e PORT=8787 \
         ever-life-vault/backend:latest
     
-    # Wait for backend to be ready
-    log "Waiting for backend to be ready..."
-    sleep 10
+    # Wait for backend healthcheck to be healthy (max ~60s)
+    log "Waiting for backend to be healthy..."
+    attempt=1
+    max_attempts=30
+    while [ $attempt -le $max_attempts ]; do
+        status=$(docker inspect --format='{{json .State.Health.Status}}' "${APP_NAME}_backend_1" 2>/dev/null || echo "\"unknown\"")
+        if [ "$status" = '"healthy"' ]; then
+            log "Backend is healthy"
+            break
+        fi
+        log "Attempt $attempt/$max_attempts: backend status=$status; waiting..."
+        sleep 2
+        ((attempt++))
+    done
+    if [ "$status" != '"healthy"' ]; then
+        error "Backend failed to become healthy in time"
+        exit 1
+    fi
     
     log "Starting web container..."
     docker run -d \
