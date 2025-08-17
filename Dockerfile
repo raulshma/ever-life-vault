@@ -19,9 +19,7 @@ RUN pnpm install --frozen-lockfile && pnpm build
 
 FROM nginx:alpine AS runner
 
-# Create non-root user
-RUN addgroup -g 1001 -S nginx && \
-    adduser -S nginx -u 1001
+# Use existing nginx user (no need to create new user)
 
 # Install wget for health checks
 RUN apk add --no-cache wget
