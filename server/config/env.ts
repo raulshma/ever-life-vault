@@ -50,11 +50,6 @@ export const env = {
   SPOTIFY_REDIRECT_URI: process.env.SPOTIFY_REDIRECT_URI,
   // Steam
   STEAM_WEB_API_KEY: process.env.STEAM_WEB_API_KEY,
-  // Observability (Grafana Loki)
-  GRAFANA_LOKI_ENABLED: ['1', 'true', 'yes'].includes(String(process.env.GRAFANA_LOKI_ENABLED || '').toLowerCase()),
-  GRAFANA_ACCESS_POLICY_TOKEN: process.env.GRAFANA_ACCESS_POLICY_TOKEN,
-  GRAFANA_LOKI_HOST: process.env.GRAFANA_LOKI_HOST,
-  GRAFANA_LOKI_USER: process.env.GRAFANA_LOKI_USER,
   // MyAnimeList
   MAL_CLIENT_ID: process.env.MAL_CLIENT_ID,
   MAL_CLIENT_SECRET: process.env.MAL_CLIENT_SECRET,

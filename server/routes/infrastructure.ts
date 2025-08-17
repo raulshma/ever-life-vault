@@ -633,7 +633,7 @@ export function registerInfrastructureRoutes(
       const sanitizedSecrets: Record<string, string> = {}
       for (const [key, value] of Object.entries(body.secrets)) {
         const sanitizedKey = secretsService.sanitizeSecretKey(key)
-        sanitizedSecrets[sanitizedKey] = value
+        sanitizedSecrets[sanitizedKey] = String(value)
       }
       
       const result = await secretsService.bulkImportSecrets(sanitizedSecrets, user.id)

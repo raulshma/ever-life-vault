@@ -1,0 +1,29 @@
+# Docker Compose override for development
+# This file is automatically loaded by docker-compose and overrides settings in docker-compose.yml
+# Use this for development-specific configurations
+
+services:
+  backend:
+    # Override for development - use local build instead of pre-built image
+    build:
+      context: ../server
+      dockerfile: Dockerfile
+    # Mount source code for development (uncomment for live reload)
+    # volumes:
+    #   - ../server:/app
+    #   - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    # Enable debug logging
+    command: ["node", "--inspect=0.0.0.0:9229", "dist/index.js"]
+    ports:
+      - "9229:9229"  # Debug port
+
+  web:
+    # Override for development - use local build instead of pre-built image
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    # Development environment variables
+    environment:
+      - NODE_ENV=development
