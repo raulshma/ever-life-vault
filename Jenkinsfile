@@ -23,7 +23,18 @@ pipeline {
       steps {
         script {
           // Ensure workspace directory exists and is writable
-          sh 'mkdir -p ${WORKSPACE} && ls -la ${WORKSPACE}'
+          sh '''
+            echo "Current user: $(whoami)"
+            echo "Workspace: ${WORKSPACE}"
+            echo "Checking workspace permissions..."
+            ls -la $(dirname ${WORKSPACE}) || true
+            mkdir -p ${WORKSPACE} || {
+              echo "Failed to create workspace directory. Checking permissions..."
+              ls -la $(dirname ${WORKSPACE})
+              exit 1
+            }
+            ls -la ${WORKSPACE}
+          '''
           
           checkout([
             $class: 'GitSCM',
