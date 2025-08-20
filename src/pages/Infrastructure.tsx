@@ -16,7 +16,7 @@ import { ResponsiveLayout, ResponsiveText, ResponsiveButtonGroup } from "@/featu
 import { useScreenSize } from "@/features/infrastructure/utils/responsive";
 import type { DockerComposeConfig } from "@/features/infrastructure/types";
 import { ConfigurationsList } from "@/features/infrastructure/components/ConfigurationsList";
-import { configsApi } from "@/features/infrastructure/services/configsApi";
+import { configsApi, type UpdateConfigPayload } from "@/features/infrastructure/services/configsApi";
 
 const Infrastructure: React.FC = () => {
   const [showEditor, setShowEditor] = useState(false);
@@ -27,7 +27,7 @@ const Infrastructure: React.FC = () => {
   const { executeWithErrorHandling } = useErrorHandling();
   const { width } = useScreenSize();
   const isMobile = useMemo(() => width < 768, [width]);
-  
+
   // Secrets management
   const {
     secrets,
@@ -76,7 +76,7 @@ const Infrastructure: React.FC = () => {
               });
               payload.compose_content = built.compose_content;
             }
-            const updated = await configsApi.update(editingConfig.id, payload as any);
+            const updated = await configsApi.update(editingConfig.id, payload as UpdateConfigPayload);
             return updated;
           }
           // Create new
@@ -306,10 +306,10 @@ const Infrastructure: React.FC = () => {
           <TabsContent value="stacks" className="space-y-4">
             <InfrastructureErrorBoundary>
               <StackManager
-                configs={[]} // TODO: Pass actual configurations from API
+                configs={[]} // Stack management disabled - this tool only manages docker-compose files
                 onRefresh={() => {
-                  // TODO: Implement refresh logic
-                  console.log('Refreshing stacks...');
+                  // Stack management disabled - this tool only manages docker-compose files
+                  console.log('Stack management is disabled in this version');
                 }}
               />
             </InfrastructureErrorBoundary>

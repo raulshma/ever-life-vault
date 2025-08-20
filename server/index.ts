@@ -114,8 +114,15 @@ export async function buildServer(): Promise<FastifyInstance> {
       const { url } = request.query as { url?: string }
 
       // Basic URL validation
-      if (!url || !url.startsWith('http://') && !url.startsWith('https://')) {
+      if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
         return reply.status(400).send({ error: 'Invalid URL scheme' })
+      }
+
+      // Additional URL validation
+      try {
+        new URL(url)
+      } catch {
+        return reply.status(400).send({ error: 'Invalid URL format' })
       }
 
       // Fetch the RSS feed

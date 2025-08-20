@@ -109,11 +109,11 @@ export function useAggregator() {
 
     // Limit cache size to prevent memory issues
     const entries = Object.entries(cache)
-    if (entries.length > 20) {
-      // Keep only the 15 most recent entries
+    if (entries.length > 15) {
+      // Keep only the 10 most recent entries to be more aggressive about memory management
       entries
         .sort((a, b) => b[1].fetchedAt - a[1].fetchedAt)
-        .slice(15)
+        .slice(10)
         .forEach(([key]) => delete cache[key])
     }
   }, [])
@@ -752,7 +752,7 @@ function parseRss(xml: string): Array<{ title: string; link?: string; author?: s
 
     // Atom entries (with or without default namespace)
     let entries: Element[] = []
-    if ((doc as any).getElementsByTagNameNS) {
+    if ((doc as unknown).getElementsByTagNameNS) {
       entries = Array.from((doc as unknown).getElementsByTagNameNS('*', 'entry'))
     }
     if (entries.length === 0) {

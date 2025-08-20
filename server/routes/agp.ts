@@ -1,15 +1,29 @@
 import type { FastifyInstance } from 'fastify'
 import { buildForwardHeaders, prepareBody, sendUpstreamResponse, sanitizeRequestBody, checkRateLimit } from './shared.js'
 
+interface FastifyRequestWithUser {
+  user?: { id: string };
+  ip: string;
+  headers: Record<string, string | string[] | undefined>;
+  method: string;
+  query?: Record<string, unknown>;
+  body?: unknown;
+}
+
+interface FastifyReplyWithCode {
+  code: (statusCode: number) => FastifyReplyWithCode;
+  send: (payload?: unknown) => FastifyReplyWithCode;
+}
+
 export function registerAgpRoute(
   server: FastifyInstance,
   isTargetAllowed: (url: string) => boolean,
-  requireSupabaseUser: (request: any, reply: any) => Promise<any | null>,
+  requireSupabaseUser: (request: FastifyRequestWithUser, reply: FastifyReplyWithCode) => Promise<{ id: string } | null>,
   allowUnauthenticated: boolean = false,
 ) {
   server.all('/agp', async (request, reply) => {
     // Rate limiting - configurable limits
-    const clientId = (request as any).user?.id || request.ip;
+    const clientId = (request as FastifyRequestWithUser).user?.id || request.ip;
     const rateLimit = process.env.AGP_RATE_LIMIT ? parseInt(process.env.AGP_RATE_LIMIT) : 100;
     const rateLimitWindow = process.env.AGP_RATE_LIMIT_WINDOW ? parseInt(process.env.AGP_RATE_LIMIT_WINDOW) : 60000;
 
@@ -62,7 +76,7 @@ export function registerAgpRoute(
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 30_000)
     try {
-      const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as any })
+      const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as unknown })
       clearTimeout(to)
       return sendUpstreamResponse(reply, res)
     } catch (e: unknown) {

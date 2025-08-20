@@ -35,7 +35,8 @@ describe('retryMechanism', () => {
     });
 
     it('should retry on retryable error', async () => {
-      const retryableError = createInfrastructureError(ERROR_CODES.NETWORK_CONNECTION_FAILED);
+      const retryableError = new Error('Network connection failed');
+      Object.assign(retryableError, createInfrastructureError(ERROR_CODES.NETWORK_CONNECTION_FAILED));
       const operation = vi.fn()
         .mockRejectedValueOnce(retryableError)
         .mockResolvedValue('success');
