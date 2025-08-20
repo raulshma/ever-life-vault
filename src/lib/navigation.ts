@@ -16,6 +16,7 @@ import {
   Film,
   User,
   Gamepad2,
+  GitBranch,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -51,6 +52,7 @@ export const moduleCategories: NavGroups = {
   infrastructure: [
     { name: "Infrastructure", path: "/infrastructure", icon: Server },
     { name: "Vault", path: "/vault", icon: Shield },
+    { name: "Repo Flattener", path: "/repo-flatten", icon: GitBranch },
     { name: "Live Share", path: "/share/new", icon: Share2 },
     { name: "Clip", path: "/clip/new", icon: FileText },
   ],

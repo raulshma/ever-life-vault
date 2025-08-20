@@ -35,6 +35,7 @@ const Focus = lazy(() => import("./pages/Focus"));
   const ClipPage = lazy(() => import("./pages/ClipPage"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Feeds = lazy(() => import("./pages/Feeds"));
+const RepoFlatten = lazy(() => import("./pages/RepoFlatten"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -114,6 +115,7 @@ function AppRoutes() {
           <Route path="knowledge" element={<KnowledgeBase />} />
           <Route path="focus" element={<Focus />} />
           <Route path="feeds" element={<Feeds />} />
+          <Route path="repo-flatten" element={<RepoFlatten />} />
           <Route path="share/new" element={<LiveShareNew />} />
           <Route path="clip/new" element={<ClipNew />} />
           <Route path="profile" element={<Profile />} />

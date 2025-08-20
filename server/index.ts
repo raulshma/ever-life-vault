@@ -13,6 +13,7 @@ import { registerSteamRoutes } from './routes/steam.js'
 import { registerMALRoutes } from './routes/mal.js'
 import { registerClipRoutes } from './routes/clips.js'
 import { registerInfrastructureRoutes } from './routes/infrastructure.js'
+import { registerRepoFlattenRoutes } from './routes/repo-flatten.js'
 import authRoutes from './routes/auth.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
@@ -107,6 +108,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // Clips (cl1p-like) routes (minimal helper; primary operations via Supabase RPCs)
   registerClipRoutes(server)
+
+  // Repository flattening routes
+  registerRepoFlattenRoutes(server)
 
   // RSS proxy route to avoid CORS issues (always available)
   server.get('/rss-proxy', async (request, reply) => {
