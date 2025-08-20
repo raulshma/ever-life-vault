@@ -141,7 +141,12 @@ export const TerminalManager: React.FC = () => {
   const attachTerminal = (id: string, containerRef: React.RefObject<HTMLDivElement>) => {
     const token = session?.access_token
     if (!token) return
-    const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ssh/sessions/${id}/attach?token=${encodeURIComponent(token)}`)
+    // Build WS URL from location.origin to behave well behind proxies (and keep same origin/scheme)
+    // e.g. https://example.com -> wss://example.com
+    const wsOrigin = location.origin.replace(/^http/, 'ws')
+    const wsUrl = `${wsOrigin}/ssh/sessions/${id}/attach?token=${encodeURIComponent(token)}`
+  try { console.debug('Opening SSH WS', { wsUrl, sessionId: id }) } catch {}
+  const ws = new WebSocket(wsUrl)
 
     const term = new XTerm({
       cursorBlink: true,
@@ -156,7 +161,7 @@ export const TerminalManager: React.FC = () => {
 
     ws.binaryType = 'arraybuffer'
 
-    ws.onopen = () => {
+  ws.onopen = () => {
       setSessions(prev => prev.map(s => s.id === id ? { ...s, ws, term, fit, status: 'connected' } : s))
       if (containerRef.current) {
         term.open(containerRef.current)
@@ -187,10 +192,13 @@ export const TerminalManager: React.FC = () => {
         term.write(ev.data)
       }
     }
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
+      // ev may contain useful code/reason for troubleshooting
+      try { console.debug('SSH WS closed', { sessionId: id, code: (ev as any)?.code, reason: (ev as any)?.reason }) } catch {}
       setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'closed' } : s))
     }
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      try { console.error('SSH WS error', { sessionId: id, err }) } catch {}
       setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
     }
   }
