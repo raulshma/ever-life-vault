@@ -1,4 +1,4 @@
-import type { DockerComposeConfig, ServiceDefinition, VolumeDefinition, NetworkDefinition } from '../types';
+import type { DockerComposeConfig, ServiceDefinition, VolumeDefinition, NetworkDefinition, PortMapping, VolumeMount, EnvironmentVariable } from '../types';
 
 export interface DockerCommandParseResult {
   success: boolean;

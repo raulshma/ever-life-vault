@@ -152,9 +152,12 @@ export const dockerComposeConfigSchema = z.object({
           return false;
         };
         
+        // Cast services to our ServiceDefinition[] so TypeScript understands the shape
+        const allServices = services as ServiceDefinition[];
         // Check each service for circular dependencies
-        for (const service of services) {
-          if (checkCircularDeps(service.name, new Set(), services)) {
+        for (const service of allServices) {
+          if (!service || !service.name) return false;
+          if (checkCircularDeps(service.name, new Set(), allServices)) {
             return false;
           }
         }

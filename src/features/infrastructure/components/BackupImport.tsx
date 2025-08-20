@@ -325,10 +325,10 @@ export function BackupImport() {
             
             <div className="flex items-center space-x-2">
               <Checkbox
-                id="overwrite-existing"
-                checked={overwriteExisting}
-                onCheckedChange={setOverwriteExisting}
-              />
+                  id="overwrite-existing"
+                  checked={overwriteExisting}
+                  onCheckedChange={(v) => setOverwriteExisting(Boolean(v))}
+                />
               <Label htmlFor="overwrite-existing" className="text-sm">
                 Overwrite existing configurations and secrets
               </Label>

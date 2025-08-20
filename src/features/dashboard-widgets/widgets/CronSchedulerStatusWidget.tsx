@@ -3,7 +3,7 @@ import { WidgetShell } from '../components/WidgetShell'
 import type { WidgetProps } from '../types'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { RefreshCw, Play, Trash2 } from 'lucide-react'
+import { RefreshCw, Play, Trash2, Plus } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { agpFetch } from '@/lib/aggregatorClient'
 

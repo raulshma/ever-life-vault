@@ -24,19 +24,24 @@ export function requireSupabaseUserFactory(
     }
     const auth = request.headers['authorization'] || request.headers['Authorization']
     if (!auth || !auth.toString().startsWith('Bearer ')) {
+      log.debug({ hasAuthHeader: !!auth }, 'Missing or malformed Authorization header')
       reply.code(401).send({ error: 'Missing Authorization header' })
       return null
     }
     const token = auth.toString().slice('Bearer '.length)
+    // Mask token in logs but provide length for diagnostics
+    log.debug({ tokenLength: token.length, tokenPreview: token.slice(0, 6) + '...' }, 'Verifying supabase token')
     try {
       const { data, error } = await supabase.auth.getUser(token)
       if (error || !data?.user) {
+        log.warn({ error, data }, 'Supabase token rejected')
         reply.code(401).send({ error: 'Invalid token' })
         return null
       }
+      log.debug({ userId: data.user?.id }, 'Supabase token validated')
       return data.user
     } catch (e) {
-      log.error(e)
+      log.error({ err: e }, 'Auth verification failed')
       reply.code(401).send({ error: 'Auth verification failed' })
       return null
     }

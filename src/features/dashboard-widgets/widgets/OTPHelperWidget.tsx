@@ -40,7 +40,7 @@ function base32ToBytes(base32: string): Uint8Array {
 async function hotp(secret: Uint8Array, counter: number, algorithm: 'SHA1' | 'SHA256' | 'SHA512' = 'SHA1'): Promise<ArrayBuffer> {
   const enc = new TextEncoder()
   const algoName = algorithm === 'SHA1' ? 'SHA-1' : algorithm === 'SHA256' ? 'SHA-256' : 'SHA-512'
-  const key = await crypto.subtle.importKey('raw', secret, { name: 'HMAC', hash: { name: algoName } }, false, ['sign'])
+  const key = await crypto.subtle.importKey('raw', secret as unknown as BufferSource, { name: 'HMAC', hash: { name: algoName } }, false, ['sign'])
   const buf = new ArrayBuffer(8)
   const view = new DataView(buf)
   // big-endian counter

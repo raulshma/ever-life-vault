@@ -26,7 +26,6 @@ declare global {
           'tabindex'?: number;
           'retry'?: 'auto' | 'never';
           'retry-interval'?: number;
-          'timeout-callback'?: () => void;
         }
       ) => string;
       reset: (widgetId: string) => void;

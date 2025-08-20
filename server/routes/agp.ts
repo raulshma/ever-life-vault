@@ -37,7 +37,7 @@ export function registerAgpRoute(
     }
 
     if (!allowUnauthenticated) {
-      const user = await requireSupabaseUser(request, reply)
+  const user = await requireSupabaseUser(request as unknown as FastifyRequestWithUser, reply)
       if (!user) return
     }
 
@@ -76,7 +76,7 @@ export function registerAgpRoute(
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 30_000)
     try {
-      const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as unknown })
+      const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as AbortSignal })
       clearTimeout(to)
       return sendUpstreamResponse(reply, res)
     } catch (e: unknown) {

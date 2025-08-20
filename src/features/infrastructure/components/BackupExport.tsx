@@ -188,7 +188,7 @@ export function BackupExport() {
           <Checkbox
             id="include-secrets"
             checked={includeSecrets}
-            onCheckedChange={setIncludeSecrets}
+            onCheckedChange={(v) => setIncludeSecrets(Boolean(v))}
           />
           <Label htmlFor="include-secrets" className="text-sm">
             Include secret keys (values not included for security)

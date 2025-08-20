@@ -82,23 +82,42 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
 
   // Upgrade WS for interactive terminal binding to an existing session
   server.get('/ssh/sessions/:sessionId/attach', { websocket: true } as any, async (socket: any, req: any) => {
+    // Log incoming WS attach request (trim headers that may contain large tokens)
+    try {
+      server.log.info({ url: req.url, method: req.method, headers: { host: req.headers?.host, origin: req.headers?.origin }, query: req.query }, 'SSH WS attach requested')
+    } catch (e) {
+      server.log.debug({ err: e }, 'Failed to log attach request metadata')
+    }
+
     // Browser WS cannot set Authorization header; accept token in query param
     const token = (req.query?.token as string | undefined) || ''
+    server.log.debug({ tokenLength: token?.length ?? 0, sessionQuery: req.params }, 'Attach token/query received')
+
     const fakeReq = { headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` } }
-    const user = await cfg.requireSupabaseUser(fakeReq, { code: () => ({ send: () => {} }) })
+    let user: any = null
+    try {
+      user = await cfg.requireSupabaseUser(fakeReq, { code: () => ({ send: () => {} }) })
+    } catch (err) {
+      server.log.warn({ err }, 'Error while validating Supabase token on WS attach')
+    }
+
     if (!user) {
-      try { socket.close(4401, 'unauthorized') } catch {}
+      server.log.info({ reason: 'unauthorized' }, 'Rejecting WS attach - missing/invalid user')
+      try { socket.close(4401, 'unauthorized') } catch (e) { server.log.debug({ e }, 'socket.close threw') }
       return
     }
 
     const { sessionId } = (req.params || {}) as any
+    server.log.debug({ sessionId, userId: user?.id }, 'Looking up SSH session for attach')
     const session = sessions.get(sessionId)
     if (!session) {
-      try { socket.close(4404, 'no_session') } catch {}
+      server.log.info({ sessionId }, 'No session found for attach')
+      try { socket.close(4404, 'no_session') } catch (e) { server.log.debug({ e }, 'socket.close threw') }
       return
     }
     if (session.userId !== user.id) {
-      try { socket.close(4403, 'forbidden') } catch {}
+      server.log.info({ sessionId, sessionUserId: session.userId, userId: user.id }, 'Forbidden WS attach - user mismatch')
+      try { socket.close(4403, 'forbidden') } catch (e) { server.log.debug({ e }, 'socket.close threw') }
       return
     }
 
@@ -116,44 +135,62 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
 
     try {
       const stream = await openShell()
+      server.log.info({ sessionId }, 'Shell opened for WS attach')
+
       // Data from SSH -> WS
       stream.on('data', (data: Buffer) => {
-        try { socket.send(data) } catch {}
+        try {
+          socket.send(data)
+        } catch (err) {
+          server.log.warn({ err, sessionId }, 'Failed to send data over WS')
+        }
       })
       stream.on('close', () => {
-        try { socket.close(1000, 'shell_closed') } catch {}
+        server.log.info({ sessionId }, 'SSH shell stream closed')
+        try { socket.close(1000, 'shell_closed') } catch (e) { server.log.debug({ e }, 'socket.close threw') }
       })
       session.ssh.on('close', () => {
+        server.log.info({ sessionId }, 'SSH connection closed')
         sessions.delete(sessionId)
-        try { socket.close(1000, 'ssh_closed') } catch {}
+        try { socket.close(1000, 'ssh_closed') } catch (e) { server.log.debug({ e }, 'socket.close threw') }
       })
 
       // Data from WS -> SSH
       socket.on('message', (msg: any) => {
-        if (typeof msg === 'string') {
-          // Expect control messages as JSON
-          try {
-            const cmd = JSON.parse(msg)
-            if (cmd.type === 'resize' && cmd.cols && cmd.rows) {
-              stream.setWindow(cmd.rows, cmd.cols, cmd.height || 600, cmd.width || 800)
-              return
+        try {
+          if (typeof msg === 'string') {
+            // Expect control messages as JSON
+            try {
+              const cmd = JSON.parse(msg)
+              if (cmd.type === 'resize' && cmd.cols && cmd.rows) {
+                stream.setWindow(cmd.rows, cmd.cols, cmd.height || 600, cmd.width || 800)
+                server.log.debug({ sessionId, cols: cmd.cols, rows: cmd.rows }, 'Handled resize command')
+                return
+              }
+            } catch {
+              // treat as plain input
+              stream.write(msg)
             }
-          } catch {
-            // treat as plain input
+          } else if (msg instanceof Buffer || Array.isArray(msg)) {
             stream.write(msg)
           }
-        } else if (msg instanceof Buffer || Array.isArray(msg)) {
-          stream.write(msg)
+        } catch (err) {
+          server.log.warn({ err, sessionId }, 'Error handling WS message')
         }
       })
 
-      socket.on('close', () => {
+      socket.on('error', (err: any) => {
+        server.log.warn({ err, sessionId }, 'SSH WS error')
+      })
+
+      socket.on('close', (code: number, reason: Buffer | string) => {
+        server.log.info({ sessionId, code, reason: reason?.toString?.() }, 'SSH WS closed')
         // do not end SSH session immediately; keep it alive to allow reattach or multiple tabs? for now, end stream
-        try { stream.end() } catch {}
+        try { stream.end() } catch (e) { server.log.debug({ e }, 'stream.end threw') }
       })
     } catch (err) {
-      server.log.warn({ err }, 'Failed to open shell')
-      try { socket.close(1011, 'shell_error') } catch {}
+      server.log.warn({ err, sessionId }, 'Failed to open shell')
+      try { socket.close(1011, 'shell_error') } catch (e) { server.log.debug({ e }, 'socket.close threw') }
     }
   })
 

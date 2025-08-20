@@ -47,7 +47,7 @@ function useVaultSessionInternal() {
   
   const { user } = useAuth();
   const { toast } = useToast();
-  const checkIntervalRef = useRef<NodeJS.Timeout>(undefined);
+  const checkIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Local storage keys
   const LOCAL_SESSION_KEY = 'vault_session';
@@ -55,7 +55,7 @@ function useVaultSessionInternal() {
 
   // Generate a unique session ID
   const generateSessionId = useCallback(() => {
-    const bytes = crypto.getRandomValues(new Uint8Array(16)); // 128-bit random
+  const bytes = crypto.getRandomValues(new Uint8Array(16)); // 128-bit random
     let base64 = btoa(String.fromCharCode(...bytes));
     // base64url without padding
     base64 = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -65,15 +65,17 @@ function useVaultSessionInternal() {
   // Generate a random per-session secret (32 bytes, base64)
   const generateServerSecret = useCallback(() => {
     const bytes = crypto.getRandomValues(new Uint8Array(32));
-    return uint8ArrayToBase64(bytes);
+  return uint8ArrayToBase64(bytes);
   }, []);
 
   // Create AES-KW wrapping key from base64 secret
   const importWrappingKey = useCallback(async (base64Secret: string) => {
     const secretBytes = base64ToUint8Array(base64Secret);
+    // Ensure we pass an ArrayBuffer (not a generic ArrayBufferLike) to satisfy BufferSource typing
+    const secretArrayBuffer = secretBytes.buffer as ArrayBuffer;
     return crypto.subtle.importKey(
       'raw',
-      secretBytes,
+      secretArrayBuffer,
       'AES-KW',
       false,
       ['wrapKey', 'unwrapKey']
@@ -85,7 +87,7 @@ function useVaultSessionInternal() {
     try {
       const wrappingKey = await importWrappingKey(serverSecret);
       const wrapped = await crypto.subtle.wrapKey('raw', masterKey, wrappingKey, 'AES-KW');
-      const wrappedBytes = new Uint8Array(wrapped);
+  const wrappedBytes = new Uint8Array(wrapped);
       const wrappedB64 = uint8ArrayToBase64(wrappedBytes);
       sessionStorage.setItem(LOCAL_WRAPPED_KEY, wrappedB64);
     } catch (error) {
@@ -100,9 +102,10 @@ function useVaultSessionInternal() {
       if (!wrappedB64) return null;
       const wrappingKey = await importWrappingKey(serverSecret);
       const wrappedBytes = base64ToUint8Array(wrappedB64);
+      const wrappedArrayBuffer = wrappedBytes.buffer as ArrayBuffer;
       const unwrapped = await crypto.subtle.unwrapKey(
         'raw',
-        wrappedBytes,
+        wrappedArrayBuffer,
         wrappingKey,
         'AES-KW',
         { name: 'AES-GCM', length: 256 },

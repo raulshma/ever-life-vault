@@ -95,7 +95,12 @@ export function buildForwardHeaders(
 
 export async function sendUpstreamResponse(reply: any, res: Response, allowSetCookie: boolean = true) {
   // Forward only safe headers
-  for (const [hk, hv] of res.headers.entries()) {
+  // Convert headers iterator to array for consistent typing across runtimes
+  const headerEntries: Array<[string, string]> = (res && (res as any).headers && typeof (res as any).headers.entries === 'function')
+    ? Array.from((res as any).headers.entries())
+    : [];
+
+  for (const [hk, hv] of headerEntries) {
     const lower = hk.toLowerCase()
     if (['content-type', 'cache-control', 'etag', 'last-modified'].includes(lower)) {
       reply.header(hk, hv)

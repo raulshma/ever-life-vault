@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Eye, EyeOff, AlertTriangle, CheckCircle, Key, FileText } from 'lucide-react';
 import { SecretInjectionPreview as SecretInjectionPreviewType } from '../types';
-import { YamlPreview } from './YamlPreview';
+import SimpleYamlPreview from './SimpleYamlPreview';
 import { generateSecretInjectionPreview } from '../utils/secretInjection';
 
 interface SecretInjectionPreviewProps {
@@ -239,7 +239,7 @@ export function SecretInjectionPreview({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <YamlPreview content={preview.original_compose} />
+              <SimpleYamlPreview content={preview.original_compose} />
             </CardContent>
           </Card>
         </TabsContent>
@@ -253,7 +253,7 @@ export function SecretInjectionPreview({
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <YamlPreview content={getDisplayContent(preview.injected_compose)} />
+              <SimpleYamlPreview content={getDisplayContent(preview.injected_compose)} />
               {!showSecrets && hasPlaceholders && (
                 <div className="mt-4 p-3 bg-muted rounded-md">
                   <p className="text-sm text-muted-foreground">

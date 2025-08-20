@@ -557,7 +557,7 @@ export function useAggregator() {
   // Auto-refresh feeds when vault becomes unlocked (only once, with better protection)
   const hasAttemptedInitialLoad = useRef(false)
   const lastRefreshTime = useRef(0)
-  const refreshTimeoutRef = useRef<NodeJS.Timeout>()
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Debounced refresh to prevent race conditions
   const debouncedRefresh = useCallback(() => {
@@ -752,9 +752,9 @@ function parseRss(xml: string): Array<{ title: string; link?: string; author?: s
 
     // Atom entries (with or without default namespace)
     let entries: Element[] = []
-    if ((doc as unknown).getElementsByTagNameNS) {
-      entries = Array.from((doc as unknown).getElementsByTagNameNS('*', 'entry'))
-    }
+    if ((doc as unknown) && typeof (doc as any).getElementsByTagNameNS === 'function') {
+        entries = Array.from((doc as any).getElementsByTagNameNS('*', 'entry') as HTMLCollectionOf<Element>)
+      }
     if (entries.length === 0) {
       entries = Array.from(doc.getElementsByTagName('entry'))
     }
@@ -800,7 +800,7 @@ function textContent(root: Element, selector: string): string | null {
 
 function textContentNS(root: Element, ns: string, localName: string): string | null {
   try {
-    const fn = (root as unknown).getElementsByTagNameNS as (ns: string, localName: string) => HTMLCollectionOf<Element>
+  const fn = (root as any).getElementsByTagNameNS as (ns: string, localName: string) => HTMLCollectionOf<Element>                                                                                
     if (typeof fn !== 'function') return null
     const els = Array.from(fn.call(root, ns, localName)) as Element[]
     const el = els[0] as Element | undefined
