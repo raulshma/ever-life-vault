@@ -394,7 +394,7 @@ function parseDockerComposeYaml(yamlContent: string): {
       // Parse services
       if (currentSection === 'services') {
         // Check if this is a service name (ends with colon, not a property, and has minimal indentation)
-        if (line.endsWith(':') && !['image:', 'ports:', 'environment:', 'volumes:', 'restart:', 'working_dir:', 'command:', 'depends_on:'].some(prop => line.startsWith(prop))) {
+        if (line.endsWith(':') && !['image:', 'ports:', 'environment:', 'volumes:', 'restart:', 'working_dir:', 'command:', 'depends_on:', 'healthcheck:', 'deploy:', 'networks:', 'labels:', 'logging:', 'user:', 'build:'].some(prop => line.startsWith(prop))) {
           currentService = line.slice(0, -1).trim(); // Remove the colon
           result.services.push({
             name: currentService,
@@ -402,10 +402,7 @@ function parseDockerComposeYaml(yamlContent: string): {
             ports: [],
             environment: [],
             volumes: [],
-            depends_on: [],
-            restart_policy: 'unless-stopped',
-            memory_limit: '512m',
-            cpu_limit: '0.5'
+            depends_on: []
           });
         } else if (currentService && line.trim().startsWith('-')) {
           // Handle list items that are part of the current service

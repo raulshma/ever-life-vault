@@ -257,7 +257,7 @@ export const ValidationHelp: React.FC<{ field: string }> = ({ field }) => {
   const getHelpText = (fieldName: string): string => {
     switch (fieldName) {
       case 'serviceName':
-        return 'Service names must be lowercase, contain only letters, numbers, and hyphens, and cannot start or end with a hyphen.';
+        return 'Service names must be lowercase, contain only letters, numbers, underscores, and hyphens, and cannot start or end with a hyphen.';
       case 'dockerImage':
         return 'Docker images should follow the format: [registry/]name[:tag]. Examples: nginx:latest, redis:alpine, myregistry.com/myapp:v1.0';
       case 'hostPort':
@@ -265,11 +265,15 @@ export const ValidationHelp: React.FC<{ field: string }> = ({ field }) => {
       case 'containerPort':
         return 'Container ports must be between 1-65535 and should match the port your application listens on.';
       case 'environmentKey':
-        return 'Environment variable keys should be UPPERCASE with underscores. Avoid overriding system variables like PATH, HOME, USER.';
+        return 'Environment variable keys can use letters, numbers, and underscores. Avoid overriding system variables like PATH, HOME, USER.';
       case 'hostPath':
-        return 'Host paths must be absolute paths. Avoid using relative paths (..) for security. Consider using named volumes instead.';
+        return 'Host paths must be absolute paths (Unix: /path, Windows: C:\\path or \\\\server\\share). Avoid relative paths (..) for security.';
       case 'containerPath':
         return 'Container paths must be absolute paths. Avoid mounting to system directories like /etc, /usr, /bin for security.';
+      case 'volumeMount':
+        return 'Volume mounts should avoid system paths and use read-only mode when possible. Format: host_path:container_path:mode';
+      case 'portMapping':
+        return 'Port mappings support formats like "8080", "8080:8080", "127.0.0.1:8080:8080", or with /tcp or /udp protocol.';
       default:
         return '';
     }

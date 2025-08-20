@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Save, Eye, FileText, CheckCircle, AlertCircle, ArrowLeft, HelpCircle, Upload } from "lucide-react";
+import { Plus, Eye, FileText, CheckCircle, AlertCircle, ArrowLeft, HelpCircle } from "lucide-react";
 import { ServiceDefinitionForm } from "./ServiceDefinitionForm";
 import { VolumeConfigurationForm } from "./VolumeConfigurationForm";
 import { NetworkConfigurationForm } from "./NetworkConfigurationForm";
@@ -19,6 +19,7 @@ import { useValidation, useServerValidation } from "../hooks/useValidation";
 import { DockerImportDialog } from "./DockerImportDialog";
 import { useToast } from "@/hooks/use-toast";
 import type { DockerComposeConfig, ServiceDefinition, VolumeDefinition, NetworkDefinition } from "../types";
+import type { ValidationError } from "../validation/schemas";
 
 interface ConfigurationEditorProps {
   config?: DockerComposeConfig;
@@ -50,22 +51,12 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
   const serverValidation = useServerValidation();
   const { toast } = useToast();
 
-  // Ensure existing services have the new advanced configuration fields
+  // Initialize services from config without auto-filling defaults
   useEffect(() => {
-    if (services.length > 0) {
-      const updatedServices = services.map(service => ({
-        ...service,
-        restart_policy: service.restart_policy || 'unless-stopped',
-        memory_limit: service.memory_limit || '512m',
-        cpu_limit: service.cpu_limit || '0.5',
-      }));
-      
-      // Only update if there are actual changes
-      if (JSON.stringify(updatedServices) !== JSON.stringify(services)) {
-        setServices(updatedServices);
-      }
+    if (config?.metadata?.services) {
+      setServices(config.metadata.services);
     }
-  }, []); // Only run once on mount
+  }, [config?.id, config?.metadata?.services]);
 
   const handleAddService = useCallback(() => {
     const newService: ServiceDefinition = {
@@ -74,10 +65,7 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
       ports: [],
       environment: [],
       volumes: [],
-      depends_on: [],
-      restart_policy: 'unless-stopped',
-      memory_limit: '512m',
-      cpu_limit: '0.5',
+      depends_on: []
     };
     setServices([...services, newService]);
   }, [services]);
@@ -119,36 +107,34 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
       return; // Don't save if client validation fails
     }
 
-         // Perform server-side validation
-     const serverValidationResult = await serverValidation.validateWithServer(configData);
-     if (!serverValidationResult.valid) {
-       console.log('Server validation failed:', serverValidationResult.errors);
-       
-       // Show toast for server validation failure
-       if (serverValidationResult.errors.some(err => err.field === 'auth')) {
-         toast({
-           title: "Authentication Required",
-           description: "Please log in to validate configurations.",
-           variant: "destructive",
-         });
-       } else if (serverValidationResult.errors.some(err => err.message.includes('Warning:'))) {
-         toast({
-           title: "Docker Compose Warnings Found",
-           description: `Configuration has ${serverValidationResult.errors.length} warning(s) that should be fixed before saving.`,
-           variant: "destructive",
-         });
-       } else {
-         toast({
-           title: "Docker Compose Validation Failed",
-           description: `Configuration has ${serverValidationResult.errors.length} error(s) that must be fixed before saving.`,
-           variant: "destructive",
-         });
-       }
-       
-       // The server errors are already set in the serverValidation hook
-       // and will be displayed in the ValidationDisplay component
-       return; // Don't save if server validation fails
-     }
+    // Only perform server-side validation if client validation passes
+    const serverValidationResult = await serverValidation.validateWithServer(configData);
+    if (!serverValidationResult.valid) {
+      console.log('Server validation failed:', serverValidationResult.errors);
+      
+      // Show toast for server validation failure
+      if (serverValidationResult.errors.some((err: ValidationError) => err.field === 'auth')) {
+        toast({
+          title: "Authentication Required",
+          description: "Please log in to validate configurations.",
+          variant: "destructive",
+        });
+      } else if (serverValidationResult.errors.some((err: ValidationError) => err.message.includes('Critical Warning:'))) {
+        toast({
+          title: "Critical Docker Compose Issues Found",
+          description: `Configuration has ${serverValidationResult.errors.length} critical issue(s) that must be fixed before saving.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Docker Compose Validation Failed",
+          description: `Configuration has ${serverValidationResult.errors.length} error(s) that must be fixed before saving.`,
+          variant: "destructive",
+        });
+      }
+      
+      return; // Don't save if server validation fails
+    }
 
     // All validation passed, save the configuration
     console.log('Validation passed, saving configuration');
@@ -158,13 +144,29 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
       variant: "default",
     });
     onSave(configData);
-  }, [name, description, services, volumes, networks, onSave, validateCurrentConfig, serverValidation]);
+  }, [name, description, services, volumes, networks, onSave, validateCurrentConfig, serverValidation, toast]);
 
   const handleValidate = useCallback(() => {
     // Trigger validation
     console.log('Validating configuration...');
-    validateCurrentConfig();
-  }, [validateCurrentConfig]);
+    const result = validateCurrentConfig();
+    console.log('Validation result:', result);
+    
+    // Show validation result in toast
+    if (result.valid) {
+      toast({
+        title: "Validation Passed",
+        description: "Configuration is valid and ready to save.",
+        variant: "default",
+      });
+    } else {
+      toast({
+        title: "Validation Failed",
+        description: `Found ${result.errors.length} error(s) that need to be fixed.`,
+        variant: "destructive",
+      });
+    }
+  }, [validateCurrentConfig, toast]);
 
   // Keyboard shortcuts
   const shortcuts = createInfrastructureShortcuts({
@@ -303,6 +305,18 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
             </Button>
           </HelpTooltip>
           
+          <HelpTooltip content="Validate configuration (Ctrl+T)">
+            <Button 
+              onClick={handleValidate} 
+              variant="outline"
+              size={isMobile ? "sm" : "default"}
+              className="flex items-center gap-2"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {isMobile ? "Validate" : "Validate"}
+            </Button>
+          </HelpTooltip>
+
           <HelpTooltip content="Save configuration (Ctrl+S)">
             <Button 
               onClick={handleSave} 
@@ -330,7 +344,7 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
           description={HELP_CONTENT.dockerCompose.description}
           tips={[
             "Use Ctrl+S to save your configuration quickly",
-            "Use Ctrl+T to validate your configuration",
+            "Use Ctrl+T or the Validate button to check your configuration",
             "Switch between form and preview modes to see the generated YAML",
             "The sidebar shows a summary of your configuration"
           ]}
@@ -625,7 +639,7 @@ export const ConfigurationEditor: React.FC<ConfigurationEditorProps> = ({
                 </CardHeader>
                 <CardContent className="space-y-2 text-sm text-muted-foreground">
                   <p>• Use Ctrl+S to save quickly</p>
-                  <p>• Use Ctrl+T to validate configuration</p>
+                  <p>• Use Ctrl+T or Validate button to check configuration</p>
                   <p>• Configure health checks for critical services</p>
                   <p>• Use secrets for sensitive environment variables</p>
                   <p>• Set resource limits to prevent resource exhaustion</p>

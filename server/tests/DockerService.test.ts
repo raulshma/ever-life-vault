@@ -95,7 +95,7 @@ services:
       
       expect(result.warnings).toContainEqual({
         field: 'services.web.volumes',
-        message: 'Volume path "../../../etc:/host-etc" contains relative path traversal'
+        message: 'Volume path "../../../etc:/host-etc" contains relative path traversal - security risk'
       });
     });
 
@@ -141,7 +141,7 @@ services:
       
       expect(result.warnings).toContainEqual({
         field: 'services.web.ports',
-        message: 'Port mapping "invalid-port" should use format "host:container" or "host:container/protocol"'
+        message: 'Port mapping "invalid-port" uses invalid format. Use formats like "8080", "8080:8080", "127.0.0.1:8080:8080", or add /tcp or /udp protocol'
       });
     });
 
@@ -186,6 +186,52 @@ services:
       expect(result.valid).toBe(true);
     });
 
+    it('should detect dangerous volume mounts with enhanced security checks', async () => {
+      const dangerousCompose = `
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:rw"
+      - "/etc:/etc"
+`;
+
+      const result = await dockerService.validateCompose(dangerousCompose);
+      
+      expect(result.warnings).toContainEqual({
+        field: 'services.web.volumes',
+        message: 'Volume mount "/var/run/docker.sock:/var/run/docker.sock:rw" provides write access to system path - high security risk'
+      });
+      
+      expect(result.warnings).toContainEqual({
+        field: 'services.web.volumes',
+        message: 'Volume mount "/etc:/etc" accesses system path "/etc" - potential security risk'
+      });
+    });
+
+    it('should accept various valid port formats', async () => {
+      const composeWithVariousPorts = `
+version: '3.8'
+services:
+  web:
+    image: nginx:latest
+    ports:
+      - "8080"
+      - "80:80"
+      - "127.0.0.1:443:443"
+      - "53:53/udp"
+      - "8000-8010:8000-8010"
+`;
+
+      const result = await dockerService.validateCompose(composeWithVariousPorts);
+      
+      // Should have no warnings for valid port mappings
+      const portWarnings = result.warnings.filter(w => w.field.includes('ports') && w.message.includes('invalid format'));
+      expect(portWarnings).toHaveLength(0);
+      expect(result.valid).toBe(true);
+    });
+
     it('should validate external networks without names', async () => {
       const composeWithExternalNetwork = `
 version: '3.8'
@@ -222,6 +268,97 @@ volumes:
         field: 'volumes.external_vol',
         message: 'External volume should specify a name'
       });
+    });
+
+    it('should validate comprehensive Docker Compose features', async () => {
+      const comprehensiveCompose = `
+version: '3.8'
+services:
+  web:
+    image: nginx:1.21
+    restart: unless-stopped
+    user: "1000:1000"
+    working_dir: /app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+    labels:
+      - "traefik.enable=true"
+    networks:
+      - frontend
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+          cpus: '0.5'
+volumes:
+  data:
+    driver: local
+networks:
+  frontend:
+    driver: bridge
+secrets:
+  db_password:
+    file: ./db_password.txt
+configs:
+  nginx_config:
+    file: ./nginx.conf
+`;
+
+      const result = await dockerService.validateCompose(comprehensiveCompose);
+      
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      
+      // Should have warnings about file-based secrets
+      expect(result.warnings.some(w => w.message.includes('File-based secrets should have restricted permissions'))).toBe(true);
+    });
+
+    it('should detect invalid service configurations', async () => {
+      const invalidCompose = `
+version: '2.0'
+services:
+  Invalid-Service-Name:
+    image: "invalid::image:"
+    restart: invalid-policy
+    user: root
+    working_dir: relative/path
+    depends_on:
+      - Invalid-Service-Name
+    environment:
+      - "DUPLICATE_KEY=value1"
+      - "DUPLICATE_KEY=value2"
+    deploy:
+      resources:
+        limits:
+          memory: invalid
+          cpus: not-a-number
+volumes:
+  Invalid-Volume-Name:
+    driver: unsupported-driver
+`;
+
+      const result = await dockerService.validateCompose(invalidCompose);
+      
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      
+      // Check for specific errors
+      expect(result.errors.some(e => e.message.includes('Service name must contain only lowercase letters'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('Invalid Docker image format'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('Invalid restart policy'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('Working directory must be an absolute path'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('Service cannot depend on itself'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('Memory limit must be a number'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('CPU limit must be a positive number'))).toBe(true);
+      
+      // Check for warnings
+      expect(result.warnings.some(w => w.message.includes('Docker Compose version 2.0 may not be supported'))).toBe(true);
+      expect(result.warnings.some(w => w.message.includes('Running containers as root poses security risks'))).toBe(true);
+      expect(result.warnings.some(w => w.message.includes('Duplicate environment variable key'))).toBe(true);
     });
   });
 });

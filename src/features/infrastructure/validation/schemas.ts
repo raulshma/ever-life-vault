@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ServiceDefinition } from '../types';
 
 // Port validation schema
 export const portMappingSchema = z.object({
@@ -18,8 +19,8 @@ export const portMappingSchema = z.object({
 export const environmentVariableSchema = z.object({
   key: z.string()
     .min(1, 'Environment variable key is required')
-    .regex(/^[A-Z_][A-Z0-9_]*$/, 'Environment variable key must contain only uppercase letters, numbers, and underscores, and start with a letter or underscore')
-    .refine((key) => !['PATH', 'HOME', 'USER', 'SHELL'].includes(key), 'Cannot override system environment variables'),
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Environment variable key must contain only letters, numbers, and underscores, and start with a letter or underscore')
+    .refine((key) => !['PATH', 'HOME', 'USER', 'SHELL', 'PWD', 'OLDPWD', 'TERM'].includes(key), 'Cannot override critical system environment variables'),
   value: z.string()
     .min(1, 'Environment variable value is required'),
   is_secret: z.boolean()
@@ -29,7 +30,15 @@ export const environmentVariableSchema = z.object({
 export const volumeMountSchema = z.object({
   host_path: z.string()
     .min(1, 'Host path is required')
-    .refine((path) => path.startsWith('/') || /^[A-Za-z]:\\/.test(path), 'Host path must be an absolute path')
+    .refine((path) => {
+      // Unix absolute path
+      if (path.startsWith('/')) return true;
+      // Windows drive path
+      if (/^[A-Za-z]:[\\/]/.test(path)) return true;
+      // Windows UNC path
+      if (/^\\\\[^\\]+\\[^\\]+/.test(path)) return true;
+      return false;
+    }, 'Host path must be an absolute path (Unix: /path, Windows: C:\\path or \\\\server\\share)')
     .refine((path) => !path.includes('..'), 'Host path cannot contain relative path components (..)'),
   container_path: z.string()
     .min(1, 'Container path is required')
@@ -48,8 +57,9 @@ export const serviceDefinitionSchema = z.object({
   name: z.string()
     .min(1, 'Service name is required')
     .max(63, 'Service name must be 63 characters or less')
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Service name must contain only lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen')
-    .refine((name) => !['localhost', 'host', 'gateway'].includes(name), 'Service name cannot be a reserved hostname'),
+    .regex(/^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/, 'Service name must contain only lowercase letters, numbers, underscores, and hyphens, and cannot start or end with a hyphen')
+    .refine((name) => !['localhost', 'host', 'gateway'].includes(name), 'Service name cannot be a reserved hostname')
+    .refine((name) => !['version', 'services', 'volumes', 'networks', 'secrets', 'configs', 'healthcheck'].includes(name), 'Service name cannot be a reserved Docker Compose keyword'),
   image: z.string()
     .min(1, 'Docker image is required')
     .refine((image) => {
@@ -90,7 +100,7 @@ export const volumeDefinitionSchema = z.object({
   name: z.string()
     .min(1, 'Volume name is required')
     .max(63, 'Volume name must be 63 characters or less')
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Volume name must contain only lowercase letters, numbers, and hyphens'),
+    .regex(/^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/, 'Volume name must contain only lowercase letters, numbers, underscores, and hyphens'),
   driver: z.string()
     .min(1, 'Volume driver is required')
     .refine((driver) => ['local', 'nfs', 'cifs', 'overlay2', 'tmpfs'].includes(driver), 'Unsupported volume driver'),
@@ -102,7 +112,7 @@ export const networkDefinitionSchema = z.object({
   name: z.string()
     .min(1, 'Network name is required')
     .max(63, 'Network name must be 63 characters or less')
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Network name must contain only lowercase letters, numbers, and hyphens'),
+    .regex(/^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/, 'Network name must contain only lowercase letters, numbers, underscores, and hyphens'),
   driver: z.string()
     .min(1, 'Network driver is required')
     .refine((driver) => ['bridge', 'host', 'overlay', 'macvlan', 'ipvlan', 'none'].includes(driver), 'Unsupported network driver'),
@@ -114,7 +124,7 @@ export const dockerComposeConfigSchema = z.object({
   name: z.string()
     .min(1, 'Configuration name is required')
     .max(63, 'Configuration name must be 63 characters or less')
-    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/, 'Configuration name must contain only lowercase letters, numbers, and hyphens'),
+    .regex(/^[a-z0-9]([a-z0-9_-]*[a-z0-9])?$/, 'Configuration name must contain only lowercase letters, numbers, underscores, and hyphens'),
   description: z.string().max(500, 'Description must be 500 characters or less').optional(),
   metadata: z.object({
     services: z.array(serviceDefinitionSchema)
@@ -126,17 +136,15 @@ export const dockerComposeConfigSchema = z.object({
       }, 'Duplicate service names are not allowed')
       .refine((services) => {
         // Check for circular dependencies
-        const checkCircularDeps = (serviceName: string, visited: Set<string>, path: Set<string>): boolean => {
+        const checkCircularDeps = (serviceName: string, path: Set<string>, allServices: ServiceDefinition[]): boolean => {
           if (path.has(serviceName)) return true; // Circular dependency found
-          if (visited.has(serviceName)) return false; // Already processed
           
-          visited.add(serviceName);
           path.add(serviceName);
           
-          const service = services.find(s => s.name === serviceName);
+          const service = allServices.find(s => s.name === serviceName);
           if (service?.depends_on) {
             for (const dep of service.depends_on) {
-              if (checkCircularDeps(dep, visited, path)) return true;
+              if (checkCircularDeps(dep, path, allServices)) return true;
             }
           }
           
@@ -144,9 +152,9 @@ export const dockerComposeConfigSchema = z.object({
           return false;
         };
         
-        const visited = new Set<string>();
+        // Check each service for circular dependencies
         for (const service of services) {
-          if (checkCircularDeps(service.name, visited, new Set())) {
+          if (checkCircularDeps(service.name, new Set(), services)) {
             return false;
           }
         }
@@ -210,7 +218,7 @@ export function formatZodErrors(error: z.ZodError): ValidationError[] {
 }
 
 // Validation function for Docker Compose configurations
-export function validateDockerComposeConfig(config: any): ValidationResult {
+export function validateDockerComposeConfig(config: unknown): ValidationResult {
   const warnings: ValidationWarning[] = [];
   
   try {
@@ -287,7 +295,14 @@ export function validateDockerComposeConfig(config: any): ValidationResult {
 }
 
 // Individual field validation functions
-export function validateServiceName(name: string): ValidationResult {
+export function validateServiceName(name: unknown): ValidationResult {
+  if (typeof name !== 'string') {
+    return {
+      valid: false,
+      errors: [{ field: 'name', message: 'Service name must be a string' }],
+      warnings: []
+    };
+  }
   try {
     serviceDefinitionSchema.shape.name.parse(name);
     return { valid: true, errors: [], warnings: [] };
@@ -307,7 +322,14 @@ export function validateServiceName(name: string): ValidationResult {
   }
 }
 
-export function validateDockerImage(image: string): ValidationResult {
+export function validateDockerImage(image: unknown): ValidationResult {
+  if (typeof image !== 'string') {
+    return {
+      valid: false,
+      errors: [{ field: 'image', message: 'Docker image must be a string' }],
+      warnings: []
+    };
+  }
   try {
     serviceDefinitionSchema.shape.image.parse(image);
     return { valid: true, errors: [], warnings: [] };
@@ -327,7 +349,7 @@ export function validateDockerImage(image: string): ValidationResult {
   }
 }
 
-export function validatePortMapping(port: any): ValidationResult {
+export function validatePortMapping(port: unknown): ValidationResult {
   try {
     portMappingSchema.parse(port);
     return { valid: true, errors: [], warnings: [] };
@@ -347,7 +369,7 @@ export function validatePortMapping(port: any): ValidationResult {
   }
 }
 
-export function validateEnvironmentVariable(env: any): ValidationResult {
+export function validateEnvironmentVariable(env: unknown): ValidationResult {
   try {
     environmentVariableSchema.parse(env);
     return { valid: true, errors: [], warnings: [] };
@@ -367,7 +389,7 @@ export function validateEnvironmentVariable(env: any): ValidationResult {
   }
 }
 
-export function validateVolumeMount(volume: any): ValidationResult {
+export function validateVolumeMount(volume: unknown): ValidationResult {
   try {
     volumeMountSchema.parse(volume);
     return { valid: true, errors: [], warnings: [] };
@@ -391,8 +413,8 @@ export function validateVolumeMount(volume: any): ValidationResult {
 export const secretKeySchema = z.string()
   .min(1, 'Secret key is required')
   .max(255, 'Secret key must be 255 characters or less')
-  .regex(/^[A-Z_][A-Z0-9_]*$/, 'Secret key must contain only uppercase letters, numbers, and underscores, and start with a letter or underscore')
-  .refine((key) => !['PATH', 'HOME', 'USER', 'SHELL', 'PWD', 'OLDPWD'].includes(key), 'Cannot use reserved system environment variable names');
+  .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'Secret key must contain only letters, numbers, and underscores, and start with a letter or underscore')
+  .refine((key) => !['PATH', 'HOME', 'USER', 'SHELL', 'PWD', 'OLDPWD', 'TERM', 'LANG', 'LC_ALL'].includes(key), 'Cannot use reserved system environment variable names');
 
 export const secretValueSchema = z.string()
   .min(1, 'Secret value is required')
@@ -490,7 +512,7 @@ export function validateSecretValue(value: string): ValidationResult {
   }
 }
 
-export function validateSecretFormData(data: any): ValidationResult {
+export function validateSecretFormData(data: unknown): ValidationResult {
   try {
     secretFormDataSchema.parse(data);
     return { valid: true, errors: [], warnings: [] };

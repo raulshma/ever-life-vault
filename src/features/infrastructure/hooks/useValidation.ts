@@ -1,16 +1,16 @@
 import { useState, useCallback, useMemo } from 'react';
-import { 
-  validateDockerComposeConfig, 
-  validateServiceName, 
-  validateDockerImage, 
-  validatePortMapping, 
-  validateEnvironmentVariable, 
+import {
+  validateDockerComposeConfig,
+  validateServiceName,
+  validateDockerImage,
+  validatePortMapping,
+  validateEnvironmentVariable,
   validateVolumeMount,
   type ValidationResult,
   type ValidationError,
   type ValidationWarning
 } from '../validation/schemas';
-import type { DockerComposeConfig, ServiceDefinition, PortMapping, EnvironmentVariable, VolumeMount } from '../types';
+import type { DockerComposeConfig, ServiceDefinition } from '../types';
 import { useAuth } from '../../../hooks/useAuth';
 
 export interface UseValidationResult {
@@ -21,7 +21,7 @@ export interface UseValidationResult {
   hasWarnings: boolean;
   validateConfig: (config: Partial<DockerComposeConfig>) => ValidationResult;
   validateService: (service: ServiceDefinition) => ValidationResult;
-  validateField: (field: string, value: any) => ValidationResult;
+  validateField: (field: string, value: unknown) => ValidationResult;
   getFieldErrors: (field: string) => ValidationError[];
   getFieldWarnings: (field: string) => ValidationWarning[];
   clearErrors: () => void;
@@ -110,7 +110,7 @@ export function useValidation(): UseValidationResult {
     };
   }, []);
 
-  const validateField = useCallback((field: string, value: any): ValidationResult => {
+  const validateField = useCallback((field: string, value: unknown): ValidationResult => {
     switch (field) {
       case 'serviceName':
         return validateServiceName(value);
@@ -160,13 +160,13 @@ export function useValidation(): UseValidationResult {
 }
 
 // Hook for real-time field validation
-export function useFieldValidation(field: string, value: any, validateOnChange = true) {
+export function useFieldValidation(field: string, value: unknown, validateOnChange = true) {
   const [fieldErrors, setFieldErrors] = useState<ValidationError[]>([]);
   const [fieldWarnings, setFieldWarnings] = useState<ValidationWarning[]>([]);
 
-  const validateFieldValue = useCallback((fieldValue: any) => {
+  const validateFieldValue = useCallback((fieldValue: unknown) => {
     let result: ValidationResult;
-    
+
     switch (field) {
       case 'serviceName':
         result = validateServiceName(fieldValue);
@@ -186,7 +186,7 @@ export function useFieldValidation(field: string, value: any, validateOnChange =
       default:
         result = { valid: true, errors: [], warnings: [] };
     }
-    
+
     setFieldErrors(result.errors);
     setFieldWarnings(result.warnings);
     return result;
@@ -221,16 +221,14 @@ export function useServerValidation() {
 
   const validateWithServer = useCallback(async (config: Partial<DockerComposeConfig>) => {
     if (!session?.access_token) {
-      setServerErrors([{
+      const authError = {
         field: 'auth',
         message: 'Authentication required. Please log in to validate configurations.'
-      }]);
+      };
+      setServerErrors([authError]);
       return {
         valid: false,
-        errors: [{
-          field: 'auth',
-          message: 'Authentication required. Please log in to validate configurations.'
-        }],
+        errors: [authError],
         warnings: []
       };
     }
@@ -242,21 +240,27 @@ export function useServerValidation() {
       // Use the validate-compose endpoint for configuration validation
       // Convert the configuration to a Docker Compose format string
       let composeContent = '';
-      
+
       if (config.metadata?.services) {
         composeContent = 'version: \'3.8\'\nservices:\n';
-        
+
         for (const service of config.metadata.services) {
+          // Skip services with invalid names
+          if (!service.name || service.name.trim() === '') {
+            continue;
+          }
+
           composeContent += `  ${service.name}:\n`;
           composeContent += `    image: ${service.image}\n`;
-          
+
           if (service.ports?.length) {
             composeContent += '    ports:\n';
             for (const port of service.ports) {
-              composeContent += `      - "${port.host_port}:${port.container_port}/${port.protocol || 'tcp'}"\n`;
+              const protocol = port.protocol ? `/${port.protocol}` : '';
+              composeContent += `      - "${port.host_port}:${port.container_port}${protocol}"\n`;
             }
           }
-          
+
           if (service.environment?.length) {
             composeContent += '    environment:\n';
             for (const env of service.environment) {
@@ -264,50 +268,54 @@ export function useServerValidation() {
               composeContent += `      - ${env.key}=${value}\n`;
             }
           }
-          
+
           if (service.volumes?.length) {
             composeContent += '    volumes:\n';
             for (const vol of service.volumes) {
               composeContent += `      - ${vol.host_path}:${vol.container_path}:${vol.mode}\n`;
             }
           }
-          
+
           if (service.depends_on?.length) {
             composeContent += '    depends_on:\n';
             for (const dep of service.depends_on) {
               composeContent += `      - ${dep}\n`;
             }
           }
-          
+
           if (service.restart_policy) {
             composeContent += `    restart: ${service.restart_policy}\n`;
           }
-          
-          if (service.user_id) {
-            composeContent += `    user: "${service.user_id}:${service.group_id || service.user_id}"\n`;
+
+          if (service.user_id !== undefined) {
+            const groupId = service.group_id !== undefined ? service.group_id : service.user_id;
+            composeContent += `    user: "${service.user_id}:${groupId}"\n`;
           }
-          
-          if (service.memory_limit) {
-            composeContent += `    mem_limit: ${service.memory_limit}\n`;
+
+          // Handle resource limits with proper deploy section
+          if (service.memory_limit || service.cpu_limit) {
+            composeContent += `    deploy:\n      resources:\n        limits:\n`;
+            if (service.memory_limit) {
+              composeContent += `          memory: ${service.memory_limit}\n`;
+            }
+            if (service.cpu_limit) {
+              composeContent += `          cpus: '${service.cpu_limit}'\n`;
+            }
           }
-          
-          if (service.cpu_limit) {
-            composeContent += `    cpus: ${service.cpu_limit}\n`;
-          }
-          
+
           if (service.health_check) {
-            composeContent += `    healthcheck:\n      test: ${service.health_check}\n`;
+            composeContent += `    healthcheck:\n      test: ${service.health_check}\n      interval: 30s\n      timeout: 10s\n      retries: 3\n      start_period: 40s\n`;
           }
-          
+
           if (service.working_dir) {
             composeContent += `    working_dir: ${service.working_dir}\n`;
           }
-          
+
           if (service.command) {
             composeContent += `    command: ${service.command}\n`;
           }
         }
-        
+
         if (config.metadata.volumes?.length) {
           composeContent += '\nvolumes:\n';
           for (const vol of config.metadata.volumes) {
@@ -321,7 +329,7 @@ export function useServerValidation() {
             }
           }
         }
-        
+
         if (config.metadata.networks?.length) {
           composeContent += '\nnetworks:\n';
           for (const net of config.metadata.networks) {
@@ -351,7 +359,7 @@ export function useServerValidation() {
       }
 
       const result = await response.json();
-      
+
       // Check if there are any errors (validation failures)
       if (!result.valid || (result.errors && result.errors.length > 0)) {
         setServerErrors(result.errors || []);
@@ -366,32 +374,46 @@ export function useServerValidation() {
       // Only treat critical warnings as blocking - allow valid Docker Compose configurations to save
       if (result.warnings && result.warnings.length > 0) {
         // Filter out warnings that shouldn't block saving
-        const blockingWarnings = result.warnings.filter(warning => {
-          // Allow valid port mappings to pass through
-          if (warning.field.includes('ports') && warning.message.includes('should use format')) {
-            return false; // Don't block on format warnings for valid port mappings
-          }
-          // Allow other non-critical warnings to pass through
-          if (warning.message.includes('External network should specify a name') ||
-              warning.message.includes('External volume should specify a name')) {
+        const blockingWarnings = result.warnings.filter((warning: ValidationWarning) => {
+          const message = warning.message.toLowerCase();
+
+          // Allow non-critical warnings to pass through
+          if (message.includes('external network should specify a name') ||
+            message.includes('external volume should specify a name')) {
             return false;
           }
-          // Block on security and configuration warnings
-          return true;
+
+          // Block on security warnings
+          if (message.includes('security') ||
+            message.includes('dangerous') ||
+            message.includes('traversal') ||
+            message.includes('privileged')) {
+            return true;
+          }
+
+          // Block on critical configuration errors
+          if (message.includes('conflict') ||
+            message.includes('duplicate') ||
+            message.includes('missing required')) {
+            return true;
+          }
+
+          // Allow other warnings to pass through
+          return false;
         });
 
         if (blockingWarnings.length > 0) {
-          setServerErrors(blockingWarnings.map(warning => ({
+          setServerErrors(blockingWarnings.map((warning: ValidationWarning) => ({
             ...warning,
             field: warning.field,
-            message: `Warning: ${warning.message} - Please fix before saving.`
+            message: `Critical Warning: ${warning.message}`
           })));
           return {
             valid: false,
-            errors: blockingWarnings.map(warning => ({
+            errors: blockingWarnings.map((warning: ValidationWarning) => ({
               ...warning,
               field: warning.field,
-              message: `Warning: ${warning.message} - Please fix before saving.`
+              message: `Critical Warning: ${warning.message}`
             })),
             warnings: result.warnings
           };
@@ -432,7 +454,7 @@ export const ValidationMessages = {
   SECURITY_WARNING: 'This configuration may pose security risks',
   PERFORMANCE_WARNING: 'This configuration may impact performance',
   BEST_PRACTICE: 'Consider following Docker best practices',
-  
+
   // Service-specific messages
   SERVICE_NAME_INVALID: 'Service name must contain only lowercase letters, numbers, and hyphens',
   IMAGE_INVALID: 'Invalid Docker image format',
