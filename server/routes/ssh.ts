@@ -81,24 +81,24 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
   })
 
   // Upgrade WS for interactive terminal binding to an existing session
-  server.get('/ssh/sessions/:sessionId/attach', { websocket: true } as any, async (connection: any, req: any) => {
+  server.get('/ssh/sessions/:sessionId/attach', { websocket: true } as any, async (socket: any, req: any) => {
     // Browser WS cannot set Authorization header; accept token in query param
     const token = (req.query?.token as string | undefined) || ''
     const fakeReq = { headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` } }
-  const user = await cfg.requireSupabaseUser(fakeReq, { code: () => ({ send: () => {} }) })
+    const user = await cfg.requireSupabaseUser(fakeReq, { code: () => ({ send: () => {} }) })
     if (!user) {
-      connection.socket.close(4401, 'unauthorized')
+      try { socket.close(4401, 'unauthorized') } catch {}
       return
     }
 
-  const { sessionId } = (req.params || {}) as any
+    const { sessionId } = (req.params || {}) as any
     const session = sessions.get(sessionId)
     if (!session) {
-      connection.socket.close(4404, 'no_session')
+      try { socket.close(4404, 'no_session') } catch {}
       return
     }
     if (session.userId !== user.id) {
-      connection.socket.close(4403, 'forbidden')
+      try { socket.close(4403, 'forbidden') } catch {}
       return
     }
 
@@ -118,18 +118,18 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
       const stream = await openShell()
       // Data from SSH -> WS
       stream.on('data', (data: Buffer) => {
-        try { connection.socket.send(data) } catch {}
+        try { socket.send(data) } catch {}
       })
       stream.on('close', () => {
-        try { connection.socket.close(1000, 'shell_closed') } catch {}
+        try { socket.close(1000, 'shell_closed') } catch {}
       })
       session.ssh.on('close', () => {
         sessions.delete(sessionId)
-        try { connection.socket.close(1000, 'ssh_closed') } catch {}
+        try { socket.close(1000, 'ssh_closed') } catch {}
       })
 
       // Data from WS -> SSH
-  connection.socket.on('message', (msg: any) => {
+      socket.on('message', (msg: any) => {
         if (typeof msg === 'string') {
           // Expect control messages as JSON
           try {
@@ -142,18 +142,18 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
             // treat as plain input
             stream.write(msg)
           }
-  } else if (msg instanceof Buffer || Array.isArray(msg)) {
+        } else if (msg instanceof Buffer || Array.isArray(msg)) {
           stream.write(msg)
         }
       })
 
-      connection.socket.on('close', () => {
+      socket.on('close', () => {
         // do not end SSH session immediately; keep it alive to allow reattach or multiple tabs? for now, end stream
         try { stream.end() } catch {}
       })
     } catch (err) {
       server.log.warn({ err }, 'Failed to open shell')
-      try { connection.socket.close(1011, 'shell_error') } catch {}
+      try { socket.close(1011, 'shell_error') } catch {}
     }
   })
 
