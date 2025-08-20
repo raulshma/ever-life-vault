@@ -4,6 +4,18 @@ import { useVaultSession } from '@/hooks/useVaultSession'
 import { useToast } from '@/hooks/use-toast'
 import { agpFetch, dynFetch, fetchWithAuth } from '@/lib/aggregatorClient'
 
+// Simple HTML sanitization function
+function sanitizeHtml(input: string): string {
+  if (!input) return ''
+  return input
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<[^>]*>/g, '')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .trim()
+    .substring(0, 500) // Limit length
+}
+
 export type AggregatedItem = {
   id: string
   provider: 'reddit' | 'twitter' | 'facebook' | 'instagram' | 'rss' | 'gmail' | 'outlook' | 'youtube' | 'youtubemusic' | 'spotify'
@@ -77,14 +89,38 @@ export function useAggregator() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [items, setItems] = useState<AggregatedItem[]>([])
+  const [providerLoading, setProviderLoading] = useState<Record<string, boolean>>({})
   const cacheRef = useRef<Record<string, { items: AggregatedItem[]; fetchedAt: number }>>({})
 
   // Memoize vault items to prevent unnecessary re-renders
   const vaultItems = useMemo(() => [...itemsByType.api, ...itemsByType.login], [itemsByType.api, itemsByType.login])
 
+  // Cache cleanup function
+  const cleanupCache = useCallback(() => {
+    const now = Date.now()
+    const maxAge = 30 * 60 * 1000 // 30 minutes
+    const cache = cacheRef.current
+
+    Object.keys(cache).forEach(key => {
+      if (now - cache[key].fetchedAt > maxAge) {
+        delete cache[key]
+      }
+    })
+
+    // Limit cache size to prevent memory issues
+    const entries = Object.entries(cache)
+    if (entries.length > 20) {
+      // Keep only the 15 most recent entries
+      entries
+        .sort((a, b) => b[1].fetchedAt - a[1].fetchedAt)
+        .slice(15)
+        .forEach(([key]) => delete cache[key])
+    }
+  }, [])
+
   // Memoize the getVaultItemByName function to prevent recreation
-  const getVaultItemByName = useCallback((name: string) => 
-    vaultItems.find(i => i.name.toLowerCase() === name.toLowerCase()), 
+  const getVaultItemByName = useCallback((name: string) =>
+    vaultItems.find(i => i.name.toLowerCase() === name.toLowerCase()),
     [vaultItems]
   )
 
@@ -318,10 +354,11 @@ export function useAggregator() {
   const fetchRssItemsInner = useCallback(async () => {
     const sources = listRssSources()
     if (sources.length === 0) return []
-    
+
     console.log('RSS sources found:', sources)
     const allItems: AggregatedItem[] = []
-    
+    const failedSources: string[] = []
+
     for (const source of sources) {
       try {
         console.log('Fetching RSS from:', source.url)
@@ -330,6 +367,7 @@ export function useAggregator() {
         const res = await fetch(proxyUrl)
         if (!res.ok) {
           console.error(`Failed to fetch RSS from ${source.url}: ${res.status} ${res.statusText}`)
+          failedSources.push(source.url)
           continue
         }
         const xml = await res.text()
@@ -337,9 +375,9 @@ export function useAggregator() {
         const items: AggregatedItem[] = parsed.slice(0, source.limit || 20).map((item) => ({
           id: cryptoRandomId(),
           provider: 'rss' as const,
-          title: item.title,
+          title: sanitizeHtml(item.title),
           url: item.link,
-          author: item.author,
+          author: sanitizeHtml(item.author || ''),
           timestamp: item.pubDate ? new Date(item.pubDate).getTime() : undefined,
           extra: { source: source.url },
         }))
@@ -347,12 +385,22 @@ export function useAggregator() {
         console.log(`Parsed ${items.length} RSS items from ${source.url}`)
       } catch (error) {
         console.error(`Error fetching RSS from ${source.url}:`, error)
+        failedSources.push(source.url)
       }
     }
-    
+
+    // Show toast notification for failed sources
+    if (failedSources.length > 0) {
+      toast({
+        title: 'RSS Feed Errors',
+        description: `Failed to fetch ${failedSources.length} RSS source(s). Check console for details.`,
+        variant: 'destructive'
+      })
+    }
+
     console.log('Total RSS items collected:', allItems.length)
     return allItems
-  }, [listRssSources])
+  }, [listRssSources, toast])
 
   // Memoize aggregation providers to prevent recreation
   const aggregationProviders = useMemo(() => [
@@ -374,7 +422,10 @@ export function useAggregator() {
     console.log('Starting refreshAll, isUnlocked:', isUnlocked)
     console.log('Available providers:', aggregationProviders.map(p => ({ name: p.name, enabled: isProviderEnabled(p.name) })))
     console.log('Vault items:', vaultItems)
-    
+
+    // Clean up old cache entries
+    cleanupCache()
+
     // Check if there are any configured providers
     const hasConfiguredProviders = aggregationProviders.some(p => {
       if (p.name === 'rss') {
@@ -391,15 +442,17 @@ export function useAggregator() {
       }
       return false
     })
-    
+
     if (!hasConfiguredProviders) {
       console.log('No configured providers found, skipping refreshAll')
       setItems([])
       setLoading(false)
       return
     }
-    
+
     setLoading(true)
+    const failedProviders: string[] = []
+
     try {
       const results = await Promise.all(aggregationProviders.map(async (p) => {
         if (!isProviderEnabled(p.name)) {
@@ -414,21 +467,43 @@ export function useAggregator() {
           return cached.items
         }
         console.log(`Fetching fresh data for ${p.name}`)
-        try {
-          const items = await p.fetch()
-          console.log(`Fetched ${items.length} items for ${p.name}`)
-          cacheRef.current[p.name] = { items, fetchedAt: now }
-          return items
-        } catch (error) {
-          console.error(`Error fetching from provider ${p.name}:`, error)
-          return []
+
+        // Retry logic for failed requests
+        let retries = 2
+        while (retries > 0) {
+          try {
+            const items = await p.fetch()
+            console.log(`Fetched ${items.length} items for ${p.name}`)
+            cacheRef.current[p.name] = { items, fetchedAt: now }
+            return items
+          } catch (error) {
+            retries--
+            if (retries === 0) {
+              console.error(`Error fetching from provider ${p.name} after retries:`, error)
+              failedProviders.push(p.name)
+              return []
+            }
+            console.warn(`Retrying ${p.name} (${retries} attempts left)`)
+            await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before retry
+          }
         }
+        return []
       }))
+
       const combined = results.flat()
       console.log(`Total items fetched: ${combined.length}`)
       combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       setItems(combined)
-      
+
+      // Show notification for failed providers
+      if (failedProviders.length > 0) {
+        toast({
+          title: 'Provider Errors',
+          description: `Failed to fetch from: ${failedProviders.join(', ')}. Check your connections.`,
+          variant: 'destructive'
+        })
+      }
+
       // If no items were fetched and no providers are configured, log this for debugging
       if (combined.length === 0) {
         console.log('No feed items were fetched. This might be normal if no providers are configured.')
@@ -440,10 +515,15 @@ export function useAggregator() {
       }
     } catch (error) {
       console.error('Error in refreshAll:', error)
+      toast({
+        title: 'Feed Refresh Error',
+        description: 'An unexpected error occurred while refreshing feeds.',
+        variant: 'destructive'
+      })
     } finally {
       setLoading(false)
     }
-  }, [isUnlocked, aggregationProviders, isProviderEnabled, listRssSources, getProviderData])
+  }, [isUnlocked, aggregationProviders, isProviderEnabled, listRssSources, getProviderData, cleanupCache, toast])
 
   // Memoize refreshProvider to prevent recreation
   const refreshProvider = useCallback(async (name: AggregatedItem['provider']): Promise<AggregatedItem[]> => {
@@ -451,13 +531,84 @@ export function useAggregator() {
     const provider = aggregationProviders.find((p) => p.name === name)
     if (!provider) return []
     if (!isProviderEnabled(name)) return []
-    const items = await provider.fetch()
-    cacheRef.current[name] = { items, fetchedAt: Date.now() }
-    const combined = Object.values(cacheRef.current).flatMap((c) => c.items)
-    combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-    setItems(combined)
-    return items
-  }, [aggregationProviders, isProviderEnabled, isUnlocked])
+
+    setProviderLoading(prev => ({ ...prev, [name]: true }))
+
+    try {
+      const items = await provider.fetch()
+      cacheRef.current[name] = { items, fetchedAt: Date.now() }
+      const combined = Object.values(cacheRef.current).flatMap((c) => c.items)
+      combined.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      setItems(combined)
+      return items
+    } catch (error) {
+      console.error(`Error refreshing provider ${name}:`, error)
+      toast({
+        title: 'Provider Error',
+        description: `Failed to refresh ${name}. Please try again.`,
+        variant: 'destructive'
+      })
+      return []
+    } finally {
+      setProviderLoading(prev => ({ ...prev, [name]: false }))
+    }
+  }, [aggregationProviders, isProviderEnabled, isUnlocked, toast])
+
+  // Auto-refresh feeds when vault becomes unlocked (only once, with better protection)
+  const hasAttemptedInitialLoad = useRef(false)
+  const lastRefreshTime = useRef(0)
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>()
+
+  // Debounced refresh to prevent race conditions
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current)
+    }
+    refreshTimeoutRef.current = setTimeout(() => {
+      const now = Date.now()
+      if (now - lastRefreshTime.current > 2000) { // Minimum 2 seconds between refreshes
+        lastRefreshTime.current = now
+        refreshAll()
+      }
+    }, 500) // 500ms debounce
+  }, [refreshAll])
+
+  // Token refresh function
+  const refreshToken = useCallback(async (provider: string, refreshToken: string) => {
+    try {
+      const res = await fetchWithAuth('/integrations/oauth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider, refresh_token: refreshToken })
+      })
+
+      if (!res.ok) {
+        const json = await res.json()
+        throw new Error(json?.error || 'Failed to refresh token')
+      }
+
+      const { tokens } = await res.json()
+
+      // Update the token in vault
+      await ensureProviderEntry(provider)
+      const item = getVaultItemByName(provider)
+      if (item) {
+        await updateItem(item.id, {
+          data: {
+            ...item.data,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: tokens.expires_at
+          }
+        })
+      }
+
+      return tokens
+    } catch (error) {
+      console.error(`Failed to refresh token for ${provider}:`, error)
+      throw error
+    }
+  }, [fetchWithAuth, ensureProviderEntry, getVaultItemByName, updateItem])
 
   // Memoize completeOAuthFromHandoff to prevent recreation
   const completeOAuthFromHandoff = useCallback(async (handoff: string, provider?: string) => {
@@ -467,13 +618,30 @@ export function useAggregator() {
         const json = await res.json()
         throw new Error(json?.error || 'Failed to complete OAuth')
       }
-      toast({ title: 'OAuth successful', description: 'Your account has been connected successfully' })
+
+      const { tokens, provider: completedProvider } = await res.json()
+
+      // Store tokens in vault
+      await ensureProviderEntry(completedProvider)
+      const item = getVaultItemByName(completedProvider)
+      if (item) {
+        await updateItem(item.id, {
+          data: {
+            ...item.data,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            expires_at: tokens.expires_at
+          }
+        })
+      }
+
+      toast({ title: 'OAuth successful', description: `${completedProvider} has been connected successfully` })
       // Refresh feeds after successful OAuth
-      setTimeout(() => refreshAll(), 1000)
+      setTimeout(() => debouncedRefresh(), 1000)
     } catch (e) {
       toast({ title: 'OAuth error', description: e instanceof Error ? e.message : 'Failed to complete', variant: 'destructive' })
     }
-  }, [toast, refreshAll])
+  }, [toast, debouncedRefresh, ensureProviderEntry, getVaultItemByName, updateItem])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -483,28 +651,43 @@ export function useAggregator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Auto-refresh feeds when vault becomes unlocked (only once, with better protection)
-  const hasAttemptedInitialLoad = useRef(false)
-  const lastRefreshTime = useRef(0)
-  
+  // Cleanup effect
+  useEffect(() => {
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
+      }
+      // Clear cache on unmount to prevent memory leaks
+      cacheRef.current = {}
+    }
+  }, [])
+
   useEffect(() => {
     if (isUnlocked && !hasAttemptedInitialLoad.current) {
-      const now = Date.now()
-      // Prevent multiple rapid calls
-      if (now - lastRefreshTime.current > 1000) {
-        hasAttemptedInitialLoad.current = true
-        lastRefreshTime.current = now
-        console.log('Initial feed load triggered')
-        refreshAll()
+      hasAttemptedInitialLoad.current = true
+      console.log('Initial feed load triggered')
+      debouncedRefresh()
+    }
+
+    // Reset flag when vault is locked
+    if (!isUnlocked) {
+      hasAttemptedInitialLoad.current = false
+    }
+
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current)
       }
     }
-  }, [isUnlocked, refreshAll])
+  }, [isUnlocked, debouncedRefresh])
 
   return {
     items,
     loading,
+    providerLoading,
     refreshAll,
     refreshProvider,
+    refreshToken,
     startOAuth,
     addRssSource,
     removeRssSource,
@@ -570,7 +753,7 @@ function parseRss(xml: string): Array<{ title: string; link?: string; author?: s
     // Atom entries (with or without default namespace)
     let entries: Element[] = []
     if ((doc as any).getElementsByTagNameNS) {
-      entries = Array.from((doc as any).getElementsByTagNameNS('*', 'entry'))
+      entries = Array.from((doc as unknown).getElementsByTagNameNS('*', 'entry'))
     }
     if (entries.length === 0) {
       entries = Array.from(doc.getElementsByTagName('entry'))
@@ -606,18 +789,18 @@ function parseRss(xml: string): Array<{ title: string; link?: string; author?: s
   }
 }
 
-  function textContent(root: Element, selector: string): string | null {
-    try {
-      const el = root.querySelector(selector)
-      return el ? (el.textContent || '').trim() : null
-    } catch {
-      return null
-    }
+function textContent(root: Element, selector: string): string | null {
+  try {
+    const el = root.querySelector(selector)
+    return el ? (el.textContent || '').trim() : null
+  } catch {
+    return null
   }
+}
 
 function textContentNS(root: Element, ns: string, localName: string): string | null {
   try {
-    const fn = (root as any).getElementsByTagNameNS as (ns: string, localName: string) => HTMLCollectionOf<Element>
+    const fn = (root as unknown).getElementsByTagNameNS as (ns: string, localName: string) => HTMLCollectionOf<Element>
     if (typeof fn !== 'function') return null
     const els = Array.from(fn.call(root, ns, localName)) as Element[]
     const el = els[0] as Element | undefined

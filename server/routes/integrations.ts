@@ -93,9 +93,35 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     if (!user) return
     const { id } = (request as any).query || {}
     if (!id || typeof id !== 'string') return reply.code(400).send({ error: 'Missing id' })
+    
     const payload = handoffs.take(id)
-    if (!payload) return reply.code(404).send({ error: 'Not found or expired' })
+    if (!payload) {
+      server.log.warn({ event: 'oauth_handoff_not_found', handoffId: id, userId: user.id }, 'OAuth handoff not found or expired')
+      return reply.code(404).send({ error: 'Handoff not found or expired' })
+    }
+    
+    server.log.info({ event: 'oauth_handoff_success', handoffId: id, provider: payload.provider, userId: user.id }, 'OAuth handoff completed')
     return reply.send(payload)
+  })
+
+  server.get('/integrations/oauth/complete', async (request, reply) => {
+    const user = await cfg.requireSupabaseUser(request, reply)
+    if (!user) return
+    const { handoff, provider } = (request as any).query || {}
+    if (!handoff || typeof handoff !== 'string') return reply.code(400).send({ error: 'Missing handoff parameter' })
+    
+    try {
+      const payload = handoffs.take(handoff)
+      if (!payload) {
+        return reply.code(404).send({ error: 'Handoff not found or expired' })
+      }
+      
+      server.log.info({ event: 'oauth_complete_success', handoff, provider: payload.provider, userId: user.id }, 'OAuth completion successful')
+      return reply.send({ success: true, provider: payload.provider, tokens: payload.tokens })
+    } catch (error) {
+      server.log.error({ event: 'oauth_complete_error', handoff, provider, userId: user.id, error }, 'OAuth completion failed')
+      return reply.code(500).send({ error: 'Failed to complete OAuth' })
+    }
   })
 
   server.post('/integrations/oauth/refresh', async (request, reply) => {
@@ -143,9 +169,22 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
         ratelimit_reset: rateReset,
       }, 'Upstream request')
     } catch {}
-    if (!subsRes.ok) return reply.code(200).send({ items: [] })
+    if (!subsRes.ok) {
+      if (subsRes.status === 429) {
+        const retryAfter = subsRes.headers.get('retry-after')
+        server.log.warn({ event: 'reddit_rate_limit', retryAfter }, 'Reddit rate limit hit')
+        return reply.code(429).send({ 
+          error: 'Rate limited by Reddit', 
+          retryAfter: retryAfter ? parseInt(retryAfter) : 60 
+        })
+      }
+      return reply.code(200).send({ items: [] })
+    }
     const subsJson = (await subsRes.json()) as any
-    const subNames: string[] = (subsJson?.data?.children || []).map((c: any) => c?.data?.display_name).filter(Boolean)
+    const subNames: string[] = (subsJson?.data?.children || [])
+      .map((c: any) => c?.data?.display_name)
+      .filter(Boolean)
+      .filter((name: string) => /^[A-Za-z0-9_]{1,21}$/.test(name)) // Valid subreddit name pattern
     const out: any[] = []
     for (const sub of subNames.slice(0, subLimit)) {
       const res = await fetch(`https://oauth.reddit.com/r/${encodeURIComponent(sub)}/top?t=day&limit=${postsPerSub}`, { headers })

@@ -8,12 +8,17 @@ export function registerAgpRoute(
   allowUnauthenticated: boolean = false,
 ) {
   server.all('/agp', async (request, reply) => {
-    // Rate limiting
+    // Rate limiting - configurable limits
     const clientId = (request as any).user?.id || request.ip;
-    if (!checkRateLimit(`agp:${clientId}`, 50, 60000)) {
-      return reply.code(429).send({ 
-        error: 'Rate limit exceeded', 
-        message: 'Too many requests, please try again later' 
+    const rateLimit = process.env.AGP_RATE_LIMIT ? parseInt(process.env.AGP_RATE_LIMIT) : 100;
+    const rateLimitWindow = process.env.AGP_RATE_LIMIT_WINDOW ? parseInt(process.env.AGP_RATE_LIMIT_WINDOW) : 60000;
+
+    if (!checkRateLimit(`agp:${clientId}`, rateLimit, rateLimitWindow)) {
+      server.log.warn({ event: 'agp_rate_limit', clientId, rateLimit, rateLimitWindow }, 'AGP rate limit exceeded')
+      return reply.code(429).send({
+        error: 'Rate limit exceeded',
+        message: `Too many requests, please try again later. Limit: ${rateLimit} requests per ${rateLimitWindow / 1000} seconds.`,
+        retryAfter: Math.ceil(rateLimitWindow / 1000)
       });
     }
 
@@ -21,19 +26,19 @@ export function registerAgpRoute(
       const user = await requireSupabaseUser(request, reply)
       if (!user) return
     }
-    
+
     const { url: targetUrl } = (request as any).query || {}
     if (!targetUrl || typeof targetUrl !== 'string') {
       return reply.code(400).send({ error: 'Missing url query parameter' })
     }
-    
+
     // Basic URL format validation
     try {
       new URL(targetUrl)
     } catch {
       return reply.code(400).send({ error: 'Invalid URL format' })
     }
-    
+
     if (!isTargetAllowed(targetUrl)) {
       return reply.code(403).send({ error: 'Target not allowed' })
     }
@@ -48,7 +53,7 @@ export function registerAgpRoute(
     }
 
     const method = request.method.toUpperCase()
-    
+
     // Sanitize request body
     const sanitizedBody = sanitizeRequestBody((request as any).body);
     const body = prepareBody(method, incomingHeaders, sanitizedBody, forwardHeaders)

@@ -138,6 +138,9 @@ export async function buildServer(): Promise<FastifyInstance> {
       // Set appropriate headers
       reply.header('Content-Type', contentType)
       reply.header('Cache-Control', 'public, max-age=300') // Cache for 5 minutes
+      reply.header('Access-Control-Allow-Origin', '*')
+      reply.header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+      reply.header('Access-Control-Allow-Headers', 'Content-Type')
 
       return reply.send(content)
     } catch (error: unknown) {

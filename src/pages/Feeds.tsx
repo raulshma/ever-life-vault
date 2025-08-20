@@ -7,13 +7,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Earth, Mail, Rss, ThumbsUp, Lock } from 'lucide-react'
 import { useAggregator } from '@/hooks/useAggregator'
 import { useVaultSession } from '@/hooks/useVaultSession'
+import { useToast } from '@/hooks/use-toast'
 import { Separator } from '@/components/ui/separator'
 
 export default function Feeds() {
   const { isUnlocked } = useVaultSession()
+  const { toast } = useToast()
   const {
     items,
     loading,
+    providerLoading,
     refreshAll,
     refreshProvider,
     startOAuth,
@@ -62,20 +65,15 @@ export default function Feeds() {
     if (sources.length > 0) return true
     
     // Check for any configured social/email providers
-    const hasSocialProviders = ['reddit', 'twitter', 'facebook', 'instagram', 'youtube', 'youtubemusic', 'spotify'].some(provider => {
+    const providers = ['reddit', 'twitter', 'facebook', 'instagram', 'youtube', 'youtubemusic', 'spotify', 'gmail', 'outlook']
+    
+    return providers.some(provider => {
       const data = getProviderData(provider as any)
       if (provider === 'twitter' || provider === 'facebook' || provider === 'instagram') {
         return !!(data.bearer || data.access_token)
       }
       return !!(data.access_token || data.refresh_token)
     })
-    
-    const hasEmailProviders = ['gmail', 'outlook'].some(provider => {
-      const data = getProviderData(provider as any)
-      return !!(data.access_token || data.refresh_token)
-    })
-    
-    return hasSocialProviders || hasEmailProviders
   }, [isUnlocked, sources.length, getProviderData])
 
   // Memoize the initial load effect to prevent double execution
@@ -96,12 +94,44 @@ export default function Feeds() {
   }, [refreshAll])
 
   const handleAddRssSource = useCallback(async () => {
-    if (rssUrl) {
-      await addRssSource(rssUrl)
+    if (!rssUrl.trim()) return
+    
+    // Basic URL validation
+    try {
+      const url = new URL(rssUrl.trim())
+      if (!['http:', 'https:'].includes(url.protocol)) {
+        toast({
+          title: 'Invalid URL',
+          description: 'RSS URL must use HTTP or HTTPS protocol.',
+          variant: 'destructive'
+        })
+        return
+      }
+    } catch {
+      toast({
+        title: 'Invalid URL',
+        description: 'Please enter a valid RSS feed URL.',
+        variant: 'destructive'
+      })
+      return
+    }
+    
+    const success = await addRssSource(rssUrl.trim())
+    if (success) {
       setRssUrl('')
       await refreshProvider('rss')
+      toast({
+        title: 'RSS Source Added',
+        description: 'RSS feed has been added successfully.',
+      })
+    } else {
+      toast({
+        title: 'Duplicate Source',
+        description: 'This RSS feed is already in your sources.',
+        variant: 'destructive'
+      })
     }
-  }, [rssUrl, addRssSource, refreshProvider])
+  }, [rssUrl, addRssSource, refreshProvider, toast])
 
   const handleRemoveRssSource = useCallback(async (id: string) => {
     await removeRssSource(id)
@@ -423,6 +453,15 @@ export default function Feeds() {
                       <div className="flex items-center gap-2">
                         <small className="text-muted-foreground">Limit</small>
                         <Input className="w-20" type="number" min={1} defaultValue={s.limit || 20} onBlur={(e) => handleSetRssSourceLimit(s.id, Number(e.target.value))} disabled={!isUnlocked} />
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => refreshProvider('rss')} 
+                          disabled={!isUnlocked || providerLoading.rss} 
+                          title={!isUnlocked ? "Vault must be unlocked to refresh RSS" : "Refresh RSS feeds"}
+                        >
+                          {providerLoading.rss ? 'Refreshing...' : 'Refresh'}
+                        </Button>
                         <Button variant="ghost" size="sm" onClick={() => handleRemoveRssSource(s.id)} disabled={!isUnlocked} title={!isUnlocked ? "Vault must be unlocked to modify RSS sources" : undefined}>Remove</Button>
                       </div>
                     </li>
