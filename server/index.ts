@@ -15,6 +15,7 @@ import { registerClipRoutes } from './routes/clips.js'
 import { registerInfrastructureRoutes } from './routes/infrastructure.js'
 import { registerRepoFlattenRoutes } from './routes/repo-flatten.js'
 import authRoutes from './routes/auth.js'
+import { registerSshRoutes } from './routes/ssh.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -111,6 +112,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // Repository flattening routes
   registerRepoFlattenRoutes(server)
+
+  // SSH/WebTerminal routes (authenticated over Supabase JWT)
+  registerSshRoutes(server, { requireSupabaseUser })
 
   // RSS proxy route to avoid CORS issues (always available)
   server.get('/rss-proxy', async (request, reply) => {

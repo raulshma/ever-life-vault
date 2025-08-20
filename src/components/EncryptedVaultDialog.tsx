@@ -48,7 +48,7 @@ export function EncryptedVaultDialog({
   onDelete 
 }: EncryptedVaultDialogProps) {
   const [name, setName] = useState('');
-  const [type, setType] = useState<'login' | 'note' | 'api' | 'document'>('login');
+  const [type, setType] = useState<'login' | 'note' | 'api' | 'document' | 'ssh'>('login');
   const [data, setData] = useState<Record<string, any>>({});
   const [showPassword, setShowPassword] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -158,7 +158,7 @@ export function EncryptedVaultDialog({
 
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={type} onValueChange={(value: any) => setType(value)}>
+        <Select value={type} onValueChange={(value: any) => setType(value)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -167,10 +167,44 @@ export function EncryptedVaultDialog({
                   <SelectItem value="note">Secure Note</SelectItem>
                   <SelectItem value="api">API Key</SelectItem>
                   <SelectItem value="document">Document</SelectItem>
+          <SelectItem value="ssh">SSH Credential</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
+          {/* SSH Credential Fields */}
+          {type === 'ssh' && (
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ssh-host">Host</Label>
+                  <Input id="ssh-host" value={data.host || ''} onChange={(e) => updateData('host', e.target.value)} placeholder="example.com" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ssh-port">Port</Label>
+                  <Input id="ssh-port" value={data.port || 22} onChange={(e) => updateData('port', Number(e.target.value) || 22)} placeholder="22" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="ssh-username">Username</Label>
+                  <Input id="ssh-username" value={data.username || ''} onChange={(e) => updateData('username', e.target.value)} placeholder="root" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ssh-password">Password (if not using key)</Label>
+                  <Input id="ssh-password" type="password" value={data.password || ''} onChange={(e) => updateData('password', e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ssh-privateKey">Private Key (PEM)</Label>
+                <Textarea id="ssh-privateKey" value={data.privateKey || ''} onChange={(e) => updateData('privateKey', e.target.value)} placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" rows={6} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ssh-passphrase">Key Passphrase (optional)</Label>
+                <Input id="ssh-passphrase" type="password" value={data.passphrase || ''} onChange={(e) => updateData('passphrase', e.target.value)} />
+              </div>
+            </>
+          )}
 
           {/* Login Credential Fields */}
           {type === 'login' && (

@@ -209,7 +209,7 @@ export function validateMasterPassword(password: string): {
 
 export type VaultItem = {
   id: string;
-  type: 'login' | 'note' | 'api' | 'document';
+  type: 'login' | 'note' | 'api' | 'document' | 'ssh';
   name: string;
   data: Record<string, any>;
   created_at: string;
@@ -222,7 +222,7 @@ export type EncryptedVaultItem = {
   encrypted_data: string; // base64
   iv: string; // base64
   auth_tag: string; // base64
-  item_type: 'login' | 'note' | 'api' | 'document';
+  item_type: 'login' | 'note' | 'api' | 'document' | 'ssh';
   name: string;
   created_at: string;
   updated_at: string;

@@ -49,7 +49,7 @@ export function useEncryptedVault() {
       // Decrypt items client-side with controlled concurrency
       const encryptedList = (data || []).map((encryptedItem) => ({
         ...encryptedItem,
-        item_type: encryptedItem.item_type as 'login' | 'note' | 'api' | 'document',
+        item_type: encryptedItem.item_type as 'login' | 'note' | 'api' | 'document' | 'ssh',
       }));
 
       const concurrency = Math.min(8, Math.max(2, (typeof navigator !== 'undefined' && (navigator as any).hardwareConcurrency) || 4));
@@ -417,6 +417,7 @@ export function useEncryptedVault() {
     note: filteredItems.filter(item => item.type === 'note'),
     api: filteredItems.filter(item => item.type === 'api'),
     document: filteredItems.filter(item => item.type === 'document'),
+  ssh: filteredItems.filter(item => item.type === 'ssh'),
   };
 
   // Fetch items when vault is unlocked

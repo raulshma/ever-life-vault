@@ -727,7 +727,7 @@ CREATE TABLE IF NOT EXISTS "public"."encrypted_vault_items" (
     "name" "text" NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "encrypted_vault_items_item_type_check" CHECK (("item_type" = ANY (ARRAY['login'::"text", 'note'::"text", 'api'::"text", 'document'::"text"])))
+    CONSTRAINT "encrypted_vault_items_item_type_check" CHECK (("item_type" = ANY (ARRAY['login'::"text", 'note'::"text", 'api'::"text", 'document'::"text", 'ssh'::"text"])))
 );
 
 

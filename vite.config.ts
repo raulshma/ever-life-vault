@@ -76,6 +76,12 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:8787",
         changeOrigin: true,
       },
+      // SSH/WebTerminal endpoints (HTTP + WebSocket)
+      "/ssh": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+        ws: true,
+      },
       "/infrastructure": {
         target: "http://localhost:8787",
         changeOrigin: true,
@@ -98,7 +104,6 @@ export default defineConfig(({ mode }) => ({
         plugins: [["babel-plugin-react-compiler", { target: "19" }]],
       },
       jsxImportSource: undefined,
-      fastRefresh: mode === 'development',
       // prune propTypes etc. handled by compiler; keep runtime lean with removeConsole in prod
     }),
 
