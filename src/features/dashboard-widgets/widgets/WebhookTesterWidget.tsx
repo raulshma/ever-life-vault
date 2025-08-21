@@ -32,7 +32,7 @@ export default function WebhookTesterWidget({ config, onConfigChange }: WidgetPr
     setResponse('')
     try {
       let headers: Record<string, string> = {}
-      try { headers = headersText ? JSON.parse(headersText) : {} } catch {}
+      try { headers = headersText ? JSON.parse(headersText) : {} } catch (error) { console.error('Failed to parse headers:', error) }
       const res = await agpFetch(url.trim(), { method, headers, body: ['GET', 'HEAD'].includes(method) ? undefined : bodyText })
       const ct = res.headers.get('content-type') || ''
       const txt = ct.includes('application/json') ? JSON.stringify(await res.json(), null, 2) : await res.text()
@@ -54,7 +54,7 @@ export default function WebhookTesterWidget({ config, onConfigChange }: WidgetPr
       ...(['GET', 'HEAD'].includes(method) || !bodyText ? [] : ['--data-raw', JSON.stringify(bodyText)]),
       `'${url}'`,
     ]
-    try { await navigator.clipboard.writeText(parts.join(' ')) } catch {}
+    try { await navigator.clipboard.writeText(parts.join(' ')) } catch (error) { console.error('Failed to copy to clipboard:', error) }
   }
 
   return (
@@ -74,7 +74,7 @@ export default function WebhookTesterWidget({ config, onConfigChange }: WidgetPr
       <div className="space-y-3 text-sm">
         <div className="flex flex-wrap gap-2 items-center">
           <div className="w-28">
-            <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={method} onChange={(e) => onConfigChange({ ...config, method: e.target.value as any })}>
+            <select className="h-9 w-full rounded-md border bg-background px-2 text-sm" value={method} onChange={(e) => onConfigChange({ ...config, method: e.target.value as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' })}>
               {['GET','POST','PUT','PATCH','DELETE'].map((m) => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>

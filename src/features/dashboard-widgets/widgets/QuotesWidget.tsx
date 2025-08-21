@@ -74,7 +74,7 @@ export default function QuotesWidget({ config, onConfigChange, isEditing }: Widg
       title="Quote"
       actions={
         <div className="flex gap-2">
-          <Select onValueChange={(value) => onConfigChange({ ...config, source: value as any })} value={source}>
+          <Select onValueChange={(value) => onConfigChange({ ...config, source: value as 'local' | 'zenquotes' })} value={source}>
             <SelectTrigger className="h-9">
               <SelectValue placeholder="Select a source" />
             </SelectTrigger>

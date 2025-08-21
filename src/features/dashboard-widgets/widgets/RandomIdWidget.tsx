@@ -45,7 +45,7 @@ export default function RandomIdWidget({ config, onConfigChange }: WidgetProps<R
 
   React.useEffect(() => { regen() }, [regen])
 
-  const copy = async () => { try { await navigator.clipboard.writeText(value) } catch {} }
+  const copy = async () => { try { await navigator.clipboard.writeText(value) } catch (error) { console.error('Failed to copy to clipboard:', error) } }
 
   const setVariant = React.useCallback((variant: RandomIdConfig['variant']) => {
     onConfigChange({ ...config, variant })

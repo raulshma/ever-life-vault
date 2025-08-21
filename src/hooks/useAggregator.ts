@@ -24,7 +24,7 @@ export type AggregatedItem = {
   author?: string
   timestamp?: number
   score?: number
-  extra?: Record<string, any>
+  extra?: Record<string, unknown>
 }
 
 export type RssSource = { id: string; title?: string; url: string; limit?: number }
@@ -150,12 +150,12 @@ export function useAggregator() {
 
   // Memoize isConnected to prevent recreation
   const isConnected = useCallback((name: 'reddit' | 'gmail' | 'outlook') => {
-    const data = getProviderData(name as any)
+    const data = getProviderData(name)
     return !!(data.access_token || data.refresh_token)
   }, [getProviderData])
 
   // Memoize saveManualToken to prevent recreation
-  const saveManualToken = useCallback(async (name: 'twitter' | 'facebook' | 'instagram', data: Record<string, any>) => {
+  const saveManualToken = useCallback(async (name: 'twitter' | 'facebook' | 'instagram', data: Record<string, unknown>) => {
     await ensureProviderEntry(name)
     const item = getVaultItemByName(name)
     if (!item) return false
@@ -752,8 +752,8 @@ function parseRss(xml: string): Array<{ title: string; link?: string; author?: s
 
     // Atom entries (with or without default namespace)
     let entries: Element[] = []
-    if ((doc as unknown) && typeof (doc as any).getElementsByTagNameNS === 'function') {
-        entries = Array.from((doc as any).getElementsByTagNameNS('*', 'entry') as HTMLCollectionOf<Element>)
+    if ((doc as unknown) && typeof (doc as Document).getElementsByTagNameNS === 'function') {
+        entries = Array.from((doc as Document).getElementsByTagNameNS('*', 'entry') as HTMLCollectionOf<Element>)
       }
     if (entries.length === 0) {
       entries = Array.from(doc.getElementsByTagName('entry'))
@@ -800,7 +800,7 @@ function textContent(root: Element, selector: string): string | null {
 
 function textContentNS(root: Element, ns: string, localName: string): string | null {
   try {
-  const fn = (root as any).getElementsByTagNameNS as (ns: string, localName: string) => HTMLCollectionOf<Element>                                                                                
+  const fn = (root as Document).getElementsByTagNameNS as (ns: string, localName: string) => HTMLCollectionOf<Element>                                                                                
     if (typeof fn !== 'function') return null
     const els = Array.from(fn.call(root, ns, localName)) as Element[]
     const el = els[0] as Element | undefined

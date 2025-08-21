@@ -6,7 +6,7 @@ import { useEncryptedVault } from '@/hooks/useEncryptedVault'
 import { Button } from '@/components/ui/button'
 import { Link } from 'react-router-dom'
 
-export default function VaultWidget(_props: WidgetProps<{}>) {
+export default function VaultWidget(_props: WidgetProps<Record<string, never>>) {
   const { isUnlocked, unlockVault, lockVault } = useVaultSession()
   const { itemsByType, totalItems } = useEncryptedVault()
 

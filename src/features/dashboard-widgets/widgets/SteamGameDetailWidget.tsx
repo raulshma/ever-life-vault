@@ -13,11 +13,11 @@ type SteamDetailConfig = BaseWidgetConfig & { appid?: number }
 
 export default function SteamGameDetailWidget({ config, onConfigChange, isEditing }: WidgetProps<SteamDetailConfig>) {
   const { getGame } = useSteam()
-  const [data, setData] = React.useState<any | null>(null)
+  const [data, setData] = React.useState<{ game?: { name?: string; appid?: number; header_image?: string }; ownership?: { playtime_forever_minutes?: number; last_played_at?: string } } | null>(null)
   const [appid, setAppid] = React.useState<number | undefined>(config?.appid)
   const { user } = useAuth()
   
-  const { getCached, getCachedAsync, setCached } = useApiCache<any>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<{ game?: { name?: string; appid?: number; header_image?: string }; ownership?: { playtime_forever_minutes?: number; last_played_at?: string } }>()
 
   const load = React.useCallback(async () => {
     if (!appid) return

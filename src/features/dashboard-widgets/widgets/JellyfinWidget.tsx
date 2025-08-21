@@ -54,7 +54,9 @@ export default function JellyfinWidget({ config, onConfigChange, isEditing, id }
       
       // Cache the result
       setCached(cacheKey, { info: i, sessions: s }, effectiveCacheTime)
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load Jellyfin data:', error)
+    }
   }, [jf, jellyfinConfig, config, registry, getCached, setCached])
 
   useEffect(() => { if (jellyfinConfig.serverUrl && jellyfinConfig.apiKey) load() }, [jellyfinConfig.serverUrl, jellyfinConfig.apiKey, load])

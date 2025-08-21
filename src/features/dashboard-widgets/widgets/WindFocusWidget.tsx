@@ -50,7 +50,7 @@ async function fetchWind(lat: number, lon: number): Promise<WindData | null> {
   try {
     const res = await agpFetch(url)
     if (!res.ok) return null
-    const json = (await res.json()) as any
+    const json = (await res.json()) as { current?: { wind_speed_10m?: number; wind_gusts_10m?: number; wind_direction_10m?: number; time?: string } }
     const cur = json?.current || {}
     return {
       speedMs: typeof cur.wind_speed_10m === 'number' ? cur.wind_speed_10m / 3.6 /* API returns km/h */ : undefined,
@@ -122,8 +122,8 @@ export default function WindFocusWidget({ config, onConfigChange, isEditing }: W
           { enableHighAccuracy: false, maximumAge: 60_000 }
         )
       })
-    } catch {
-      // ignore
+    } catch (error) {
+      console.error('Failed to get location:', error)
     }
   }
 

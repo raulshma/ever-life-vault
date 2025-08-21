@@ -24,7 +24,7 @@ function loadFavorites(): Favorite[] {
 }
 
 function saveFavorites(list: Favorite[]) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(list)) } catch {}
+  try { localStorage.setItem(LS_KEY, JSON.stringify(list)) } catch (error) { console.error('Failed to save favorites:', error) }
 }
 
 function getActiveId(): string | null {
@@ -32,7 +32,7 @@ function getActiveId(): string | null {
 }
 
 function setActiveId(id: string) {
-  try { localStorage.setItem(LS_ACTIVE, id) } catch {}
+  try { localStorage.setItem(LS_ACTIVE, id) } catch (error) { console.error('Failed to save active ID:', error) }
 }
 
 export default function MultiLocationSwitcherWidget(_props: WidgetProps<MultiLocationConfig>) {
@@ -80,7 +80,9 @@ export default function MultiLocationSwitcherWidget(_props: WidgetProps<MultiLoc
           { enableHighAccuracy: false, maximumAge: 60_000 }
         )
       })
-    } catch {}
+    } catch (error) {
+      console.error('Failed to get location:', error)
+    }
   }
 
   const activate = (id: string) => {
@@ -93,7 +95,9 @@ export default function MultiLocationSwitcherWidget(_props: WidgetProps<MultiLoc
       const f = favorites.find((x) => x.id === active)
       if (!f) return
       await navigator.clipboard.writeText(`${f.lat},${f.lon}`)
-    } catch {}
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+    }
   }
 
   return (

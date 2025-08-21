@@ -22,7 +22,7 @@ async function fetchNowcast(lat: number, lon: number): Promise<MinutePrecip[] | 
   try {
     const res = await agpFetch(url)
     if (!res.ok) return null
-    const json = (await res.json()) as any
+    const json = (await res.json()) as { minutely_15?: { time?: string[]; precipitation?: number[] } }
     const times: string[] = json?.minutely_15?.time || []
     const prec: number[] = json?.minutely_15?.precipitation || []
     if (!Array.isArray(times) || !Array.isArray(prec)) return null
@@ -93,7 +93,10 @@ export default function PrecipNowcastWidget({ config, onConfigChange, isEditing 
           { enableHighAccuracy: false, maximumAge: 60_000 }
         )
       })
-    } catch {}
+    } catch (error) {
+      console.error('Failed to fetch precipitation data:', error)
+      return null
+    }
   }
 
   const willRain = points.some((p) => p.mm > 0.01)

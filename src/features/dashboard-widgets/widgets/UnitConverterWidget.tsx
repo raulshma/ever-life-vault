@@ -139,7 +139,7 @@ export default function UnitConverterWidget({ config, onConfigChange }: WidgetPr
   }
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(output) } catch {}
+    try { await navigator.clipboard.writeText(output) } catch (error) { console.error('Failed to copy to clipboard:', error) }
   }
 
   return (

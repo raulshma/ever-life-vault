@@ -61,7 +61,7 @@ export default function PasswordGeneratorWidget({ config, onConfigChange }: Widg
   }
 
   const copyToClipboard = async () => {
-    try { await navigator.clipboard.writeText(password) } catch {}
+    try { await navigator.clipboard.writeText(password) } catch (error) { console.error('Failed to copy to clipboard:', error) }
   }
 
   const saveToVault = async () => {
@@ -69,7 +69,7 @@ export default function PasswordGeneratorWidget({ config, onConfigChange }: Widg
       type: 'login',
       name: 'Generated Password',
       data: { password, notes: 'Generated from Dashboard widget' },
-    } as any)
+    })
   }
 
   return (

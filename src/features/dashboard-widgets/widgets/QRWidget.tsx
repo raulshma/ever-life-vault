@@ -39,8 +39,8 @@ export default function QRWidget({ config, onConfigChange }: WidgetProps<QRConfi
 
   React.useEffect(() => { void generate() }, [generate])
 
-  const copy = async () => { if (text) { try { await navigator.clipboard.writeText(text) } catch {} } }
-  const copyImage = async () => { if (dataUrl) { try { await navigator.clipboard.writeText(dataUrl) } catch {} } }
+  const copy = async () => { if (text) { try { await navigator.clipboard.writeText(text) } catch (error) { console.error('Failed to copy text:', error) } } }
+  const copyImage = async () => { if (dataUrl) { try { await navigator.clipboard.writeText(dataUrl) } catch (error) { console.error('Failed to copy image:', error) } } }
 
   const download = () => {
     if (!dataUrl) return
@@ -94,7 +94,7 @@ export default function QRWidget({ config, onConfigChange }: WidgetProps<QRConfi
             <select
               className="h-9 rounded-md border bg-background px-2 text-sm"
               value={ecl}
-              onChange={(e) => onConfigChange({ ...config, errorCorrectionLevel: e.target.value as any })}
+              onChange={(e) => onConfigChange({ ...config, errorCorrectionLevel: e.target.value as 'L' | 'M' | 'Q' | 'H' })}
             >
               <option value="L">L</option>
               <option value="M">M</option>

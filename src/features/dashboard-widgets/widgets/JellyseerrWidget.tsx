@@ -40,7 +40,9 @@ export default function JellyseerrWidget({ config, onConfigChange, isEditing }: 
       
       // Cache the result
       setCached(cacheKey, recentRequests, config.cacheTimeMs)
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load Jellyseerr data:', error)
+    }
   }, [js, cfg.serverUrl, config.cacheTimeMs, getCached, setCached])
 
   useEffect(() => { if (cfg.serverUrl && cfg.apiKey) load() }, [cfg.serverUrl, cfg.apiKey, load])

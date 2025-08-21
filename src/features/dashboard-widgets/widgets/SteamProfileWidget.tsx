@@ -12,11 +12,11 @@ type SteamProfileConfig = BaseWidgetConfig & {}
 
 export default function SteamProfileWidget({ config, onConfigChange, isEditing }: WidgetProps<SteamProfileConfig>) {
   const { startLink, sync, getProfile, loading } = useSteam()
-  const [profile, setProfile] = React.useState<any | null>(null)
+  const [profile, setProfile] = React.useState<{ avatar_url?: string; persona_name?: string; steamid64?: string; country?: string } | null>(null)
   const [busy, setBusy] = React.useState(false)
   const { user } = useAuth()
   
-  const { getCached, getCachedAsync, setCached } = useApiCache<any>()
+  const { getCached, getCachedAsync, setCached } = useApiCache<{ avatar_url?: string; persona_name?: string; steamid64?: string; country?: string }>()
 
   const load = React.useCallback(async () => {
     // Check cache first

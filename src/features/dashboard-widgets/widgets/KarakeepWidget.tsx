@@ -39,7 +39,9 @@ export default function KarakeepWidget({ config, onConfigChange, isEditing }: Wi
       
       // Cache the result
       setCached(cacheKey, recentItems, config.cacheTimeMs)
-    } catch {}
+    } catch (error) {
+      console.error('Failed to load Karakeep data:', error)
+    }
   }, [kk, cfg.serverUrl, config.cacheTimeMs, getCached, setCached])
 
   useEffect(() => { if (cfg.serverUrl && cfg.apiKey) load() }, [cfg.serverUrl, cfg.apiKey, load])

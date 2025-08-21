@@ -93,7 +93,7 @@ export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<
   }
 
   const saveToVault = async (acc: OTPAccount) => {
-    await addItem({ type: 'api', name: acc.label, data: { totpSecret: acc.secret, digits: acc.digits || 6, period: acc.period || 30, algorithm: acc.algorithm || 'SHA1' } } as any)
+    await addItem({ type: 'api', name: acc.label, data: { totpSecret: acc.secret, digits: acc.digits || 6, period: acc.period || 30, algorithm: acc.algorithm || 'SHA1' } })
   }
 
   const secondsLeft = (acc: OTPAccount) => {
@@ -125,7 +125,7 @@ export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<
               <div className="flex gap-2">
                 <Input placeholder="Digits" type="number" value={digits} onChange={(e) => setDigits(e.target.value)} />
                 <Input placeholder="Period" type="number" value={period} onChange={(e) => setPeriod(e.target.value)} />
-                <Input placeholder="Algorithm (SHA1/SHA256/SHA512)" value={algo} onChange={(e) => setAlgo((e.target.value.toUpperCase() as any) || 'SHA1')} />
+                <Input placeholder="Algorithm (SHA1/SHA256/SHA512)" value={algo} onChange={(e) => setAlgo((e.target.value.toUpperCase() as 'SHA1' | 'SHA256' | 'SHA512') || 'SHA1')} />
               </div>
               <div className="flex gap-2 justify-end">
                 <Tooltip>
@@ -145,7 +145,7 @@ export default function OTPHelperWidget({ config, onConfigChange }: WidgetProps<
       <div className="space-y-3 text-sm">
         <ul className="space-y-2">
           {accounts.map((acc, idx) => (
-            <OTPRow key={idx} acc={acc} now={now} onCopy={async (code) => { try { await navigator.clipboard.writeText(code) } catch {} }} onSave={() => saveToVault(acc)} onRemove={() => removeAt(idx)} />
+            <OTPRow key={idx} acc={acc} now={now} onCopy={async (code) => { try { await navigator.clipboard.writeText(code) } catch (error) { console.error('Failed to copy to clipboard:', error) } }} onSave={() => saveToVault(acc)} onRemove={() => removeAt(idx)} />
           ))}
           {accounts.length === 0 && <li className="text-muted-foreground">No accounts yet.</li>}
         </ul>
