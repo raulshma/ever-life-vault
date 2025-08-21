@@ -19,6 +19,8 @@ import { FloatingMiniTimer } from "@/components/focus/FloatingMiniTimer";
 import { SidebarProvider, Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarSeparator, SidebarInset, useSidebar } from "@/components/ui/sidebar";
 import { moduleCategories as baseModuleCategories, orderedGroupTitles } from "@/lib/navigation";
 import NavigationCustomizeDialog from "@/components/NavigationCustomizeDialog";
+import RouteLoadingFallback from "@/components/RouteLoadingFallback";
+import { Suspense } from "react";
 
 const moduleCategories = baseModuleCategories;
 
@@ -421,7 +423,9 @@ export const Layout: React.FC = React.memo(() => {
         <SidebarInset>
           {/* Main Content */}
           <div className="px-2 sm:px-4 pt-3 pb-mobile-tabbar md:pb-6 safe-left safe-right">
-            <Outlet />
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}> 
+              <Outlet />
+            </Suspense>
             <FloatingMiniTimer />
           </div>
 

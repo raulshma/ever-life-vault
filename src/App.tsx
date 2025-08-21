@@ -12,6 +12,7 @@ import { Layout } from "@/components/Layout";
 import { FocusTimerProvider } from "@/hooks/useFocusTimerController";
 import { Skeleton } from "@/components/ui/skeleton";
 import PageSkeleton from "@/components/PageSkeleton";
+import RouteLoadingFallback from "@/components/RouteLoadingFallback";
 
 // Route-level code splitting
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -21,19 +22,23 @@ const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const Vault = lazy(() => import("./pages/Vault"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Inventory = lazy(() => import("./pages/Inventory"));
-  const SteamStandalone = lazy(() => import("./pages/steam/SteamStandalone"));
-  const MALStandalone = lazy(() => import("./pages/mal/MALStandalone"));
+const SteamStandalone = lazy(() => import("./pages/steam/SteamStandalone"));
+const MALStandalone = lazy(() => import("./pages/mal/MALStandalone"));
 const Infrastructure = lazy(() => import("./pages/Infrastructure"));
-const InfrastructureTerminals = lazy(() => import("./pages/InfrastructureTerminals"));
-const HomelabMediaRequests = lazy(() => import("./pages/homelab/MediaRequests"));
+const InfrastructureTerminals = lazy(
+  () => import("./pages/InfrastructureTerminals")
+);
+const HomelabMediaRequests = lazy(
+  () => import("./pages/homelab/MediaRequests")
+);
 const HomelabJellyfin = lazy(() => import("./pages/homelab/Jellyfin"));
 const HomelabKarakeep = lazy(() => import("./pages/homelab/Karakeep"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Focus = lazy(() => import("./pages/Focus"));
-  const LiveShareNew = lazy(() => import("./pages/LiveShareNew"));
-  const LiveShareRoom = lazy(() => import("./pages/LiveShareRoom"));
-  const ClipNew = lazy(() => import("./pages/ClipNew"));
-  const ClipPage = lazy(() => import("./pages/ClipPage"));
+const LiveShareNew = lazy(() => import("./pages/LiveShareNew"));
+const LiveShareRoom = lazy(() => import("./pages/LiveShareRoom"));
+const ClipNew = lazy(() => import("./pages/ClipNew"));
+const ClipPage = lazy(() => import("./pages/ClipPage"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Feeds = lazy(() => import("./pages/Feeds"));
 const RepoFlatten = lazy(() => import("./pages/RepoFlatten"));
@@ -68,7 +73,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Auth />;
+    return (
+      <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+        <Auth />
+      </Suspense>
+    );
   }
 
   return <>{children}</>;
@@ -76,66 +85,225 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function AppRoutes() {
   // Default index renders Dashboard
-  const indexElement = <Dashboard />;
-  return (
-    <Suspense fallback={<PageSkeleton cards={6} /> }>
-      <Routes>
-        <Route path="/auth" element={<Auth />} />
-        {/* Public share routes - accessible without auth */}
-        <Route path="/share/:id" element={<LiveShareRoom />} />
-        {/* Public clip routes */}
-        <Route path="/clip/:id" element={<ClipPage />} />
-        {/* Steam Hub uses its own layout, not the site layout */}
-        <Route
-          path="/steam/*"
-          element={
-            <ProtectedRoute>
-              <SteamStandalone />
-            </ProtectedRoute>
-          }
-        />
-        {/* MyAnimeList hub with immersive layout */}
-        <Route
-          path="/anime/*"
-          element={
-            <ProtectedRoute>
-              <MALStandalone />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={indexElement} />
-          <Route path="day-tracker" element={<DayTracker />} />
-          <Route path="knowledge" element={<KnowledgeBase />} />
-          <Route path="focus" element={<Focus />} />
-          <Route path="feeds" element={<Feeds />} />
-          <Route path="repo-flatten" element={<RepoFlatten />} />
-          <Route path="share/new" element={<LiveShareNew />} />
-          <Route path="clip/new" element={<ClipNew />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="vault" element={<Vault />} />
-          <Route path="documents" element={<Documents />} />
-          <Route path="inventory" element={<Inventory />} />
-          <Route path="infrastructure" element={<Infrastructure />} />
-          <Route path="infrastructure/terminals" element={<InfrastructureTerminals />} />
-          {/* homelab pages removed */}
-          <Route path="homelab/jellyfin" element={<HomelabJellyfin />} />
-          <Route path="homelab/karakeep" element={<HomelabKarakeep />} />
-          <Route
-            path="homelab/media-requests"
-            element={<HomelabMediaRequests />}
-          />
-        </Route>
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+  const indexElement = (
+    <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+      <Dashboard />
     </Suspense>
+  );
+  return (
+    <Routes>
+      <Route
+        path="/auth"
+        element={
+          <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+            <Auth />
+          </Suspense>
+        }
+      />
+      {/* Public share routes - accessible without auth */}
+      <Route
+        path="/share/:id"
+        element={
+          <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+            <LiveShareRoom />
+          </Suspense>
+        }
+      />
+      {/* Public clip routes */}
+      <Route
+        path="/clip/:id"
+        element={
+          <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+            <ClipPage />
+          </Suspense>
+        }
+      />
+      {/* Steam Hub uses its own layout, not the site layout */}
+      <Route
+        path="/steam/*"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+              <SteamStandalone />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      {/* MyAnimeList hub with immersive layout */}
+      <Route
+        path="/anime/*"
+        element={
+          <ProtectedRoute>
+            <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+              <MALStandalone />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Layout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={indexElement} />
+        <Route
+          path="day-tracker"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <DayTracker />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="knowledge"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <KnowledgeBase />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="focus"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Focus />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="feeds"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Feeds />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="repo-flatten"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <RepoFlatten />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="share/new"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <LiveShareNew />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="clip/new"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <ClipNew />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="profile"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Profile />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="vault"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Vault />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="documents"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Documents />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="inventory"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Inventory />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="infrastructure"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Infrastructure />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="infrastructure/terminals"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <InfrastructureTerminals />{" "}
+            </Suspense>
+          }
+        />
+        {/* homelab pages removed */}
+        <Route
+          path="homelab/jellyfin"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <HomelabJellyfin />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="homelab/karakeep"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <HomelabKarakeep />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="homelab/media-requests"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <HomelabMediaRequests />{" "}
+            </Suspense>
+          }
+        />
+      </Route>
+      <Route
+        path="*"
+        element={
+          <Suspense fallback={<RouteLoadingFallback variant="fullscreen" />}>
+            <NotFound />
+          </Suspense>
+        }
+      />
+    </Routes>
   );
 }
 
@@ -154,7 +322,10 @@ const App = () => (
           <AuthProvider>
             <VaultSessionProvider>
               <FocusTimerProvider>
-                <Suspense fallback={<PageSkeleton withHeader={false} cards={3} cardHeightClassName="h-20" className="w-full" /> }>
+                {/* Keep outer Suspense for initial app boot; use same fallback style for consistency */}
+                <Suspense
+                  fallback={<RouteLoadingFallback variant="fullscreen" />}
+                >
                   <AppRoutes />
                 </Suspense>
               </FocusTimerProvider>
