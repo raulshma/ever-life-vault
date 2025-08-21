@@ -33,7 +33,7 @@ export function parseDockerCommand(command: string): DockerCommandParseResult {
     const parts = trimmedCommand.split(' ');
     const args: string[] = [];
     let image = '';
-    let commandArgs: string[] = [];
+    const commandArgs: string[] = [];
     let inCommand = false;
 
     // Parse arguments
@@ -367,7 +367,7 @@ function parseDockerComposeYaml(yamlContent: string): {
     let currentVolume = '';
     let currentNetwork = '';
     let currentProperty = '';
-    let indentLevel = 0;
+    const indentLevel = 0;
 
     for (let i = 0; i < lines.length; i++) {
       const originalLine = lines[i];

@@ -74,7 +74,7 @@ export function useEncryptedVault() {
             });
           }
           // Yield back to event loop between items
-          // eslint-disable-next-line no-await-in-loop
+           
           await Promise.resolve();
         }
       };

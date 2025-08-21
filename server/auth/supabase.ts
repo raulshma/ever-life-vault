@@ -5,7 +5,7 @@ export function createSupabaseClient(url?: string, anonKey?: string, options?: a
   if (!url || !anonKey) return null
   // Basic validation to avoid throwing inside supabase-js when URL is malformed
   try {
-    // eslint-disable-next-line no-new
+     
     new URL(url)
   } catch {
     return null

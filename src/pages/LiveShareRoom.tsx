@@ -195,7 +195,7 @@ export default function LiveShareRoom() {
           setApprovalStatus('pending');
         }
       } catch (e) {
-        // eslint-disable-next-line no-console
+         
         console.error(e);
       }
     };

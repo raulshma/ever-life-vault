@@ -150,7 +150,7 @@ export default function LiveShareNew() {
           body: JSON.stringify({ resourceType: 'room', grantedTo: 'guests', actions, expiresAt: expiresAtPerm }),
         });
         if (!res.ok) {
-          // eslint-disable-next-line no-console
+           
           console.warn('Failed to set permissions');
         }
       } catch {}
@@ -186,7 +186,7 @@ export default function LiveShareNew() {
       if (error) throw error;
       setMyRooms(data || []);
     } catch (e) {
-      // eslint-disable-next-line no-console
+       
       console.error(e);
     } finally {
       setLoadingRooms(false);

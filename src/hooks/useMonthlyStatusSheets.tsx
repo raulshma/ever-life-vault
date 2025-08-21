@@ -139,7 +139,7 @@ export const useMonthlyStatusSheets = () => {
         if (existing) {
           // Update existing entry
           // Prepare update payload merging custom_data if provided
-          let payload: any = { status, notes };
+          const payload: any = { status, notes };
           if (customPatch) {
             // merge JSONB: custom_data = custom_data || jsonb_set(...)
             // Since we can't use expression builder easily here, fetch existing row to merge client-side

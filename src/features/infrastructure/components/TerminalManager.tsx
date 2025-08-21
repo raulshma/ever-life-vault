@@ -13,6 +13,8 @@ import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
 import { Computer, Plus, Save, Trash2 } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
+import { ResponsiveGrid, ResponsiveButtonGroup } from './ResponsiveLayout'
+import { useScreenSize, isMobile } from '../utils/responsive'
 
 type AuthMode = 'password' | 'key'
 
@@ -42,7 +44,9 @@ export const TerminalManager: React.FC = () => {
   const { session } = useAuth()
   const { items, addItem } = useEncryptedVault()
   const { toast } = useToast()
+  const { width } = useScreenSize()
   const sshItems = useMemo(() => items.filter(i => i.type === 'ssh'), [items])
+  const mobile = isMobile(width)
 
   const [sessions, setSessions] = useState<SessionState[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -93,7 +97,7 @@ export const TerminalManager: React.FC = () => {
         }
       }
     }
-  }, [form.mode, form.vaultItemId, sshItems])
+  }, [form.mode, form.vaultItemId, form.host, form.port, form.username, form.authMode, form.password, form.privateKey, form.passphrase, sshItems])
 
   // Handle terminal focus when active session changes
   useEffect(() => {
@@ -186,11 +190,27 @@ export const TerminalManager: React.FC = () => {
     const term = new XTerm({
       cursorBlink: true,
       fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+      fontSize: mobile ? 11 : 14,
       convertEol: true,
       theme: {
         background: '#0b0f17',
+        foreground: '#f8f8f2',
+        cursor: '#f8f8f2',
       },
+      allowTransparency: true,
+      rightClickSelectsWord: true,
+      // Mobile-friendly settings
+      ...(mobile && {
+        lineHeight: 1.2,
+        letterSpacing: 0,
+      }),
+      // Force terminal to respect container width
+      cols: mobile ? 60 : 80,
+      rows: mobile ? 20 : 25,
+      scrollback: mobile ? 100 : 1000,
     })
+
+
     const fit = new FitAddon()
     term.loadAddon(fit)
 
@@ -259,6 +279,35 @@ export const TerminalManager: React.FC = () => {
           term.open(containerRef.current)
           fit.fit()
 
+          // Add CSS classes to prevent overflow
+          const termElement = term.element
+          if (termElement) {
+            termElement.classList.add('xterm-container')
+            // Use setTimeout to ensure DOM is fully rendered
+            setTimeout(() => {
+              const viewport = termElement.querySelector('.xterm-viewport') as HTMLElement
+              if (viewport) {
+                viewport.classList.add('xterm-viewport')
+                // Force viewport to respect boundaries
+                viewport.style.overflow = 'hidden'
+                viewport.style.maxWidth = '100%'
+                viewport.style.width = '100%'
+              }
+              const screen = termElement.querySelector('.xterm-screen') as HTMLElement
+              if (screen) {
+                screen.classList.add('xterm-screen')
+                // Force screen to respect boundaries
+                screen.style.overflow = 'hidden'
+                screen.style.maxWidth = '100%'
+                screen.style.width = '100%'
+              }
+              // Force the entire terminal element to respect boundaries
+              ;(termElement as HTMLElement).style.overflow = 'hidden'
+              ;(termElement as HTMLElement).style.maxWidth = '100%'
+              ;(termElement as HTMLElement).style.width = '100%'
+            }, 0)
+          }
+
           // Send initial resize
           const cols = term.cols
           const rows = term.rows
@@ -287,7 +336,7 @@ export const TerminalManager: React.FC = () => {
         }
       })
 
-      // Handle window resize
+      // Handle window resize and orientation change
       const onResize = () => {
         try {
           fit.fit()
@@ -300,6 +349,14 @@ export const TerminalManager: React.FC = () => {
       }
 
       window.addEventListener('resize', onResize)
+
+      // Handle orientation change on mobile devices
+      if (mobile) {
+        window.addEventListener('orientationchange', () => {
+          // Delay to ensure the orientation change has completed
+          setTimeout(onResize, 300)
+        })
+      }
       // Store cleanup handler on term
       ;(term as unknown as { _cleanupResize: (() => void) | null })._cleanupResize = onResize
     }
@@ -403,6 +460,10 @@ export const TerminalManager: React.FC = () => {
           const cleanupResize = (s.term as unknown as { _cleanupResize?: (() => void) | null })?._cleanupResize
           if (cleanupResize) {
             window.removeEventListener('resize', cleanupResize)
+            // Also remove orientation change listener on mobile
+            if (mobile) {
+              window.removeEventListener('orientationchange', cleanupResize)
+            }
           }
           s.term?.dispose()
         } catch (error) {
@@ -410,7 +471,7 @@ export const TerminalManager: React.FC = () => {
         }
       })
     }
-  }, [sessions])
+  }, [sessions, mobile])
 
   // Helper function to check if we can create a new session
   const canCreate = form.host && form.username && (form.authMode === 'password' ? !!form.password : !!form.privateKey)
@@ -464,22 +525,29 @@ export const TerminalManager: React.FC = () => {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
-          <div className="md:col-span-1">
+        <div className="space-y-4">
+          {/* Connection Mode Selection */}
+          <div className="space-y-2">
             <Label>Source</Label>
             <Select value={form.mode} onValueChange={(v: 'manual' | 'vault') => setForm(f => ({ ...f, mode: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger className={mobile ? "w-full" : "w-auto"}>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="manual">Manual</SelectItem>
                 <SelectItem value="vault" disabled={sshItems.length === 0}>From Vault</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Vault Selection - Only shown when mode is vault */}
           {form.mode === 'vault' && (
-            <div className="md:col-span-2">
+            <div className="space-y-2">
               <Label>SSH Credential</Label>
               <Select value={form.vaultItemId} onValueChange={(v: string) => setForm(f => ({ ...f, vaultItemId: v }))}>
-                <SelectTrigger><SelectValue placeholder={sshItems.length ? 'Choose a saved server' : 'No SSH items in vault'} /></SelectTrigger>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={sshItems.length ? 'Choose a saved server' : 'No SSH items in vault'} />
+                </SelectTrigger>
                 <SelectContent>
                   {sshItems.map(item => (
                     <SelectItem key={item.id} value={item.id}>{item.name} ({item.data?.username}@{item.data?.host})</SelectItem>
@@ -488,60 +556,104 @@ export const TerminalManager: React.FC = () => {
               </Select>
             </div>
           )}
-          <div className="md:col-span-2">
-            <Label>Host</Label>
-            <Input value={form.host} onChange={e => setForm(f => ({ ...f, host: e.target.value }))} placeholder="example.com" />
-          </div>
-          <div>
-            <Label>Port</Label>
-            <Input value={form.port} onChange={e => setForm(f => ({ ...f, port: e.target.value }))} placeholder="22" />
-          </div>
-          <div className="md:col-span-1">
-            <Label>Username</Label>
-            <Input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} placeholder="root" />
-          </div>
-          <div className="md:col-span-1">
-            <Label>Auth</Label>
-            <Select value={form.authMode} onValueChange={(v: AuthMode) => setForm(f => ({ ...f, authMode: v }))}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="password">Password</SelectItem>
-                <SelectItem value="key">Private Key</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+
+          {/* Connection Details - Responsive Grid */}
+          <ResponsiveGrid config="formColumns" gap="gap" className="w-full">
+            <div className="space-y-2">
+              <Label>Host</Label>
+              <Input
+                value={form.host}
+                onChange={e => setForm(f => ({ ...f, host: e.target.value }))}
+                placeholder="example.com"
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Port</Label>
+              <Input
+                value={form.port}
+                onChange={e => setForm(f => ({ ...f, port: e.target.value }))}
+                placeholder="22"
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Username</Label>
+              <Input
+                value={form.username}
+                onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+                placeholder="root"
+                className="w-full"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Auth</Label>
+              <Select value={form.authMode} onValueChange={(v: AuthMode) => setForm(f => ({ ...f, authMode: v }))}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="password">Password</SelectItem>
+                  <SelectItem value="key">Private Key</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </ResponsiveGrid>
+
+          {/* Authentication Details */}
           {form.authMode === 'password' ? (
-            <div className="md:col-span-2">
+            <div className="space-y-2">
               <Label>Password</Label>
-              <Input type="password" value={form.password || ''} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
+              <Input
+                type="password"
+                value={form.password || ''}
+                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                className="w-full"
+              />
             </div>
           ) : (
-            <>
-              <div className="md:col-span-3">
+            <div className="space-y-4">
+              <div className="space-y-2">
                 <Label>Private Key (PEM)</Label>
-                <Textarea value={form.privateKey || ''} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm(f => ({ ...f, privateKey: e.target.value }))} placeholder="-----BEGIN OPENSSH PRIVATE KEY----- ..." rows={4} />
+                <Textarea
+                  value={form.privateKey || ''}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm(f => ({ ...f, privateKey: e.target.value }))}
+                  placeholder="-----BEGIN OPENSSH PRIVATE KEY----- ..."
+                  rows={mobile ? 3 : 4}
+                  className="w-full font-mono text-sm"
+                />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label>Passphrase (optional)</Label>
-                <Input type="password" value={form.passphrase || ''} onChange={e => setForm(f => ({ ...f, passphrase: e.target.value }))} />
+                <Input
+                  type="password"
+                  value={form.passphrase || ''}
+                  onChange={e => setForm(f => ({ ...f, passphrase: e.target.value }))}
+                  className="w-full"
+                />
               </div>
-            </>
+            </div>
           )}
-          <div className="md:col-span-1 flex gap-2">
+
+          {/* Action Buttons */}
+          <ResponsiveButtonGroup orientation={mobile ? "vertical" : "horizontal"} className="w-full">
             <Button
               disabled={!canCreate || creating || maxSessionsReached}
               onClick={createSession}
-              className="w-full"
+              className={mobile ? "w-full" : "flex-1"}
               title={maxSessionsReached ? 'Maximum sessions limit reached (10)' : ''}
             >
               <Plus className="h-4 w-4 mr-2" /> New Session
             </Button>
-          </div>
-          <div className="md:col-span-1 flex gap-2">
-            <Button variant="outline" disabled={!canCreate} onClick={saveToVault} className="w-full">
+            <Button
+              variant="outline"
+              disabled={!canCreate}
+              onClick={saveToVault}
+              className={mobile ? "w-full" : "flex-1"}
+            >
               <Save className="h-4 w-4 mr-2" /> Save to Vault
             </Button>
-          </div>
+          </ResponsiveButtonGroup>
         </div>
 
         {sessions.length === 0 ? (
@@ -552,26 +664,48 @@ export const TerminalManager: React.FC = () => {
               {sessions.length} active session{sessions.length !== 1 ? 's' : ''} • {sessions.filter(s => s.status === 'connected').length} connected
             </div>
             <Tabs value={activeId ?? sessions[0]?.id} onValueChange={setActiveId}>
-            <TabsList className="flex flex-wrap">
-              {sessions.map(s => (
-                <TabsTrigger key={s.id} value={s.id} className="flex items-center gap-2">
-                  {s.title}
-                </TabsTrigger>
-              ))}
-            </TabsList>
+              <div className="w-full overflow-hidden">
+                <TabsList className={`${mobile ? 'flex overflow-x-auto scrollbar-hide pb-1 min-w-0' : 'flex flex-wrap'} gap-1 ${mobile ? 'px-1' : ''} w-full`}>
+                  {sessions.map(s => (
+                    <TabsTrigger
+                      key={s.id}
+                      value={s.id}
+                      className={`flex items-center gap-2 whitespace-nowrap ${mobile ? 'text-xs px-2 py-1 flex-shrink-0' : ''}`}
+                    >
+                      <span className={`truncate ${mobile ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-none'}`}>{s.title}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${getStatusColor(s.status)} flex-shrink-0`}>
+                        {s.status}
+                      </span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
             {sessions.map(s => (
               <TabsContent key={s.id} value={s.id} className="mt-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Button size="sm" variant="outline" onClick={() => closeSession(s.id)}>
+                <div className={`flex items-center gap-2 mb-2 ${mobile ? 'justify-center' : 'justify-start'}`}>
+                  <Button
+                    size={mobile ? "sm" : "sm"}
+                    variant="outline"
+                    onClick={() => closeSession(s.id)}
+                    className={mobile ? "text-xs" : ""}
+                  >
                     <Trash2 className="h-4 w-4 mr-1" /> Close
                   </Button>
-                  <span className={`text-sm px-2 py-1 rounded-full ${getStatusColor(s.status)}`}>
-                    {s.status}
-                  </span>
+                  {!mobile && (
+                    <span className={`text-sm px-2 py-1 rounded-full ${getStatusColor(s.status)}`}>
+                      {s.status}
+                    </span>
+                  )}
                 </div>
                 <div
                   ref={s.containerRef}
-                  className="h-[420px] w-full rounded border overflow-hidden bg-black"
+                  className={`${mobile ? 'h-[300px] sm:h-[350px]' : 'h-[420px]'} w-full rounded border overflow-hidden bg-black xterm-container no-page-h-scroll`}
+                  style={{ 
+                    overflow: 'hidden',
+                    maxWidth: '100%',
+                    width: '100%',
+                    boxSizing: 'border-box' as const
+                  }}
                 />
               </TabsContent>
             ))}

@@ -6,24 +6,26 @@ import { InfrastructureErrorBoundary } from "@/features/infrastructure/component
 const InfrastructureTerminals: React.FC = () => {
   return (
     <InfrastructureErrorBoundary>
-      <ResponsiveLayout>
-        {/* Page Header */}
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-2">
-              <ResponsiveText variant="h1">SSH Terminals</ResponsiveText>
-              <ResponsiveText variant="body" className="text-muted-foreground">
-                Manage SSH connections to your servers and infrastructure.
-              </ResponsiveText>
+      <div className="w-full overflow-x-hidden overflow-y-visible">
+        <ResponsiveLayout>
+          {/* Page Header */}
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="space-y-2">
+                <ResponsiveText variant="h1">SSH Terminals</ResponsiveText>
+                <ResponsiveText variant="body" className="text-muted-foreground">
+                  Manage SSH connections to your servers and infrastructure.
+                </ResponsiveText>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="space-y-4">
-          <TerminalManager />
-        </div>
-      </ResponsiveLayout>
+          {/* Main Content */}
+          <div className="space-y-4 w-full overflow-hidden">
+            <TerminalManager />
+          </div>
+        </ResponsiveLayout>
+      </div>
     </InfrastructureErrorBoundary>
   );
 };
