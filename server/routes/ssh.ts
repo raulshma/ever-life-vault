@@ -1,9 +1,15 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 // @ts-ignore - types are provided via local shims
 import fastifyWebsocket from '@fastify/websocket'
 // @ts-ignore - ambient types provided in server/types/external.d.ts
 import { Client as SSHClient } from 'ssh2'
 import { z } from 'zod'
+
+interface DeleteSessionRoute {
+  Params: {
+    sessionId: string;
+  };
+}
 
 type RequireUser = (request: any, reply: any) => Promise<any | null>
 
@@ -373,25 +379,22 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
   })
 
   // Close and cleanup session
-  server.delete('/ssh/sessions/:sessionId', async (req, reply) => {
+  server.delete<DeleteSessionRoute>('/ssh/sessions/:sessionId', async (req: FastifyRequest<DeleteSessionRoute>, reply: FastifyReply) => {
     try {
       server.log.debug({
-        params: (req as any).params,
-        rawParams: req.raw?.params,
-        headers: req.headers,
-        url: req.url,
-        method: req.method
+        params: req.params,
+        url: req.url
       }, 'DELETE session request received')
 
       const user = await requireSupabaseUser(req, reply)
       if (!user) return
 
       // Add validation with better error handling
-      const params = (req as any).params
+      const params = req.params
       server.log.debug({ params, paramsType: typeof params }, 'Parsed params')
 
       if (!params || !params.sessionId) {
-        server.log.error({ params, rawParams: req.raw?.params }, 'Missing sessionId parameter')
+        server.log.error({ params }, 'Missing sessionId parameter')
         return reply.status(400).send({ error: 'bad_request', message: 'Missing sessionId parameter' })
       }
 
