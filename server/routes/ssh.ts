@@ -16,6 +16,7 @@ type Session = {
   host: string
   port: number
   username: string
+  cleaningUp?: boolean
 }
 
 const sessions = new Map<string, Session>()
@@ -277,6 +278,10 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
             server.log.debug({ e }, 'socket.close threw')
           }
           // Clean up session
+          const session = sessions.get(sessionId)
+          if (session) {
+            session.cleaningUp = true
+          }
           sessions.delete(sessionId)
         }
 
@@ -288,6 +293,10 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
             }
           } catch (e) {
             server.log.debug({ e }, 'socket.close threw')
+          }
+          const session = sessions.get(sessionId)
+          if (session) {
+            session.cleaningUp = true
           }
           sessions.delete(sessionId)
         }
@@ -366,23 +375,55 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
   // Close and cleanup session
   server.delete('/ssh/sessions/:sessionId', async (req, reply) => {
     try {
+      server.log.debug({
+        params: (req as any).params,
+        rawParams: req.raw?.params,
+        headers: req.headers,
+        url: req.url,
+        method: req.method
+      }, 'DELETE session request received')
+
       const user = await requireSupabaseUser(req, reply)
       if (!user) return
 
-      const params = z.object({ sessionId: z.string() }).parse((req as any).params)
+      // Add validation with better error handling
+      const params = (req as any).params
+      server.log.debug({ params, paramsType: typeof params }, 'Parsed params')
+
+      if (!params || !params.sessionId) {
+        server.log.error({ params, rawParams: req.raw?.params }, 'Missing sessionId parameter')
+        return reply.status(400).send({ error: 'bad_request', message: 'Missing sessionId parameter' })
+      }
+
       const sessionId = params.sessionId
+      server.log.debug({ sessionId, sessionIdType: typeof sessionId, sessionIdLength: sessionId.length }, 'Extracted sessionId')
+
+      if (typeof sessionId !== 'string' || sessionId.trim().length === 0) {
+        server.log.error({ sessionId, sessionIdType: typeof sessionId }, 'Invalid sessionId parameter')
+        return reply.status(400).send({ error: 'bad_request', message: 'Invalid sessionId parameter' })
+      }
+
       server.log.info({ sessionId, userId: user.id }, 'Session deletion requested')
 
       const session = sessions.get(sessionId)
       if (!session) {
-        server.log.warn({ sessionId }, 'Session not found for deletion')
+        server.log.warn({ sessionId, availableSessions: Array.from(sessions.keys()) }, 'Session not found for deletion')
         return reply.status(404).send({ error: 'not_found', message: 'Session not found' })
+      }
+
+      // Check if session is already being cleaned up
+      if (session.cleaningUp) {
+        server.log.warn({ sessionId }, 'Session is already being cleaned up')
+        return reply.status(409).send({ error: 'conflict', message: 'Session is already being cleaned up' })
       }
 
       if (session.userId !== user.id) {
         server.log.warn({ sessionId, sessionUserId: session.userId, requestUserId: user.id }, 'Unauthorized session deletion')
         return reply.status(403).send({ error: 'forbidden', message: 'Not authorized to delete this session' })
       }
+
+      // Mark session as being cleaned up
+      session.cleaningUp = true
 
       // Clean up session resources
       try {
@@ -421,11 +462,12 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
     for (const [sessionId, session] of sessions.entries()) {
       const age = now - session.createdAt
       if (age > SESSION_TIMEOUT) {
+        session.cleaningUp = true
         try {
           session.stream?.end()
           session.ssh.end()
         } catch (e) {
-          // Ignore cleanup errors
+          server.log.debug({ sessionId, error: e }, 'Error during session cleanup')
         }
         sessions.delete(sessionId)
         cleaned++
@@ -439,4 +481,33 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
 
   // Run cleanup every 5 minutes
   setInterval(cleanupExpiredSessions, 5 * 60 * 1000)
+
+  // Add session monitoring endpoint
+  server.get('/ssh/sessions', async (req, reply) => {
+    try {
+      const user = await requireSupabaseUser(req, reply)
+      if (!user) return
+
+      const userSessions = Array.from(sessions.entries())
+        .filter(([_, session]) => session.userId === user.id)
+        .map(([sessionId, session]) => ({
+          sessionId,
+          host: session.host,
+          port: session.port,
+          username: session.username,
+          createdAt: session.createdAt,
+          age: Date.now() - session.createdAt,
+          hasStream: !!session.stream
+        }))
+
+      return reply.send({
+        sessions: userSessions,
+        total: userSessions.length,
+        maxSessions: 10
+      })
+    } catch (error) {
+      server.log.error({ error }, 'Error listing SSH sessions')
+      return reply.status(500).send({ error: 'internal_error', message: 'Failed to list sessions' })
+    }
+  })
 }

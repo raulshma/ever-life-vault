@@ -95,6 +95,17 @@ export const TerminalManager: React.FC = () => {
     }
   }, [form.mode, form.vaultItemId, sshItems])
 
+  // Handle terminal focus when active session changes
+  useEffect(() => {
+    if (activeId) {
+      const activeSession = sessions.find(s => s.id === activeId)
+      if (activeSession?.term && activeSession.status === 'connected') {
+        // Focus the active terminal
+        activeSession.term.focus()
+      }
+    }
+  }, [activeId, sessions])
+
   const createSession = async () => {
     if (!session?.access_token) return
     setCreating(true)
@@ -178,57 +189,6 @@ export const TerminalManager: React.FC = () => {
 
     ws.binaryType = 'arraybuffer'
 
-    ws.onopen = () => {
-      console.log('SSH WebSocket connected successfully', { sessionId: id })
-      clearTimeout(connectionTimeout)
-
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, ws, term, fit, status: 'connected' } : s))
-
-      if (containerRef.current) {
-        try {
-          term.open(containerRef.current)
-          fit.fit()
-
-          // Send initial resize
-          const cols = term.cols
-          const rows = term.rows
-          console.log('Sending initial terminal size', { sessionId: id, cols, rows })
-          ws.send(JSON.stringify({ type: 'resize', cols, rows }))
-        } catch (error) {
-          console.error('Error initializing terminal', { sessionId: id, error })
-        }
-      }
-
-      term.focus()
-
-      // Handle terminal input
-      term.onData(data => {
-        try {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(data)
-          }
-        } catch (error) {
-          console.error('Error sending terminal data', { sessionId: id, error })
-        }
-      })
-
-      // Handle window resize
-      const onResize = () => {
-        try {
-          fit.fit()
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
-          }
-        } catch (error) {
-          console.error('Error handling resize', { sessionId: id, error })
-        }
-      }
-
-      window.addEventListener('resize', onResize)
-      // Store cleanup handler on term
-      ;(term as any)._cleanupResize = onResize
-    }
-
     ws.onmessage = (ev) => {
       try {
         if (ev.data instanceof ArrayBuffer) {
@@ -279,6 +239,63 @@ export const TerminalManager: React.FC = () => {
 
       setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
     }
+
+    // Handle connection state changes for better UX
+    ws.onopen = () => {
+      console.log('SSH WebSocket connected successfully', { sessionId: id })
+      clearTimeout(connectionTimeout)
+
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, ws, term, fit, status: 'connected' } : s))
+
+      if (containerRef.current) {
+        try {
+          term.open(containerRef.current)
+          fit.fit()
+
+          // Send initial resize
+          const cols = term.cols
+          const rows = term.rows
+          console.log('Sending initial terminal size', { sessionId: id, cols, rows })
+          ws.send(JSON.stringify({ type: 'resize', cols, rows }))
+        } catch (error) {
+          console.error('Error initializing terminal', { sessionId: id, error })
+        }
+      }
+
+      // Focus terminal only if it's the active session
+      if (activeId === id) {
+        term.focus()
+      }
+
+      // Handle terminal input
+      term.onData(data => {
+        try {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data)
+          } else {
+            console.warn('Cannot send data: WebSocket not open', { sessionId: id, readyState: ws.readyState })
+          }
+        } catch (error) {
+          console.error('Error sending terminal data', { sessionId: id, error })
+        }
+      })
+
+      // Handle window resize
+      const onResize = () => {
+        try {
+          fit.fit()
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+          }
+        } catch (error) {
+          console.error('Error handling resize', { sessionId: id, error })
+        }
+      }
+
+      window.addEventListener('resize', onResize)
+      // Store cleanup handler on term
+      ;(term as any)._cleanupResize = onResize
+    }
   }
 
   const closeSession = async (id: string) => {
@@ -290,9 +307,24 @@ export const TerminalManager: React.FC = () => {
       return
     }
 
+    // Update session status to 'closed' immediately
+    setSessions(prev => prev.map(session =>
+      session.id === id ? { ...session, status: 'closed' } : session
+    ))
+
+    // Delete session on server FIRST, before closing WebSocket
+    // This prevents the WebSocket close handler from cleaning up the session
+    try {
+      const response = await fetch(`/ssh/sessions/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
+        }
+      })
+
     // Close WebSocket connection
     try {
-      if (s.ws) {
+      if (s.ws && s.ws.readyState === WebSocket.OPEN) {
         s.ws.close(1000, 'user_closed')
         console.log('WebSocket closed', { sessionId: id })
       }
@@ -300,7 +332,7 @@ export const TerminalManager: React.FC = () => {
       console.error('Error closing WebSocket', { sessionId: id, error })
     }
 
-    // Clean up terminal
+    // Clean up terminal and event listeners
     try {
       const cleanupResize = (s.term as any)?._cleanupResize
       if (cleanupResize) {
@@ -313,27 +345,37 @@ export const TerminalManager: React.FC = () => {
     }
 
     // Remove session from state
-    setSessions(prev => prev.filter(x => x.id !== id))
-    if (activeId === id) {
-      setActiveId(sessions.find(x => x.id !== id)?.id || null)
-    }
-
-    // Delete session on server via proxy/same-origin
-    try {
-      const response = await fetch(`/ssh/sessions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token}`
-        }
-      })
+    setSessions(prev => {
+      const newSessions = prev.filter(x => x.id !== id)
+      // Update activeId if we're closing the active session
+      if (activeId === id) {
+        setActiveId(newSessions.length > 0 ? newSessions[0].id : null)
+      }
+      return newSessions
+    })
 
       if (!response.ok) {
-        console.error('Failed to delete session on server', {
-          sessionId: id,
-          status: response.status,
-          statusText: response.statusText
-        })
+        // Don't treat 404 or 409 as errors since session might already be cleaned up
+        if (response.status === 404) {
+          console.log('Session already cleaned up on server', { sessionId: id })
+        } else if (response.status === 409) {
+          console.log('Session is already being cleaned up', { sessionId: id })
+        } else {
+          // Get the response body for better error debugging
+          let errorBody = 'Unable to parse error response'
+          try {
+            errorBody = await response.text()
+          } catch (e) {
+            console.debug('Could not read error response body', { sessionId: id, error: e })
+          }
+
+          console.error('Failed to delete session on server', {
+            sessionId: id,
+            status: response.status,
+            statusText: response.statusText,
+            responseBody: errorBody
+          })
+        }
       } else {
         console.log('Session deleted on server', { sessionId: id })
       }
@@ -342,7 +384,43 @@ export const TerminalManager: React.FC = () => {
     }
   }
 
+  // Cleanup function for component unmount
+  useEffect(() => {
+    return () => {
+      // Cleanup all sessions when component unmounts
+      sessions.forEach(s => {
+        try {
+          if (s.ws && s.ws.readyState === WebSocket.OPEN) {
+            s.ws.close(1000, 'component_unmount')
+          }
+          const cleanupResize = (s.term as any)?._cleanupResize
+          if (cleanupResize) {
+            window.removeEventListener('resize', cleanupResize)
+          }
+          s.term?.dispose()
+        } catch (error) {
+          console.error('Error during session cleanup on unmount', { sessionId: s.id, error })
+        }
+      })
+    }
+  }, [sessions])
+
+  // Helper function to check if we can create a new session
   const canCreate = form.host && form.username && (form.authMode === 'password' ? !!form.password : !!form.privateKey)
+
+  // Helper function to get session status color
+  const getStatusColor = (status: SessionState['status']) => {
+    switch (status) {
+      case 'connected': return 'bg-green-100 text-green-800'
+      case 'connecting': return 'bg-yellow-100 text-yellow-800'
+      case 'error': return 'bg-red-100 text-red-800'
+      case 'closed': return 'bg-gray-100 text-gray-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  // Helper function to check if maximum sessions limit is reached
+  const maxSessionsReached = sessions.length >= 10 // Limit to 10 concurrent sessions
 
   const saveToVault = async () => {
     if (!canCreate) return
@@ -442,7 +520,12 @@ export const TerminalManager: React.FC = () => {
             </>
           )}
           <div className="md:col-span-1 flex gap-2">
-            <Button disabled={!canCreate || creating} onClick={createSession} className="w-full">
+            <Button
+              disabled={!canCreate || creating || maxSessionsReached}
+              onClick={createSession}
+              className="w-full"
+              title={maxSessionsReached ? 'Maximum sessions limit reached (10)' : ''}
+            >
               <Plus className="h-4 w-4 mr-2" /> New Session
             </Button>
           </div>
@@ -456,7 +539,11 @@ export const TerminalManager: React.FC = () => {
         {sessions.length === 0 ? (
           <div className="text-center text-muted-foreground py-10">No sessions yet. Create one above.</div>
         ) : (
-          <Tabs value={activeId ?? sessions[0]?.id} onValueChange={setActiveId}>
+          <>
+            <div className="mb-4 text-sm text-muted-foreground">
+              {sessions.length} active session{sessions.length !== 1 ? 's' : ''} • {sessions.filter(s => s.status === 'connected').length} connected
+            </div>
+            <Tabs value={activeId ?? sessions[0]?.id} onValueChange={setActiveId}>
             <TabsList className="flex flex-wrap">
               {sessions.map(s => (
                 <TabsTrigger key={s.id} value={s.id} className="flex items-center gap-2">
@@ -470,11 +557,18 @@ export const TerminalManager: React.FC = () => {
                   <Button size="sm" variant="outline" onClick={() => closeSession(s.id)}>
                     <Trash2 className="h-4 w-4 mr-1" /> Close
                   </Button>
+                  <span className={`text-sm px-2 py-1 rounded-full ${getStatusColor(s.status)}`}>
+                    {s.status}
+                  </span>
                 </div>
-                <div ref={s.containerRef} className="h-[420px] w-full rounded border overflow-hidden bg-black" style={{ display: activeId === s.id ? 'block' : 'none' }} />
+                <div
+                  ref={s.containerRef}
+                  className="h-[420px] w-full rounded border overflow-hidden bg-black"
+                />
               </TabsContent>
             ))}
-          </Tabs>
+            </Tabs>
+          </>
         )}
       </CardContent>
     </Card>
