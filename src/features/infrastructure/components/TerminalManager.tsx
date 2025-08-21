@@ -12,7 +12,7 @@ import { useTerminalSettings, useRecentTerminals } from '../hooks'
 import { Terminal as XTerm } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
-import { Computer, Plus, Save, Trash2, Settings, History, Zap, Clock, X } from 'lucide-react'
+import { Computer, Plus, Save, Trash2, Settings, History, Zap, Clock, X, Loader2, Maximize2, Minimize2, Copy as CopyIcon, Eraser, Search, Trash } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ResponsiveGrid, ResponsiveButtonGroup } from './ResponsiveLayout'
 import { useScreenSize, isMobile } from '../utils/responsive'
@@ -49,7 +49,7 @@ export const TerminalManager: React.FC = () => {
   const { session } = useAuth()
   const { items, addItem } = useEncryptedVault()
   const { settings: terminalSettings } = useTerminalSettings()
-  const { recentTerminals, addRecentTerminal } = useRecentTerminals()
+  const { recentTerminals, addRecentTerminal, removeRecentTerminal, clearRecentTerminals } = useRecentTerminals()
   const { toast } = useToast()
   const { width } = useScreenSize()
   const sshItems = useMemo(() => items.filter(i => i.type === 'ssh'), [items])
@@ -58,6 +58,8 @@ export const TerminalManager: React.FC = () => {
   const [sessions, setSessions] = useState<SessionState[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [fullscreenId, setFullscreenId] = useState<string | null>(null)
+  const [recentFilter, setRecentFilter] = useState('')
   const [form, setForm] = useState<NewSessionForm>({
     mode: 'manual',
   vaultItemId: '',
@@ -116,6 +118,24 @@ export const TerminalManager: React.FC = () => {
       }
     }
   }, [activeId, sessions])
+
+  // Apply settings live to existing terminals
+  useEffect(() => {
+    try {
+      sessions.forEach(s => {
+        if (s.term) {
+          s.term.options = {
+            ...s.term.options,
+            fontSize: terminalSettings.fontSize,
+            theme: getXTermTheme(terminalSettings.theme),
+          }
+          s.fit?.fit()
+        }
+      })
+    } catch (e) {
+      console.error('Failed to apply terminal settings to sessions', e)
+    }
+  }, [terminalSettings.fontSize, terminalSettings.theme, sessions])
 
   const createSession = async () => {
     if (!session?.access_token) return
@@ -727,7 +747,7 @@ export const TerminalManager: React.FC = () => {
               className={mobile ? "w-full" : "flex-1"}
               title={maxSessionsReached ? 'Maximum sessions limit reached (10)' : ''}
             >
-              <Plus className="h-4 w-4 mr-2" /> New Session
+              {creating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />} New Session
             </Button>
             <Button
               variant="outline"
@@ -738,18 +758,39 @@ export const TerminalManager: React.FC = () => {
               <Save className="h-4 w-4 mr-2" /> Save to Vault
             </Button>
           </ResponsiveButtonGroup>
+          {maxSessionsReached && (
+            <p className="text-xs text-muted-foreground">Close an existing tab to start a new session.</p>
+          )}
         </div>
 
         {/* Recent Terminals Section */}
         {recentTerminals.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <History className="h-4 w-4" />
-              <Label className="text-sm font-medium">Recent Connections</Label>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                <Label className="text-sm font-medium">Recent Connections</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={recentFilter}
+                    onChange={(e) => setRecentFilter(e.target.value)}
+                    placeholder="Filter..."
+                    className="pl-7 h-8 w-[140px] sm:w-[200px]"
+                  />
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => clearRecentTerminals()} title="Clear all">
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="grid gap-2 max-h-48 overflow-y-auto">
-              {recentTerminals.map((terminal) => (
-                <Card key={terminal.id} className="p-3 hover:bg-muted/50 transition-colors">
+            <div className="grid gap-2 max-h-56 overflow-y-auto">
+              {recentTerminals
+                .filter(t => !recentFilter || t.name.toLowerCase().includes(recentFilter.toLowerCase()) || t.host.toLowerCase().includes(recentFilter.toLowerCase()))
+                .map((terminal) => (
+                <Card key={terminal.id} className="p-3 hover:bg-muted/50 transition-colors cursor-pointer" onDoubleClick={() => quickConnect(terminal)}>
                   <div className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -772,16 +813,21 @@ export const TerminalManager: React.FC = () => {
                         <span>{terminal.connectionCount} connection{terminal.connectionCount !== 1 ? 's' : ''}</span>
                       </div>
                     </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => quickConnect(terminal)}
-                      disabled={maxSessionsReached}
-                      className="ml-2"
-                    >
-                      <Zap className="h-3 w-3 mr-1" />
-                      Connect
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => quickConnect(terminal)}
+                        disabled={maxSessionsReached}
+                        className="ml-2"
+                      >
+                        <Zap className="h-3 w-3 mr-1" />
+                        Connect
+                      </Button>
+                      <Button size="icon" variant="ghost" onClick={() => removeRecentTerminal(terminal.id)} title="Remove" className="h-8 w-8">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </Card>
               ))}
@@ -803,43 +849,70 @@ export const TerminalManager: React.FC = () => {
                     <TabsTrigger
                       key={s.id}
                       value={s.id}
-                      className={`flex items-center gap-2 whitespace-nowrap ${mobile ? 'text-xs px-2 py-1 flex-shrink-0' : ''}`}
+                      className={`group flex items-center gap-2 whitespace-nowrap ${mobile ? 'text-xs px-2 py-1 flex-shrink-0' : ''}`}
                     >
                       <span className={`truncate ${mobile ? 'max-w-[80px] sm:max-w-[120px]' : 'max-w-none'}`}>{s.title}</span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${getStatusColor(s.status)} flex-shrink-0`}>
+                      <span className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded-full ${getStatusColor(s.status)} flex-shrink-0`}>
+                        {s.status === 'connecting' && <Loader2 className="h-3 w-3 animate-spin" />}
                         {s.status}
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); closeSession(s.id) }}
+                        className={`ml-1 rounded hover:bg-muted p-0.5 hidden ${mobile ? '' : 'group-hover:inline-flex'} `}
+                        title="Close tab"
+                        aria-label={`Close ${s.title}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
                     </TabsTrigger>
                   ))}
                 </TabsList>
               </div>
             {sessions.map(s => (
               <TabsContent key={s.id} value={s.id} className="mt-2">
-                <div className={`flex items-center gap-2 mb-2 ${mobile ? 'justify-center' : 'justify-start'}`}>
-                  <Button
-                    size={mobile ? "sm" : "sm"}
-                    variant="outline"
-                    onClick={() => closeSession(s.id)}
-                    className={mobile ? "text-xs" : ""}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" /> Close
-                  </Button>
-                  {!mobile && (
-                    <span className={`text-sm px-2 py-1 rounded-full ${getStatusColor(s.status)}`}>
-                      {s.status}
-                    </span>
-                  )}
+                <div className={`flex items-center gap-2 mb-2 ${mobile ? 'justify-center' : 'justify-between'}`}>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size={mobile ? "sm" : "sm"}
+                      variant="outline"
+                      onClick={() => closeSession(s.id)}
+                      className={mobile ? "text-xs" : ""}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Close
+                    </Button>
+                    {!mobile && (
+                      <span className={`text-sm px-2 py-1 rounded-full ${getStatusColor(s.status)}`}>
+                        {s.status === 'connecting' && <Loader2 className="h-3 w-3 mr-1 inline animate-spin" />} {s.status}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { try { s.fit?.fit() } catch {} }} title="Fit to container">
+                      <Maximize2 className="h-4 w-4 mr-1" /> Fit
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={async () => { try { const sel = s.term?.getSelection() || ''; await navigator.clipboard.writeText(sel); toast({ title: 'Copied', description: 'Selection copied to clipboard.' }) } catch (e) { toast({ title: 'Copy failed', description: e instanceof Error ? e.message : 'Unable to copy', variant: 'destructive' }) } }} title="Copy selection">
+                      <CopyIcon className="h-4 w-4 mr-1" /> Copy
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => { try { s.term?.clear() } catch {} }} title="Clear terminal">
+                      <Eraser className="h-4 w-4 mr-1" /> Clear
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setFullscreenId(prev => prev === s.id ? null : s.id)} title={fullscreenId === s.id ? 'Exit fullscreen' : 'Fullscreen'}>
+                      {fullscreenId === s.id ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </div>
-                <div
-                  ref={s.containerRef}
-                  className={`${mobile ? 'h-[300px] sm:h-[350px]' : 'h-[420px]'} w-full rounded border overflow-hidden bg-black xterm-container no-page-h-scroll`}
-                  style={{ 
-                    overflow: 'hidden',
-                    maxWidth: '100%',
-                    width: '100%',
-                    boxSizing: 'border-box' as const
-                  }}
-                />
+                <div className={`${fullscreenId === s.id ? 'fixed inset-0 z-50 p-2 sm:p-4 bg-background/90 backdrop-blur' : ''}`}>
+                  <div
+                    ref={s.containerRef}
+                    className={`${mobile ? 'h-[300px] sm:h-[350px]' : 'h-[420px]'} ${fullscreenId === s.id ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : ''} w-full rounded border overflow-hidden bg-black xterm-container no-page-h-scroll`}
+                    style={{ 
+                      overflow: 'hidden',
+                      maxWidth: '100%',
+                      width: '100%',
+                      boxSizing: 'border-box' as const
+                    }}
+                  />
+                </div>
               </TabsContent>
             ))}
             </Tabs>
