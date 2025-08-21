@@ -1,5 +1,13 @@
 // Core types for Docker infrastructure management
 
+// Terminal settings types
+export interface TerminalSettings {
+  fontSize: number;
+  theme: TerminalTheme;
+}
+
+export type TerminalTheme = 'dark' | 'light' | 'dracula' | 'solarized-dark' | 'solarized-light' | 'monokai' | 'gruvbox';
+
 export interface DockerComposeConfig {
   id: string
   user_id: string

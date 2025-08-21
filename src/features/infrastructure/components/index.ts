@@ -19,3 +19,5 @@ export { ErrorDisplay, ErrorList, useErrorState } from './ErrorDisplay';
 export { HelpTooltip, HelpIcon, HelpSection } from './HelpTooltips';
 export { KeyboardShortcutsDialog } from './KeyboardShortcutsDialog';
 export { ResponsiveLayout, ResponsiveCard, ResponsiveGrid, ResponsiveDialogContent, ResponsiveButtonGroup, ResponsiveText } from './ResponsiveLayout';
+export { TerminalManager } from './TerminalManager';
+export { TerminalSettings } from './TerminalSettings';

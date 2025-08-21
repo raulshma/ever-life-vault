@@ -21,7 +21,9 @@ export {
   importDockerCompose, 
   generateDockerComposeYaml 
 } from './dockerUtils';
-export type { 
-  DockerCommandParseResult, 
-  DockerComposeImportResult 
+export type {
+  DockerCommandParseResult,
+  DockerComposeImportResult
 } from './dockerUtils';
+export { getXTermTheme } from './terminalThemes';
+export type { XTermTheme } from './terminalThemes';

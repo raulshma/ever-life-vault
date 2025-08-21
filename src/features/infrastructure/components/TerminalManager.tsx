@@ -8,13 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
+import { useTerminalSettings } from '../hooks'
 import { Terminal as XTerm } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
-import { Computer, Plus, Save, Trash2 } from 'lucide-react'
+import { Computer, Plus, Save, Trash2, Settings } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ResponsiveGrid, ResponsiveButtonGroup } from './ResponsiveLayout'
 import { useScreenSize, isMobile } from '../utils/responsive'
+import { getXTermTheme } from '../utils/terminalThemes'
+import { TerminalSettings } from './TerminalSettings'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
 type AuthMode = 'password' | 'key'
 
@@ -43,6 +47,7 @@ type SessionState = {
 export const TerminalManager: React.FC = () => {
   const { session } = useAuth()
   const { items, addItem } = useEncryptedVault()
+  const { settings: terminalSettings } = useTerminalSettings()
   const { toast } = useToast()
   const { width } = useScreenSize()
   const sshItems = useMemo(() => items.filter(i => i.type === 'ssh'), [items])
@@ -190,13 +195,9 @@ export const TerminalManager: React.FC = () => {
     const term = new XTerm({
       cursorBlink: true,
       fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      fontSize: mobile ? 11 : 14,
+      fontSize: terminalSettings.fontSize,
       convertEol: true,
-      theme: {
-        background: '#0b0f17',
-        foreground: '#f8f8f2',
-        cursor: '#f8f8f2',
-      },
+      theme: getXTermTheme(terminalSettings.theme),
       allowTransparency: true,
       rightClickSelectsWord: true,
       // Mobile-friendly settings
@@ -520,8 +521,24 @@ export const TerminalManager: React.FC = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Computer className="h-5 w-5" /> SSH Terminals
+        <CardTitle className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Computer className="h-5 w-5" /> SSH Terminals
+          </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Terminal Settings</DialogTitle>
+              </DialogHeader>
+              <TerminalSettings />
+            </DialogContent>
+          </Dialog>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
