@@ -110,13 +110,8 @@ export const TerminalManager: React.FC = () => {
         body.privateKey = form.privateKey
         if (form.passphrase) body.passphrase = form.passphrase
       }
-      // Build backend URL directly (bypass frontend proxy)
-      const isDev = import.meta.env.DEV
-      const backendPort = isDev ? '8787' : (process.env.VITE_BACKEND_PORT || '8787')
-      const backendHost = isDev ? 'localhost' : location.hostname
-      const backendUrl = `${location.protocol}//${backendHost}:${backendPort}`
-
-      const res = await fetch(`${backendUrl}/ssh/sessions`, {
+      // Use Vite proxy or same-origin path in production
+      const res = await fetch(`/ssh/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -152,35 +147,14 @@ export const TerminalManager: React.FC = () => {
       return
     }
 
-    // Build WS URL to point directly to backend server, bypassing frontend proxy
-    const isDev = import.meta.env.DEV
-    let backendHost: string
-    let backendPort: string
-    let wsProtocol: string
+    // Build WS URL against current origin; Vite dev server proxies /ssh with ws enabled
+    const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const wsHost = location.host // includes port
+    const wsUrl = `${wsProtocol}//${wsHost}/ssh/sessions/${id}/attach?token=${encodeURIComponent(token)}`
 
-    if (isDev) {
-      // In development, connect directly to backend on 8787
-      backendHost = 'localhost'
-      backendPort = '8787'
-      wsProtocol = 'ws:'
-    } else {
-      // In production, connect to same host but backend port
-      backendHost = location.hostname
-      backendPort = process.env.VITE_BACKEND_PORT || '8787'
-      wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    }
-
-    const wsOrigin = `${wsProtocol}//${backendHost}:${backendPort}`
-    const wsUrl = `${wsOrigin}/ssh/sessions/${id}/attach?token=${encodeURIComponent(token)}`
-
-    console.log('Opening SSH WebSocket connection (direct to backend):', {
+    console.log('Opening SSH WebSocket connection:', {
       sessionId: id,
-      wsUrl: wsUrl.replace(/token=[^&]*/, 'token=[HIDDEN]'), // Hide token in logs
-      isDev,
-      backendHost,
-      backendPort,
-      wsProtocol,
-      environment: isDev ? 'development' : 'production'
+      wsUrl: wsUrl.replace(/token=[^&]*/, 'token=[HIDDEN]'),
     })
 
     const ws = new WebSocket(wsUrl)
@@ -344,14 +318,9 @@ export const TerminalManager: React.FC = () => {
       setActiveId(sessions.find(x => x.id !== id)?.id || null)
     }
 
-    // Delete session on server (direct to backend)
+    // Delete session on server via proxy/same-origin
     try {
-      const isDev = import.meta.env.DEV
-      const backendPort = isDev ? '8787' : (process.env.VITE_BACKEND_PORT || '8787')
-      const backendHost = isDev ? 'localhost' : location.hostname
-      const backendUrl = `${location.protocol}//${backendHost}:${backendPort}`
-
-      const response = await fetch(`${backendUrl}/ssh/sessions/${id}`, {
+      const response = await fetch(`/ssh/sessions/${id}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
