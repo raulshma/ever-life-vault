@@ -110,7 +110,14 @@ export const TerminalManager: React.FC = () => {
     if (!session?.access_token) return
     setCreating(true)
     try {
-      const body: any = {
+      const body: {
+        host: string
+        port: number
+        username: string
+        password?: string
+        privateKey?: string
+        passphrase?: string
+      } = {
         host: form.host,
         port: Number(form.port) || 22,
         username: form.username,
@@ -202,15 +209,15 @@ export const TerminalManager: React.FC = () => {
       }
     }
 
-    ws.onclose = (ev) => {
+    ws.onclose = (ev: CloseEvent) => {
       clearTimeout(connectionTimeout)
-      const code = (ev as any)?.code || 0
-      const reason = (ev as any)?.reason || 'unknown'
+      const code = ev.code || 0
+      const reason = ev.reason || 'unknown'
       console.log('SSH WebSocket closed', { sessionId: id, code, reason })
 
       // Clean up terminal
       try {
-        const cleanupResize = (term as any)._cleanupResize
+        const cleanupResize = (term as unknown as { _cleanupResize?: (() => void) | null })._cleanupResize
         if (cleanupResize) {
           window.removeEventListener('resize', cleanupResize)
         }
@@ -228,7 +235,7 @@ export const TerminalManager: React.FC = () => {
 
       // Clean up terminal on error
       try {
-        const cleanupResize = (term as any)._cleanupResize
+        const cleanupResize = (term as unknown as { _cleanupResize?: (() => void) | null })._cleanupResize
         if (cleanupResize) {
           window.removeEventListener('resize', cleanupResize)
         }
@@ -294,7 +301,7 @@ export const TerminalManager: React.FC = () => {
 
       window.addEventListener('resize', onResize)
       // Store cleanup handler on term
-      ;(term as any)._cleanupResize = onResize
+      ;(term as unknown as { _cleanupResize: (() => void) | null })._cleanupResize = onResize
     }
   }
 
@@ -334,7 +341,7 @@ export const TerminalManager: React.FC = () => {
 
     // Clean up terminal and event listeners
     try {
-      const cleanupResize = (s.term as any)?._cleanupResize
+      const cleanupResize = (s.term as unknown as { _cleanupResize?: (() => void) | null })?._cleanupResize
       if (cleanupResize) {
         window.removeEventListener('resize', cleanupResize)
       }
@@ -393,7 +400,7 @@ export const TerminalManager: React.FC = () => {
           if (s.ws && s.ws.readyState === WebSocket.OPEN) {
             s.ws.close(1000, 'component_unmount')
           }
-          const cleanupResize = (s.term as any)?._cleanupResize
+          const cleanupResize = (s.term as unknown as { _cleanupResize?: (() => void) | null })?._cleanupResize
           if (cleanupResize) {
             window.removeEventListener('resize', cleanupResize)
           }
@@ -443,8 +450,9 @@ export const TerminalManager: React.FC = () => {
       } else {
         toast({ title: 'Unable to save', description: 'Vault is locked or unavailable.', variant: 'destructive' })
       }
-    } catch (e: any) {
-      toast({ title: 'Error saving to vault', description: e?.message || 'Unknown error', variant: 'destructive' })
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : 'Unknown error'
+      toast({ title: 'Error saving to vault', description: errorMessage, variant: 'destructive' })
     }
   }
 
@@ -459,7 +467,7 @@ export const TerminalManager: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-6 gap-2 items-end">
           <div className="md:col-span-1">
             <Label>Source</Label>
-            <Select value={form.mode} onValueChange={(v: any) => setForm(f => ({ ...f, mode: v }))}>
+            <Select value={form.mode} onValueChange={(v: 'manual' | 'vault') => setForm(f => ({ ...f, mode: v }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="manual">Manual</SelectItem>
@@ -470,7 +478,7 @@ export const TerminalManager: React.FC = () => {
           {form.mode === 'vault' && (
             <div className="md:col-span-2">
               <Label>SSH Credential</Label>
-              <Select value={form.vaultItemId} onValueChange={(v: any) => setForm(f => ({ ...f, vaultItemId: v }))}>
+              <Select value={form.vaultItemId} onValueChange={(v: string) => setForm(f => ({ ...f, vaultItemId: v }))}>
                 <SelectTrigger><SelectValue placeholder={sshItems.length ? 'Choose a saved server' : 'No SSH items in vault'} /></SelectTrigger>
                 <SelectContent>
                   {sshItems.map(item => (
@@ -494,7 +502,7 @@ export const TerminalManager: React.FC = () => {
           </div>
           <div className="md:col-span-1">
             <Label>Auth</Label>
-            <Select value={form.authMode} onValueChange={(v: any) => setForm(f => ({ ...f, authMode: v }))}>
+            <Select value={form.authMode} onValueChange={(v: AuthMode) => setForm(f => ({ ...f, authMode: v }))}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="password">Password</SelectItem>
@@ -511,7 +519,7 @@ export const TerminalManager: React.FC = () => {
             <>
               <div className="md:col-span-3">
                 <Label>Private Key (PEM)</Label>
-                <Textarea value={form.privateKey || ''} onChange={(e: any) => setForm(f => ({ ...f, privateKey: e.target.value }))} placeholder="-----BEGIN OPENSSH PRIVATE KEY----- ..." rows={4} />
+                <Textarea value={form.privateKey || ''} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setForm(f => ({ ...f, privateKey: e.target.value }))} placeholder="-----BEGIN OPENSSH PRIVATE KEY----- ..." rows={4} />
               </div>
               <div>
                 <Label>Passphrase (optional)</Label>
