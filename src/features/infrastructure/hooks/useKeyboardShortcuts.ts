@@ -26,6 +26,21 @@ export const useKeyboardShortcuts = ({ shortcuts, enabled = true }: UseKeyboardS
       return;
     }
 
+    // Don't trigger shortcuts when the focused element is inside an xterm terminal
+    // or inside an element explicitly marked as a terminal (data-terminal).
+    // This allows the embedded terminal to receive raw keystrokes.
+    try {
+      if (target && typeof target.closest === 'function') {
+        const insideXterm = target.closest('.xterm') !== null;
+        const insideMarkedTerminal = target.closest('[data-terminal]') !== null;
+        if (insideXterm || insideMarkedTerminal) {
+          return;
+        }
+      }
+    } catch (err) {
+      // defensive: if closest is unavailable or throws, fall back to default behavior
+    }
+
     const matchingShortcut = shortcuts.find(shortcut => {
       const keyMatches = shortcut.key.toLowerCase() === event.key.toLowerCase();
       const ctrlMatches = !!shortcut.ctrlKey === event.ctrlKey;

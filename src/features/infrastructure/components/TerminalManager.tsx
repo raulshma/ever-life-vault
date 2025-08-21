@@ -918,15 +918,16 @@ export const TerminalManager: React.FC = () => {
                 </div>
                 <div className={`${fullscreenId === s.id ? 'fixed inset-0 z-50 p-2 sm:p-4 bg-background/90 backdrop-blur' : ''}`}>
                   <div
-                    ref={s.containerRef}
-                    className={`${mobile ? 'h-[300px] sm:h-[350px]' : 'h-[420px]'} ${fullscreenId === s.id ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : ''} w-full rounded border overflow-hidden bg-black xterm-container no-page-h-scroll`}
-                    style={{ 
-                      overflow: 'hidden',
-                      maxWidth: '100%',
-                      width: '100%',
-                      boxSizing: 'border-box' as const
-                    }}
-                  />
+                      ref={s.containerRef}
+                      data-terminal="true"
+                      className={`${mobile ? 'h-[300px] sm:h-[350px]' : 'h-[420px]'} ${fullscreenId === s.id ? 'h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)]' : ''} w-full rounded border overflow-hidden bg-black xterm-container no-page-h-scroll`}
+                      style={{ 
+                        overflow: 'hidden',
+                        maxWidth: '100%',
+                        width: '100%',
+                        boxSizing: 'border-box' as const
+                      }}
+                    />
                 </div>
               </TabsContent>
             ))}
