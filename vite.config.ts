@@ -82,10 +82,10 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         ws: true,
       },
-      "/infrastructure": {
-        target: "http://localhost:8787",
-        changeOrigin: true,
-      },
+  // Note: we intentionally do NOT proxy "/infrastructure" here so that
+  // SPA historyApiFallback can serve index.html for client-side routes
+  // (e.g. /infrastructure) on browser reloads. API endpoints live under
+  // /api/infrastructure and are proxied above.
     },
     headers: {
       // Enforce frame-ancestors via server header (meta tag can't enforce it)
