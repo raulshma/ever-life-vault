@@ -124,12 +124,20 @@ export const TerminalManager: React.FC = () => {
     try {
       sessions.forEach(s => {
         if (s.term) {
-          s.term.options = {
-            ...s.term.options,
-            fontSize: terminalSettings.fontSize,
-            theme: getXTermTheme(terminalSettings.theme),
+          try {
+            const setOpt = (s.term as any).setOption
+            if (typeof setOpt === 'function') {
+              setOpt.call(s.term, 'fontSize', terminalSettings.fontSize)
+              setOpt.call(s.term, 'theme', getXTermTheme(terminalSettings.theme))
+            } else {
+              // best-effort fallback - avoid setting readonly ctor-only options
+              try { ;(s.term as any).options.fontSize = terminalSettings.fontSize } catch (err) { }
+              try { ;(s.term as any).options.theme = getXTermTheme(terminalSettings.theme) } catch (err) { }
+            }
+            s.fit?.fit()
+          } catch (innerErr) {
+            console.warn('Unable to update terminal options for a session', { sessionId: s.id, error: innerErr })
           }
-          s.fit?.fit()
         }
       })
     } catch (e) {
@@ -168,7 +176,13 @@ export const TerminalManager: React.FC = () => {
         },
         body: JSON.stringify(body),
       })
-      if (!res.ok) throw new Error('Failed to create SSH session')
+      if (!res.ok) {
+        let bodyText = ''
+        try { bodyText = await res.text() } catch (e) { bodyText = String(e) }
+        console.error('Failed to create SSH session', { status: res.status, statusText: res.statusText, body: bodyText })
+        toast({ title: 'Failed to create session', description: bodyText || res.statusText, variant: 'destructive' })
+        return
+      }
       const { sessionId } = await res.json()
       const containerRef = React.createRef<HTMLDivElement>()
       const newState: SessionState = {
@@ -856,14 +870,15 @@ export const TerminalManager: React.FC = () => {
                         {s.status === 'connecting' && <Loader2 className="h-3 w-3 animate-spin" />}
                         {s.status}
                       </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); closeSession(s.id) }}
-                        className={`ml-1 rounded hover:bg-muted p-0.5 hidden ${mobile ? '' : 'group-hover:inline-flex'} `}
+                      <span
+                        role="button"
+                        onClick={(e: React.MouseEvent) => { e.stopPropagation(); closeSession(s.id) }}
+                        className={`ml-1 rounded hover:bg-muted p-0.5 hidden ${mobile ? '' : 'group-hover:inline-flex'} cursor-pointer`}
                         title="Close tab"
                         aria-label={`Close ${s.title}`}
                       >
                         <X className="h-3 w-3" />
-                      </button>
+                      </span>
                     </TabsTrigger>
                   ))}
                 </TabsList>
