@@ -8,17 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
-import { useTerminalSettings } from '../hooks'
+import { useTerminalSettings, useRecentTerminals } from '../hooks'
 import { Terminal as XTerm } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
 import 'xterm/css/xterm.css'
-import { Computer, Plus, Save, Trash2, Settings } from 'lucide-react'
+import { Computer, Plus, Save, Trash2, Settings, History, Zap, Clock, X } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ResponsiveGrid, ResponsiveButtonGroup } from './ResponsiveLayout'
 import { useScreenSize, isMobile } from '../utils/responsive'
 import { getXTermTheme } from '../utils/terminalThemes'
 import { TerminalSettings } from './TerminalSettings'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { RecentTerminal } from '../types'
 
 type AuthMode = 'password' | 'key'
 
@@ -48,6 +49,7 @@ export const TerminalManager: React.FC = () => {
   const { session } = useAuth()
   const { items, addItem } = useEncryptedVault()
   const { settings: terminalSettings } = useTerminalSettings()
+  const { recentTerminals, addRecentTerminal } = useRecentTerminals()
   const { toast } = useToast()
   const { width } = useScreenSize()
   const sshItems = useMemo(() => items.filter(i => i.type === 'ssh'), [items])
@@ -157,6 +159,15 @@ export const TerminalManager: React.FC = () => {
       }
       setSessions(prev => [...prev, newState])
       setActiveId(sessionId)
+
+      // Track recent terminal connection
+      await addRecentTerminal({
+        host: form.host,
+        port: Number(form.port) || 22,
+        username: form.username,
+        authMode: form.authMode,
+        name: `${form.username}@${form.host}`,
+      })
 
       setTimeout(() => attachTerminal(sessionId, containerRef), 0)
     } catch (e) {
@@ -491,6 +502,62 @@ export const TerminalManager: React.FC = () => {
   // Helper function to check if maximum sessions limit is reached
   const maxSessionsReached = sessions.length >= 10 // Limit to 10 concurrent sessions
 
+  // Quick connect to recent terminal
+  const quickConnect = async (terminal: RecentTerminal) => {
+    if (maxSessionsReached) {
+      toast({
+        title: 'Session limit reached',
+        description: 'Maximum of 10 concurrent sessions allowed.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    // Check if already connected to this terminal
+    const existingSession = sessions.find(s => s.title === terminal.name)
+    if (existingSession) {
+      setActiveId(existingSession.id)
+      return
+    }
+
+    // Set form values and create session
+    setForm(prev => ({
+      ...prev,
+      mode: 'manual',
+      host: terminal.host,
+      port: terminal.port.toString(),
+      username: terminal.username,
+      authMode: terminal.authMode,
+      // Note: We can't restore password/privateKey from recent connections for security
+      password: '',
+      privateKey: '',
+      passphrase: '',
+    }))
+
+    // Try to find in vault first
+    const vaultItem = sshItems.find(item =>
+      item.data?.host === terminal.host &&
+      item.data?.username === terminal.username &&
+      Number(item.data?.port || 22) === terminal.port
+    )
+
+    if (vaultItem) {
+      setForm(prev => ({
+        ...prev,
+        mode: 'vault',
+        vaultItemId: vaultItem.id,
+      }))
+    }
+
+    toast({
+      title: 'Quick Connect',
+      description: `Connecting to ${terminal.name}...`,
+    })
+
+    // Create session after a brief delay to allow form to update
+    setTimeout(() => createSession(), 100)
+  }
+
   const saveToVault = async () => {
     if (!canCreate) return
     try {
@@ -672,6 +739,55 @@ export const TerminalManager: React.FC = () => {
             </Button>
           </ResponsiveButtonGroup>
         </div>
+
+        {/* Recent Terminals Section */}
+        {recentTerminals.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <Label className="text-sm font-medium">Recent Connections</Label>
+            </div>
+            <div className="grid gap-2 max-h-48 overflow-y-auto">
+              {recentTerminals.map((terminal) => (
+                <Card key={terminal.id} className="p-3 hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Computer className="h-3 w-3 text-muted-foreground" />
+                        <span className="font-medium text-sm truncate">{terminal.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          terminal.authMode === 'password'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {terminal.authMode}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {new Date(terminal.lastConnected).toLocaleDateString()}
+                        </span>
+                        <span>Port {terminal.port}</span>
+                        <span>{terminal.connectionCount} connection{terminal.connectionCount !== 1 ? 's' : ''}</span>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => quickConnect(terminal)}
+                      disabled={maxSessionsReached}
+                      className="ml-2"
+                    >
+                      <Zap className="h-3 w-3 mr-1" />
+                      Connect
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {sessions.length === 0 ? (
           <div className="text-center text-muted-foreground py-10">No sessions yet. Create one above.</div>

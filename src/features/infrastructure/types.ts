@@ -8,6 +8,18 @@ export interface TerminalSettings {
 
 export type TerminalTheme = 'dark' | 'light' | 'dracula' | 'solarized-dark' | 'solarized-light' | 'monokai' | 'gruvbox';
 
+// Recent terminal connections types
+export interface RecentTerminal {
+  id: string;
+  host: string;
+  port: number;
+  username: string;
+  authMode: 'password' | 'key';
+  name: string;
+  lastConnected: string;
+  connectionCount: number;
+}
+
 export interface DockerComposeConfig {
   id: string
   user_id: string
