@@ -17,6 +17,7 @@ import {
   User,
   Gamepad2,
   GitBranch,
+  TerminalSquare,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -51,6 +52,7 @@ export const moduleCategories: NavGroups = {
   ],
   infrastructure: [
     { name: "Infrastructure", path: "/infrastructure", icon: Server },
+    { name: "Terminals", path: "/infrastructure/terminals", icon: TerminalSquare },
     { name: "Vault", path: "/vault", icon: Shield },
     { name: "Repo Flattener", path: "/repo-flatten", icon: GitBranch },
     { name: "Live Share", path: "/share/new", icon: Share2 },

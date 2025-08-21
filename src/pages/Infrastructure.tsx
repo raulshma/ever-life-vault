@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Server, Settings, Activity, Shield, Plus, Keyboard, HelpCircle, TerminalSquare } from "lucide-react";
+import { Server, Settings, Activity, Shield, Plus, Keyboard, HelpCircle } from "lucide-react";
 import { ConfigurationEditor } from "@/features/infrastructure/components/ConfigurationEditor";
 import { StackManager } from "@/features/infrastructure/components/StackManager";
 import { SecretsManagementPage } from "@/features/infrastructure/components/SecretsManagementPage";
@@ -16,7 +16,7 @@ import { ResponsiveLayout, ResponsiveText, ResponsiveButtonGroup } from "@/featu
 import { useScreenSize } from "@/features/infrastructure/utils/responsive";
 import type { DockerComposeConfig } from "@/features/infrastructure/types";
 import { ConfigurationsList } from "@/features/infrastructure/components/ConfigurationsList";
-import { TerminalManager } from "@/features/infrastructure/components/TerminalManager";
+
 import { configsApi, type UpdateConfigPayload } from "@/features/infrastructure/services/configsApi";
 
 const Infrastructure: React.FC = () => {
@@ -221,10 +221,7 @@ const Infrastructure: React.FC = () => {
                     <Shield className="h-4 w-4" />
                     <span>Secrets</span>
                   </TabsTrigger>
-                  <TabsTrigger value="terminals" className="flex items-center gap-2">
-                    <TerminalSquare className="h-4 w-4" />
-                    <span>Terminals</span>
-                  </TabsTrigger>
+
                 </>
               )}
               {isMobile && (
@@ -355,10 +352,7 @@ const Infrastructure: React.FC = () => {
             </Card>
           </TabsContent>
 
-          {/* Terminals Tab */}
-          <TabsContent value="terminals" className="space-y-4">
-            <TerminalManager />
-          </TabsContent>
+
 
           {/* Secrets Tab */}
           <TabsContent value="secrets" className="space-y-4">
