@@ -42,7 +42,9 @@ export const DockerImportDialog: React.FC<DockerImportDialogProps> = ({
     if (result.success && result.composeConfig) {
       // Auto-import after successful parsing
       setTimeout(() => {
-        onImport(result.composeConfig);
+        if (result.composeConfig) {
+          onImport(result.composeConfig);
+        }
         setOpen(false);
         resetState();
       }, 1000);
@@ -55,14 +57,16 @@ export const DockerImportDialog: React.FC<DockerImportDialogProps> = ({
     const result = parseDockerCommand(dockerCommand);
     setCommandResult(result);
     
-    if (result.success && result.composeConfig) {
-      // Auto-import after successful parsing
-      setTimeout(() => {
-        onImport(result.composeConfig);
-        setOpen(false);
-        resetState();
-      }, 1000);
-    }
+          if (result.success && result.composeConfig) {
+        // Auto-import after successful parsing
+        setTimeout(() => {
+          if (result.composeConfig) {
+            onImport(result.composeConfig);
+          }
+          setOpen(false);
+          resetState();
+        }, 1000);
+      }
   };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {

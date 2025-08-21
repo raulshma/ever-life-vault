@@ -428,7 +428,7 @@ export function getEffectiveCacheTime<T extends BaseWidgetConfig>(
     // Fallback: try to infer widget type from config structure if registry lookup failed
     try {
       if (config && typeof config === 'object') {
-        let inferredType = null
+        let inferredType: string | null = null
         
         // Check for location-based widgets
         if ('lat' in config && 'lon' in config) {

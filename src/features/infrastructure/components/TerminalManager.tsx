@@ -41,7 +41,7 @@ type SessionState = {
   ws?: WebSocket
   term?: XTerm
   fit?: FitAddon
-  containerRef: React.RefObject<HTMLDivElement>
+  containerRef: React.RefObject<HTMLDivElement | null>
   status: 'connecting' | 'connected' | 'closed' | 'error'
 }
 
@@ -177,7 +177,7 @@ export const TerminalManager: React.FC = () => {
     }
   }
 
-  const attachTerminal = (id: string, containerRef: React.RefObject<HTMLDivElement>) => {
+  const attachTerminal = (id: string, containerRef: React.RefObject<HTMLDivElement | null>) => {
     const token = session?.access_token
     if (!token) {
       console.error('No access token available for SSH connection')

@@ -131,7 +131,13 @@ export default function LiveShareRoom() {
 
   const isGuest = Boolean(inviteCodeParam);
   const shouldEnable = verified && (!isGuest || approvalStatus === 'approved');
-  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ shareId: id!, maxPeers: effectiveMaxPeers, encryptionKey: key, debug: true, enabled: shouldEnable });
+  const { state, setText, leave, updateRoomLocked, sendChatMessage, getDiagnostics, kickPeer, myPeerId, exportSnapshot, importSnapshot, rotateKey, setCursorNormalized, clearCursor } = useP2PShare({ 
+    shareId: id || '', 
+    maxPeers: effectiveMaxPeers, 
+    encryptionKey: key, 
+    debug: true, 
+    enabled: shouldEnable && !!id 
+  });
   const [chatInput, setChatInput] = useState("");
   const [diag, setDiag] = useState<any[]>([]);
   const editorRef = useRef<HTMLDivElement | null>(null);

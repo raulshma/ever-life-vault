@@ -95,7 +95,7 @@ function migrateWidgetConfigs(widgetState: WidgetStateMap, registry: any): Widge
       console.log(`[Migration] Widget ${id} config:`, state.config)
       
       // Try to infer the widget type from the config structure
-      let inferredType = null
+      let inferredType: string | null = null
       
       if (state.config && typeof state.config === 'object') {
         console.log(`[Migration] Widget ${id} config properties:`, Object.keys(state.config))

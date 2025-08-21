@@ -154,12 +154,13 @@ export function DocumentDialog({ document, mode, trigger, open, onOpenChange }: 
     setLoading(true);
 
     try {
-      let filePath = formData.file_path;
+      let filePath: string | undefined = formData.file_path;
 
       if (selectedFile && mode !== 'view') {
         setUploading(true);
-        filePath = await uploadFile(selectedFile);
-        if (!filePath) throw new Error('File upload failed');
+        const uploadedPath = await uploadFile(selectedFile);
+        if (!uploadedPath) throw new Error('File upload failed');
+        filePath = uploadedPath;
         setUploading(false);
       }
 

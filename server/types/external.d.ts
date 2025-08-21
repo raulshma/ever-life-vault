@@ -17,5 +17,6 @@ declare module 'ssh2' {
     connect(config: any): void
     shell(options: any, cb: (err?: Error, stream?: any) => void): void
     end(): void
+    removeListener(event: string, listener: (...args: any[]) => void): this
   }
 }

@@ -158,11 +158,13 @@ export function InventoryDialog({ item, mode, trigger, open, onOpenChange }: Inv
     setLoading(true);
 
     try {
-      let imageUrl = formData.image_url;
+      let imageUrl: string | undefined = formData.image_url;
 
       if (selectedFile && mode !== 'view') {
         setUploading(true);
-        imageUrl = await uploadFile(selectedFile);
+        const uploadedUrl = await uploadFile(selectedFile);
+        if (!uploadedUrl) throw new Error('Image upload failed');
+        imageUrl = uploadedUrl;
         setUploading(false);
       }
 
@@ -170,7 +172,7 @@ export function InventoryDialog({ item, mode, trigger, open, onOpenChange }: Inv
         ...formData,
         value: formData.value ? parseFloat(formData.value) : undefined,
         image_url: imageUrl,
-        location_id: formData.location_id || null
+        location_id: formData.location_id || undefined
       };
 
       if (mode === 'add') {

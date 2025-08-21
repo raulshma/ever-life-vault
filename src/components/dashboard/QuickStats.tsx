@@ -52,7 +52,7 @@ export default function QuickStats() {
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
 
-        const organizedPercentage = totalTasks > 0 ? Math.round(((completedTasks || 0) / totalTasks) * 100) : 0;
+        const organizedPercentage = (totalTasks && totalTasks > 0) ? Math.round(((completedTasks || 0) / totalTasks) * 100) : 0;
 
         setStats([
           { icon: CheckCircle, value: (completedTasks || 0).toString(), label: 'Tasks Done', color: 'blue' },

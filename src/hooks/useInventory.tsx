@@ -7,17 +7,17 @@ interface InventoryItem {
   id: string;
   name: string;
   category: string;
-  description?: string;
-  location_id?: string;
-  value?: number;
-  purchase_date?: string;
-  warranty_expires?: string;
-  image_url?: string;
+  description?: string | null;
+  location_id?: string | null;
+  value?: number | null;
+  purchase_date?: string | null;
+  warranty_expires?: string | null;
+  image_url?: string | null;
   has_qr_code: boolean;
-  qr_code_data?: string;
+  qr_code_data?: string | null;
   is_lent: boolean;
-  lent_to?: string;
-  lent_date?: string;
+  lent_to?: string | null;
+  lent_date?: string | null;
   created_at: string;
   updated_at: string;
   user_id: string;
@@ -26,8 +26,8 @@ interface InventoryItem {
 interface Location {
   id: string;
   name: string;
-  description?: string;
-  icon: string;
+  description?: string | null;
+  icon: string | null;
   created_at: string;
   user_id: string;
 }
