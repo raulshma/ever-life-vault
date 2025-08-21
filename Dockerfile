@@ -19,7 +19,11 @@ COPY public ./public
 COPY src ./src
 
 # Install dependencies and build
-RUN pnpm install --frozen-lockfile && pnpm build
+# Use BuildKit cache mounts to persist pnpm store between builds when Docker BuildKit is enabled.
+# This speeds up repeated builds on CI by caching pnpm's store and caches between runs.
+RUN --mount=type=cache,target=/root/.cache/pnpm \
+  --mount=type=cache,target=/root/.local/share/pnpm \
+  pnpm install --frozen-lockfile && pnpm build
 
 FROM nginx:alpine AS runner
 

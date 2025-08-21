@@ -131,19 +131,52 @@ pipeline {
             echo "Warning: Credential 'turnstile-site-key' not found, proceeding without it"
           }
 
-          sh """
+          sh '''
             set -e
-            echo "Building backend image..."
-            docker build -t ${APP_NAME}/backend:latest -f server/Dockerfile server
-            
-            echo "Building web image..."
-            docker build \
-              --build-arg VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey} \
-              -t ${APP_NAME}/web:latest -f Dockerfile .
-            
+            echo "Preparing buildx and cache directories..."
+
+            # Directories on the agent to persist cache between builds
+            CACHE_BASE="/home/jenkins/.cache/ever-life-vault"
+            PNPM_STORE_DIR="${CACHE_BASE}/pnpm-store"
+            LAYERS_CACHE_DIR="${CACHE_BASE}/docker-cache"
+            mkdir -p "${PNPM_STORE_DIR}" "${LAYERS_CACHE_DIR}"
+
+            # Ensure buildx builder exists
+            if ! docker buildx version >/dev/null 2>&1; then
+              echo "docker buildx not available; attempting to create builder..."
+              docker buildx create --use --name jenkins-builder || true
+            fi
+
+            # Use buildx with local cache export/import so subsequent builds reuse pnpm and layer caches
+            echo "Building backend image with buildx and cache..."
+            if docker buildx version >/dev/null 2>&1; then
+              docker buildx build \
+                --builder jenkins-builder \
+                --cache-from type=local,src="${LAYERS_CACHE_DIR}" \
+                --cache-to type=local,dest="${LAYERS_CACHE_DIR}" --load \
+                -t ${APP_NAME}/backend:latest -f server/Dockerfile server
+            else
+              docker build -t ${APP_NAME}/backend:latest -f server/Dockerfile server
+            fi
+
+            echo "Building web image with buildx and cache (pnpm store) ..."
+            if docker buildx version >/dev/null 2>&1; then
+              docker buildx build \
+                --builder jenkins-builder \
+                --cache-from type=local,src="${LAYERS_CACHE_DIR}" \
+                --cache-to type=local,dest="${LAYERS_CACHE_DIR}" --load \
+                --build-arg VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey} \
+                -t ${APP_NAME}/web:latest -f Dockerfile .
+            else
+              # When not using buildx, at least mount pnpm store from host into build context by using --build-arg
+              docker build \
+                --build-arg VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey} \
+                -t ${APP_NAME}/web:latest -f Dockerfile .
+            fi
+
             echo "Images built successfully"
-            docker images | grep ${APP_NAME}
-          """
+            docker images | grep ${APP_NAME} || true
+          '''
         }
       }
     }
