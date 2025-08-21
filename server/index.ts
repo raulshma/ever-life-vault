@@ -1,4 +1,6 @@
 import Fastify, { FastifyInstance } from 'fastify'
+// @ts-ignore - types are provided via local shims
+import fastifyWebsocket from '@fastify/websocket'
 import { env } from './config/env.js'
 import { registerCors } from './plugins/cors.js'
 import { registerServiceProxies } from './plugins/proxies.js'
@@ -22,6 +24,10 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   await registerCors(server, env.ALLOWED_ORIGINS)
   await registerPerfPlugins(server)
+
+  // Register WebSocket plugin globally (needed for SSH routes)
+  await server.register(fastifyWebsocket as any)
+  server.log.info('WebSocket plugin registered globally')
 
   // Register auth routes (including Turnstile verification)
   if (env.TURNSTILE_SECRET_KEY) {

@@ -110,7 +110,13 @@ export const TerminalManager: React.FC = () => {
         body.privateKey = form.privateKey
         if (form.passphrase) body.passphrase = form.passphrase
       }
-      const res = await fetch('/ssh/sessions', {
+      // Build backend URL directly (bypass frontend proxy)
+      const isDev = import.meta.env.DEV
+      const backendPort = isDev ? '8787' : (process.env.VITE_BACKEND_PORT || '8787')
+      const backendHost = isDev ? 'localhost' : location.hostname
+      const backendUrl = `${location.protocol}//${backendHost}:${backendPort}`
+
+      const res = await fetch(`${backendUrl}/ssh/sessions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,13 +146,50 @@ export const TerminalManager: React.FC = () => {
 
   const attachTerminal = (id: string, containerRef: React.RefObject<HTMLDivElement>) => {
     const token = session?.access_token
-    if (!token) return
-    // Build WS URL from location.origin to behave well behind proxies (and keep same origin/scheme)
-    // e.g. https://example.com -> wss://example.com
-    const wsOrigin = location.origin.replace(/^http/, 'ws')
+    if (!token) {
+      console.error('No access token available for SSH connection')
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
+      return
+    }
+
+    // Build WS URL to point directly to backend server, bypassing frontend proxy
+    const isDev = import.meta.env.DEV
+    let backendHost: string
+    let backendPort: string
+    let wsProtocol: string
+
+    if (isDev) {
+      // In development, connect directly to backend on 8787
+      backendHost = 'localhost'
+      backendPort = '8787'
+      wsProtocol = 'ws:'
+    } else {
+      // In production, connect to same host but backend port
+      backendHost = location.hostname
+      backendPort = process.env.VITE_BACKEND_PORT || '8787'
+      wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    }
+
+    const wsOrigin = `${wsProtocol}//${backendHost}:${backendPort}`
     const wsUrl = `${wsOrigin}/ssh/sessions/${id}/attach?token=${encodeURIComponent(token)}`
-  try { console.debug('Opening SSH WS', { wsUrl, sessionId: id }) } catch {}
-  const ws = new WebSocket(wsUrl)
+
+    console.log('Opening SSH WebSocket connection (direct to backend):', {
+      sessionId: id,
+      wsUrl: wsUrl.replace(/token=[^&]*/, 'token=[HIDDEN]'), // Hide token in logs
+      isDev,
+      backendHost,
+      backendPort,
+      wsProtocol,
+      environment: isDev ? 'development' : 'production'
+    })
+
+    const ws = new WebSocket(wsUrl)
+
+    // Set up connection timeout
+    const connectionTimeout = setTimeout(() => {
+      console.error('SSH WebSocket connection timeout')
+      ws.close(1000, 'connection_timeout')
+    }, 10000)
 
     const term = new XTerm({
       cursorBlink: true,
@@ -161,60 +204,173 @@ export const TerminalManager: React.FC = () => {
 
     ws.binaryType = 'arraybuffer'
 
-  ws.onopen = () => {
+    ws.onopen = () => {
+      console.log('SSH WebSocket connected successfully', { sessionId: id })
+      clearTimeout(connectionTimeout)
+
       setSessions(prev => prev.map(s => s.id === id ? { ...s, ws, term, fit, status: 'connected' } : s))
+
       if (containerRef.current) {
-        term.open(containerRef.current)
-        fit.fit()
-        // send initial resize
-        const dims = (term as any)._core?._renderService?._renderer?.dimensions
-        const cols = term.cols
-        const rows = term.rows
-        ws.send(JSON.stringify({ type: 'resize', cols, rows }))
+        try {
+          term.open(containerRef.current)
+          fit.fit()
+
+          // Send initial resize
+          const cols = term.cols
+          const rows = term.rows
+          console.log('Sending initial terminal size', { sessionId: id, cols, rows })
+          ws.send(JSON.stringify({ type: 'resize', cols, rows }))
+        } catch (error) {
+          console.error('Error initializing terminal', { sessionId: id, error })
+        }
       }
+
       term.focus()
+
+      // Handle terminal input
       term.onData(data => {
-        try { ws.send(data) } catch {}
+        try {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(data)
+          }
+        } catch (error) {
+          console.error('Error sending terminal data', { sessionId: id, error })
+        }
       })
+
+      // Handle window resize
       const onResize = () => {
-        try { fit.fit() } catch {}
-        try { ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows })) } catch {}
+        try {
+          fit.fit()
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
+          }
+        } catch (error) {
+          console.error('Error handling resize', { sessionId: id, error })
+        }
       }
+
       window.addEventListener('resize', onResize)
-      // store cleanup handler on term
+      // Store cleanup handler on term
       ;(term as any)._cleanupResize = onResize
     }
+
     ws.onmessage = (ev) => {
-      if (ev.data instanceof ArrayBuffer) {
-        const text = new TextDecoder().decode(new Uint8Array(ev.data))
-        term.write(text)
-      } else if (typeof ev.data === 'string') {
-        term.write(ev.data)
+      try {
+        if (ev.data instanceof ArrayBuffer) {
+          const text = new TextDecoder().decode(new Uint8Array(ev.data))
+          term.write(text)
+        } else if (typeof ev.data === 'string') {
+          term.write(ev.data)
+        }
+      } catch (error) {
+        console.error('Error processing WebSocket message', { sessionId: id, error })
       }
     }
+
     ws.onclose = (ev) => {
-      // ev may contain useful code/reason for troubleshooting
-      try { console.debug('SSH WS closed', { sessionId: id, code: (ev as any)?.code, reason: (ev as any)?.reason }) } catch {}
+      clearTimeout(connectionTimeout)
+      const code = (ev as any)?.code || 0
+      const reason = (ev as any)?.reason || 'unknown'
+      console.log('SSH WebSocket closed', { sessionId: id, code, reason })
+
+      // Clean up terminal
+      try {
+        const cleanupResize = (term as any)._cleanupResize
+        if (cleanupResize) {
+          window.removeEventListener('resize', cleanupResize)
+        }
+        term.dispose()
+      } catch (error) {
+        console.error('Error cleaning up terminal', { sessionId: id, error })
+      }
+
       setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'closed' } : s))
     }
+
     ws.onerror = (err) => {
-      try { console.error('SSH WS error', { sessionId: id, err }) } catch {}
+      clearTimeout(connectionTimeout)
+      console.error('SSH WebSocket error', { sessionId: id, err })
+
+      // Clean up terminal on error
+      try {
+        const cleanupResize = (term as any)._cleanupResize
+        if (cleanupResize) {
+          window.removeEventListener('resize', cleanupResize)
+        }
+        term.dispose()
+      } catch (error) {
+        console.error('Error cleaning up terminal after WebSocket error', { sessionId: id, error })
+      }
+
       setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
     }
   }
 
   const closeSession = async (id: string) => {
+    console.log('Closing SSH session', { sessionId: id })
     const s = sessions.find(x => x.id === id)
-    try {
-      s?.ws?.close()
-      await fetch(`/ssh/sessions/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${session?.access_token}` } })
-    } catch {}
-    if ((s?.term as any)?._cleanupResize) {
-      window.removeEventListener('resize', (s!.term as any)._cleanupResize)
+
+    if (!s) {
+      console.warn('Session not found for closing', { sessionId: id })
+      return
     }
-    s?.term?.dispose()
+
+    // Close WebSocket connection
+    try {
+      if (s.ws) {
+        s.ws.close(1000, 'user_closed')
+        console.log('WebSocket closed', { sessionId: id })
+      }
+    } catch (error) {
+      console.error('Error closing WebSocket', { sessionId: id, error })
+    }
+
+    // Clean up terminal
+    try {
+      const cleanupResize = (s.term as any)?._cleanupResize
+      if (cleanupResize) {
+        window.removeEventListener('resize', cleanupResize)
+      }
+      s.term?.dispose()
+      console.log('Terminal disposed', { sessionId: id })
+    } catch (error) {
+      console.error('Error disposing terminal', { sessionId: id, error })
+    }
+
+    // Remove session from state
     setSessions(prev => prev.filter(x => x.id !== id))
-    if (activeId === id) setActiveId(sessions.find(x => x.id !== id)?.id || null)
+    if (activeId === id) {
+      setActiveId(sessions.find(x => x.id !== id)?.id || null)
+    }
+
+    // Delete session on server (direct to backend)
+    try {
+      const isDev = import.meta.env.DEV
+      const backendPort = isDev ? '8787' : (process.env.VITE_BACKEND_PORT || '8787')
+      const backendHost = isDev ? 'localhost' : location.hostname
+      const backendUrl = `${location.protocol}//${backendHost}:${backendPort}`
+
+      const response = await fetch(`${backendUrl}/ssh/sessions/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session?.access_token}`
+        }
+      })
+
+      if (!response.ok) {
+        console.error('Failed to delete session on server', {
+          sessionId: id,
+          status: response.status,
+          statusText: response.statusText
+        })
+      } else {
+        console.log('Session deleted on server', { sessionId: id })
+      }
+    } catch (error) {
+      console.error('Error deleting session on server', { sessionId: id, error })
+    }
   }
 
   const canCreate = form.host && form.username && (form.authMode === 'password' ? !!form.password : !!form.privateKey)
