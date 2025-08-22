@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef, Suspense, lazy } from 'react'
 import PageHeader from '@/components/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -86,6 +86,9 @@ import {
   ReferenceLine
 } from 'recharts'
 
+// Lazy loaded chart components for better performance
+const ChartsSection = lazy(() => import('./components/LLMChartsSection'))
+
 interface LLMModel {
   id: string
   name: string
@@ -115,6 +118,12 @@ interface LLMStats {
     input: { min: number; max: number }
     output: { min: number; max: number }
   }
+}
+
+interface DrillDownFilter {
+  type: 'provider' | 'capability' | 'contextRange' | 'pricingRange' | 'quality' | 'availability' | null
+  value: string | { min: number; max: number } | null
+  title: string
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
@@ -183,6 +192,7 @@ export default function LLMModels() {
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('')
   const [providerFilter, setProviderFilter] = useState<string>('all')
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [capabilityFilter, setCapabilityFilter] = useState<string>('all')
@@ -192,6 +202,8 @@ export default function LLMModels() {
   const [selectedModel, setSelectedModel] = useState<LLMModel | null>(null)
   const [compareModels, setCompareModels] = useState<LLMModel[]>([])
   const [isCompareMode, setIsCompareMode] = useState(false)
+  const [drillDownFilter, setDrillDownFilter] = useState<DrillDownFilter | null>(null)
+  const [drillDownModels, setDrillDownModels] = useState<LLMModel[]>([])
 
   // Fetch models with caching
   const fetchModels = React.useCallback(async (forceRefresh = false) => {
@@ -253,24 +265,7 @@ export default function LLMModels() {
     setRefreshing(false)
   }, [fetchModels, fetchStats])
 
-  // Model comparison functions
-  const toggleModelComparison = React.useCallback((model: LLMModel) => {
-    setCompareModels(prev => {
-      const isSelected = prev.find(m => m.id === model.id)
-      if (isSelected) {
-        return prev.filter(m => m.id !== model.id)
-      } else if (prev.length < 4) { // Limit to 4 models for comparison
-        return [...prev, model]
-      }
-      return prev
-    })
-  }, [])
-
-  const clearComparison = React.useCallback(() => {
-    setCompareModels([])
-    setIsCompareMode(false)
-  }, [])
-
+  // Memoized utility functions for performance
   const getModelQualityScore = React.useCallback((model: LLMModel) => {
     let score = 0
     if (model.contextLength && model.contextLength > 32000) score += 25
@@ -291,89 +286,284 @@ export default function LLMModels() {
     ]
   }, [])
 
-  // Filter and sort models
+  // Drill-down filtering
+  const handleDrillDown = React.useCallback(async (filter: DrillDownFilter) => {
+    setDrillDownFilter(filter)
+
+    try {
+      const queryParams = new URLSearchParams()
+
+      switch (filter.type) {
+        case 'provider': {
+          queryParams.append('providers', filter.value as string)
+          break
+        }
+        case 'capability': {
+          queryParams.append('capabilities', filter.value as string)
+          break
+        }
+        case 'contextRange': {
+          const contextRange = filter.value as { min: number; max: number }
+          queryParams.append('minContextLength', contextRange.min.toString())
+          if (contextRange.max < Infinity) {
+            queryParams.append('maxContextLength', contextRange.max.toString())
+          }
+          break
+        }
+        case 'pricingRange': {
+          const pricingRange = filter.value as { min: number; max: number }
+          queryParams.append('maxInputPrice', pricingRange.max.toString())
+          break
+        }
+        case 'quality': {
+          // Handle quality-based filtering on client side for now
+          const qualityModels = models.filter(model => {
+            const score = getModelQualityScore(model)
+            switch (filter.value) {
+              case 'premium':
+                return score >= 80
+              case 'good':
+                return score >= 60 && score < 80
+              case 'average':
+                return score >= 40 && score < 60
+              case 'poor':
+                return score < 40
+              default:
+                return true
+            }
+          })
+          setDrillDownModels(qualityModels)
+          setActiveTab('models')
+          return
+        }
+        case 'availability': {
+          const availabilityModels = models.filter(model =>
+            filter.value === 'available' ? model.isAvailable : !model.isAvailable
+          )
+          setDrillDownModels(availabilityModels)
+          setActiveTab('models')
+          return
+        }
+      }
+
+      const response = await fetchWithAuth(`/api/llm/models/filtered?${queryParams}`)
+      if (!response.ok) throw new Error('Failed to fetch filtered models')
+      const data = await response.json()
+
+      if (data.success) {
+        setDrillDownModels(data.data)
+        setActiveTab('models')
+      }
+    } catch (error) {
+      console.error('Error fetching filtered models:', error)
+    }
+  }, [models, getModelQualityScore])
+
+  // Clear drill-down filter
+  const clearDrillDown = React.useCallback(() => {
+    setDrillDownFilter(null)
+    setDrillDownModels([])
+  }, [])
+
+  // Model comparison functions
+  const toggleModelComparison = React.useCallback((model: LLMModel) => {
+    setCompareModels(prev => {
+      const isSelected = prev.find(m => m.id === model.id)
+      if (isSelected) {
+        return prev.filter(m => m.id !== model.id)
+      } else if (prev.length < 4) { // Limit to 4 models for comparison
+        return [...prev, model]
+      }
+      return prev
+    })
+  }, [])
+
+  const clearComparison = React.useCallback(() => {
+    setCompareModels([])
+    setIsCompareMode(false)
+  }, [])
+
+  
+
+  // Memoized model data to avoid recalculations
+  const modelsWithComputedData = useMemo(() => {
+    return models.map(model => ({
+      ...model,
+      qualityScore: getModelQualityScore(model),
+      performanceData: getModelPerformanceData(model)
+    }))
+  }, [models, getModelQualityScore, getModelPerformanceData])
+
+  // Memoized drill-down models with computed data
+  const drillDownModelsWithComputedData = useMemo(() => {
+    return drillDownModels.map(model => ({
+      ...model,
+      qualityScore: getModelQualityScore(model),
+      performanceData: getModelPerformanceData(model)
+    }))
+  }, [drillDownModels, getModelQualityScore, getModelPerformanceData])
+
+  // Optimized filtering and sorting with debounced search
   const filteredAndSortedModels = useMemo(() => {
-    let filtered = models.filter(model => {
-      const matchesSearch = searchQuery === '' ||
-        model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        model.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        model.company?.toLowerCase().includes(searchQuery.toLowerCase())
+    if (!models.length) return []
 
-      const matchesProvider = providerFilter === 'all' || model.provider === providerFilter
-      const matchesCompany = companyFilter === 'all' || model.company === companyFilter
-      const matchesCapability = capabilityFilter === 'all' ||
-        (model.capabilities && model.capabilities.includes(capabilityFilter))
+    // Early return if no search query but other filters exist
+    if (debouncedSearchQuery === '' && providerFilter === 'all' && companyFilter === 'all' && capabilityFilter === 'all') {
+      return models.slice().sort((a, b) => {
+        let aVal: string | number, bVal: string | number
 
-      return matchesSearch && matchesProvider && matchesCompany && matchesCapability
+        switch (sortBy) {
+          case 'name':
+            aVal = a.name.toLowerCase()
+            bVal = b.name.toLowerCase()
+            break
+          case 'contextLength':
+            aVal = a.contextLength || 0
+            bVal = b.contextLength || 0
+            break
+          case 'inputPrice':
+            aVal = a.pricing?.input || 0
+            bVal = b.pricing?.input || 0
+            break
+          case 'outputPrice':
+            aVal = a.pricing?.output || 0
+            bVal = b.pricing?.output || 0
+            break
+          default:
+            aVal = a.name
+            bVal = b.name
+        }
+
+        if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
+        if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+
+    // Pre-compute search terms for better performance
+    const searchLower = debouncedSearchQuery.toLowerCase()
+    const hasSearch = searchLower.length > 0
+
+    const filtered = models.filter(model => {
+      // Search filter - optimized with early returns
+      if (hasSearch) {
+        const nameMatch = model.name.toLowerCase().includes(searchLower)
+        const descMatch = model.description?.toLowerCase().includes(searchLower)
+        const companyMatch = model.company?.toLowerCase().includes(searchLower)
+        if (!nameMatch && !descMatch && !companyMatch) return false
+      }
+
+      // Provider filter
+      if (providerFilter !== 'all' && model.provider !== providerFilter) return false
+
+      // Company filter
+      if (companyFilter !== 'all' && model.company !== companyFilter) return false
+
+      // Capability filter - optimized with Set for O(1) lookups
+      if (capabilityFilter !== 'all') {
+        if (!model.capabilities?.includes(capabilityFilter)) return false
+      }
+
+      return true
     })
 
-    // Sort models
-    filtered.sort((a, b) => {
-      let aVal: any, bVal: any
+    // Sort models - optimized comparison
+    if (filtered.length > 1) {
+      filtered.sort((a, b) => {
+        let aVal: string | number, bVal: string | number
 
       switch (sortBy) {
-        case 'name':
+        case 'name': {
           aVal = a.name.toLowerCase()
           bVal = b.name.toLowerCase()
           break
-        case 'contextLength':
+        }
+        case 'contextLength': {
           aVal = a.contextLength || 0
           bVal = b.contextLength || 0
           break
-        case 'inputPrice':
+        }
+        case 'inputPrice': {
           aVal = a.pricing?.input || 0
           bVal = b.pricing?.input || 0
           break
-        case 'outputPrice':
+        }
+        case 'outputPrice': {
           aVal = a.pricing?.output || 0
           bVal = b.pricing?.output || 0
           break
-        default:
+        }
+        default: {
           aVal = a.name
           bVal = b.name
+        }
       }
 
       if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
       if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1
       return 0
     })
+    }
 
     return filtered
-  }, [models, searchQuery, providerFilter, companyFilter, capabilityFilter, sortBy, sortOrder])
+  }, [models, debouncedSearchQuery, providerFilter, companyFilter, capabilityFilter, sortBy, sortOrder])
 
-  // Get unique values for filters
-  const uniqueProviders = useMemo(() => [...new Set(models.map(m => m.provider))], [models])
-  const uniqueCompanies = useMemo(() => [...new Set(models.map(m => m.company).filter(Boolean))], [models])
-  const uniqueCapabilities = useMemo(() => {
-    const allCapabilities = models.flatMap(m => m.capabilities || [])
-    return [...new Set(allCapabilities)]
+  // Optimized unique values for filters with better performance
+  const uniqueProviders = useMemo(() => {
+    const providers = new Set<string>()
+    models.forEach(m => providers.add(m.provider))
+    return Array.from(providers).sort()
   }, [models])
 
-  // Prepare chart data
+  const uniqueCompanies = useMemo(() => {
+    const companies = new Set<string>()
+    models.forEach(m => {
+      if (m.company) companies.add(m.company)
+    })
+    return Array.from(companies).sort()
+  }, [models])
+
+  const uniqueCapabilities = useMemo(() => {
+    const capabilities = new Set<string>()
+    models.forEach(m => {
+      m.capabilities?.forEach(cap => capabilities.add(cap))
+    })
+    return Array.from(capabilities).sort()
+  }, [models])
+
+  // Optimized chart data calculations with improved memoization
   const providerChartData = useMemo(() => {
-    if (!stats) return []
+    if (!stats?.providers) return []
     return Object.entries(stats.providers).map(([provider, count]) => ({
       name: provider,
       value: count,
       color: PROVIDER_COLORS[provider] || '#6B7280'
-    }))
-  }, [stats])
+    })).sort((a, b) => b.value - a.value) // Sort by count for better visualization
+  }, [stats?.providers])
 
   const capabilityChartData = useMemo(() => {
-    const capabilityCounts: Record<string, number> = {}
+    if (!models.length) return []
+
+    const capabilityCounts = new Map<string, number>()
     models.forEach(model => {
       model.capabilities?.forEach(cap => {
-        capabilityCounts[cap] = (capabilityCounts[cap] || 0) + 1
+        capabilityCounts.set(cap, (capabilityCounts.get(cap) || 0) + 1)
       })
     })
-    return Object.entries(capabilityCounts).map(([capability, count]) => ({
+
+    return Array.from(capabilityCounts.entries())
+      .map(([capability, count]) => ({
       name: capability.replace('_', ' '),
       value: count,
       color: CAPABILITY_COLORS[capability] || '#6B7280'
     }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10) // Limit to top 10 for performance
   }, [models])
 
   const contextLengthData = useMemo(() => {
+    if (!models.length) return []
+
     const ranges = [
       { name: '0-8K', min: 0, max: 8000, count: 0 },
       { name: '8K-32K', min: 8000, max: 32000, count: 0 },
@@ -387,10 +577,12 @@ export default function LLMModels() {
       if (range) range.count++
     })
 
-    return ranges
+    return ranges.filter(range => range.count > 0) // Only show ranges with data
   }, [models])
 
   const pricingData = useMemo(() => {
+    if (!models.length) return []
+
     const priceRanges = [
       { name: '$0-1', min: 0, max: 1, count: 0 },
       { name: '$1-5', min: 1, max: 5, count: 0 },
@@ -404,8 +596,55 @@ export default function LLMModels() {
       if (range) range.count++
     })
 
-    return priceRanges
+    return priceRanges.filter(range => range.count > 0)
   }, [models])
+
+  // Typed quality indicators for DrillDownFilter
+  type FilterType = Exclude<DrillDownFilter['type'], null>
+  type FilterValue = NonNullable<DrillDownFilter['value']>
+  const qualityIndicatorItems = useMemo(() => ([
+    {
+      label: 'Available Models',
+      value: models.filter(m => m.isAvailable).length,
+      total: models.length,
+      color: 'text-green-600',
+      type: 'availability' as FilterType,
+      filterValue: 'available' as FilterValue
+    },
+    {
+      label: 'Premium Pricing',
+      value: models.filter(m => m.pricing?.input && m.pricing.input > 5).length,
+      total: models.length,
+      color: 'text-amber-600',
+      type: 'pricingRange' as FilterType,
+      filterValue: { min: 5, max: Infinity } as FilterValue
+    },
+    {
+      label: 'Large Context',
+      value: models.filter(m => (m.contextLength || 0) > 32000).length,
+      total: models.length,
+      color: 'text-blue-600',
+      type: 'contextRange' as FilterType,
+      filterValue: { min: 32000, max: Infinity } as FilterValue
+    },
+    {
+      label: 'Multi-modal',
+      value: models.filter(m => m.capabilities?.includes('vision')).length,
+      total: models.length,
+      color: 'text-purple-600',
+      type: 'capability' as FilterType,
+      filterValue: 'vision' as FilterValue
+    }
+  ]), [models])
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300) // 300ms debounce
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Initial data fetch
   useEffect(() => {
@@ -413,7 +652,7 @@ export default function LLMModels() {
     fetchStats()
   }, [fetchModels, fetchStats])
 
-  const renderModelCard = (model: LLMModel) => (
+  const renderModelCard = React.useCallback((model: LLMModel) => (
     <Card
       key={model.id}
       className="h-full hover:shadow-lg transition-all duration-300 hover:scale-[1.02] cursor-pointer border-l-4"
@@ -531,7 +770,7 @@ export default function LLMModels() {
         </div>
       </CardContent>
     </Card>
-  )
+  ), [setSelectedModel, toggleModelComparison, compareModels])
 
   const renderModelDetail = () => {
     if (!selectedModel) return null
@@ -725,7 +964,11 @@ export default function LLMModels() {
                         <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
                       </div>
                       <div>
-                        <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                        <p
+                          className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform"
+                          onClick={() => handleDrillDown({ type: 'provider', value: 'all', title: 'All Models' })}
+                          title="Click to view all models"
+                        >
                           {stats?.totalModels || 0}
                         </p>
                         <p className="text-sm text-muted-foreground font-medium">Total Models</p>
@@ -758,7 +1001,11 @@ export default function LLMModels() {
                         <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
                       </div>
                       <div>
-                        <p className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+                        <p
+                          className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent cursor-pointer hover:scale-105 transition-transform"
+                          onClick={() => handleDrillDown({ type: 'provider', value: 'all', title: 'All Providers' })}
+                          title="Click to view providers breakdown"
+                        >
                           {Object.keys(stats?.providers || {}).length}
                         </p>
                         <p className="text-sm text-muted-foreground font-medium">Providers</p>
@@ -843,139 +1090,37 @@ export default function LLMModels() {
               </Card>
             </div>
 
-            {/* Enhanced Charts Row */}
+                        {/* Lazy Loaded Charts */}
+            <Suspense fallback={
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Provider Distribution with Enhanced Design */}
-              <Card className={cn(
-                "group relative overflow-hidden transition-all duration-300 hover:shadow-xl",
-                GRADIENT_BACKGROUNDS.neutral
-              )}>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <CardHeader className="relative">
-                  <CardTitle className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg">
-                      <Building className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                        Provider Distribution
-                      </span>
-                      <p className="text-sm text-muted-foreground font-normal">Market share by provider</p>
-                    </div>
-                  </CardTitle>
+                <Card className="animate-pulse">
+                  <CardHeader>
+                    <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 </CardHeader>
-                <CardContent className="relative">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <PieChart>
-                      <Pie
-                        data={providerChartData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={80}
-                        outerRadius={140}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {providerChartData.map((entry, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={entry.color}
-                            stroke={entry.color}
-                            strokeWidth={2}
-                            style={{
-                              filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))'
-                            }}
-                          />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="grid grid-cols-2 gap-2 mt-6">
-                    {providerChartData.map((entry) => (
-                      <div key={entry.name} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
-                        <div
-                          className="w-4 h-4 rounded-full shadow-sm"
-                          style={{ backgroundColor: entry.color }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{entry.name}</div>
-                          <div className="text-xs text-muted-foreground">{entry.value} models</div>
-                        </div>
-                        <div className="text-sm font-bold text-right">
-                          {stats?.totalModels ? Math.round((entry.value / stats.totalModels) * 100) : 0}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <CardContent>
+                    <div className="h-80 bg-gray-200 rounded"></div>
                 </CardContent>
               </Card>
-
-              {/* Capability Distribution with Enhanced Design */}
-              <Card className={cn(
-                "group relative overflow-hidden transition-all duration-300 hover:shadow-xl",
-                GRADIENT_BACKGROUNDS.neutral
-              )}>
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-400/10 to-pink-400/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <CardHeader className="relative">
-                  <CardTitle className="flex items-center gap-3">
-                    <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg">
-                      <Zap className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                        Capability Distribution
-                      </span>
-                      <p className="text-sm text-muted-foreground font-normal">Feature adoption across models</p>
-                    </div>
-                  </CardTitle>
+                <Card className="animate-pulse">
+                  <CardHeader>
+                    <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 </CardHeader>
-                <CardContent className="relative">
-                  <ResponsiveContainer width="100%" height={350}>
-                    <ComposedChart data={capabilityChartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.1)" />
-                      <XAxis
-                        dataKey="name"
-                        tick={{ fontSize: 12 }}
-                        angle={-45}
-                        textAnchor="end"
-                        height={80}
-                      />
-                      <YAxis tick={{ fontSize: 12 }} />
-                      <RechartsTooltip
-                        contentStyle={{
-                          backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                          border: 'none',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
-                        }}
-                      />
-                      <Bar dataKey="value" fill="url(#capabilityGradient)" radius={[4, 4, 0, 0]} />
-                      <Line
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#8B5CF6"
-                        strokeWidth={3}
-                        dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
-                      />
-                      <defs>
-                        <linearGradient id="capabilityGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8B5CF6" />
-                          <stop offset="100%" stopColor="#EC4899" />
-                        </linearGradient>
-                      </defs>
-                    </ComposedChart>
-                  </ResponsiveContainer>
+                  <CardContent>
+                    <div className="h-80 bg-gray-200 rounded"></div>
                 </CardContent>
               </Card>
             </div>
+            }>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <ChartsSection
+                  models={models}
+                  stats={stats}
+                  onDrillDown={handleDrillDown}
+                />
+              </div>
+            </Suspense>
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-6">
@@ -1014,7 +1159,21 @@ export default function LLMModels() {
                           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
                         }}
                       />
-                      <Bar dataKey="count" fill="url(#contextGradient)" radius={[4, 4, 0, 0]} />
+                      <Bar
+                        dataKey="count"
+                        fill="url(#contextGradient)"
+                        radius={[4, 4, 0, 0]}
+                        cursor="pointer"
+                        onClick={(data) => {
+                          if (data && data.name) {
+                            handleDrillDown({
+                              type: 'contextRange',
+                              value: { min: data.min, max: data.max },
+                              title: `${data.name} Context Length Models`
+                            })
+                          }
+                        }}
+                      />
                       <Line
                         type="monotone"
                         dataKey="count"
@@ -1032,7 +1191,16 @@ export default function LLMModels() {
                   </ResponsiveContainer>
                   <div className="grid grid-cols-2 gap-2 mt-4">
                     {contextLengthData.map((range, index) => (
-                      <div key={range.name} className="p-3 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20">
+                      <div
+                        key={range.name}
+                        className="p-3 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/20 dark:to-teal-950/20 cursor-pointer hover:shadow-md transition-all hover:scale-[1.02]"
+                        onClick={() => handleDrillDown({
+                          type: 'contextRange',
+                          value: { min: range.min, max: range.max },
+                          title: `${range.name} Context Length Models`
+                        })}
+                        title={`Click to view ${range.count} models with ${range.name} context length`}
+                      >
                         <div className="font-medium text-sm">{range.name}</div>
                         <div className="text-xs text-muted-foreground">{range.count} models</div>
                         <div className="text-lg font-bold text-emerald-600">
@@ -1074,7 +1242,30 @@ export default function LLMModels() {
                       { capability: 'Memory', value: models.filter(m => m.capabilities?.includes('memory')).length }
                     ]}>
                       <PolarGrid stroke="rgba(0,0,0,0.2)" />
-                      <PolarAngleAxis dataKey="capability" tick={{ fontSize: 11 }} />
+                      <PolarAngleAxis
+                        dataKey="capability"
+                        tick={{ fontSize: 11, cursor: 'pointer' }}
+                        onClick={(data) => {
+                          if (data && data.value) {
+                            const capabilityMap: Record<string, string> = {
+                              'Vision': 'vision',
+                              'Function Calling': 'function_calling',
+                              'Streaming': 'streaming',
+                              'Coding': 'coding',
+                              'Reasoning': 'reasoning',
+                              'Memory': 'memory'
+                            }
+                            const capability = capabilityMap[data.value as string]
+                            if (capability) {
+                              handleDrillDown({
+                                type: 'capability',
+                                value: capability,
+                                title: `${data.value} Models`
+                              })
+                            }
+                          }
+                        }}
+                      />
                       <PolarRadiusAxis tick={{ fontSize: 10 }} />
                       <Radar
                         name="Models"
@@ -1083,6 +1274,7 @@ export default function LLMModels() {
                         fill="#8B5CF6"
                         fillOpacity={0.3}
                         strokeWidth={2}
+                        cursor="pointer"
                       />
                       <RechartsTooltip />
                     </RadarChart>
@@ -1131,6 +1323,7 @@ export default function LLMModels() {
                         stroke="#F59E0B"
                         fill="url(#pricingGradient)"
                         strokeWidth={3}
+                        cursor="pointer"
                       />
                       <defs>
                         <linearGradient id="pricingGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1162,18 +1355,27 @@ export default function LLMModels() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="relative space-y-4">
-                  {[
+                  {([
                     { name: 'Vision Models', capability: 'vision', color: 'bg-blue-500', icon: Eye },
                     { name: 'Function Calling', capability: 'function_calling', color: 'bg-purple-500', icon: Zap },
                     { name: 'Streaming Support', capability: 'streaming', color: 'bg-green-500', icon: Globe },
                     { name: 'Coding Focused', capability: 'coding', color: 'bg-red-500', icon: Cpu }
-                  ].map((metric, index) => {
+                  ] as const).map((metric, index) => {
                     const count = models.filter(m => m.capabilities?.includes(metric.capability)).length
                     const percentage = models.length > 0 ? (count / models.length) * 100 : 0
                     const Icon = metric.icon
 
                     return (
-                      <div key={metric.name} className="space-y-2">
+                      <div
+                        key={metric.name}
+                        className="space-y-2 cursor-pointer hover:bg-muted/30 p-3 rounded-lg transition-colors"
+                        onClick={() => handleDrillDown({
+                          type: 'capability',
+                          value: metric.capability,
+                          title: `${metric.name} Models`
+                        })}
+                        title={`Click to view ${count} ${metric.name.toLowerCase()} models`}
+                      >
                         <div className="flex justify-between items-center">
                           <div className="flex items-center gap-2">
                             <div className={cn("w-2 h-2 rounded-full", metric.color)}></div>
@@ -1217,13 +1419,17 @@ export default function LLMModels() {
                 </CardHeader>
                 <CardContent className="relative space-y-4">
                   <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { label: 'Available Models', value: models.filter(m => m.isAvailable).length, total: models.length, color: 'text-green-600' },
-                      { label: 'Premium Pricing', value: models.filter(m => m.pricing?.input && m.pricing.input > 5).length, total: models.length, color: 'text-amber-600' },
-                      { label: 'Large Context', value: models.filter(m => (m.contextLength || 0) > 32000).length, total: models.length, color: 'text-blue-600' },
-                      { label: 'Multi-modal', value: models.filter(m => m.capabilities?.includes('vision')).length, total: models.length, color: 'text-purple-600' }
-                    ].map((item, index) => (
-                      <div key={item.label} className="p-3 rounded-lg bg-gradient-to-br from-slate-50 to-gray-50 dark:from-slate-900/20 dark:to-gray-900/20">
+                    {qualityIndicatorItems.map((item, index) => (
+                      <div
+                        key={item.label}
+                        className="p-3 rounded-lg bg-gradient-to-br from-slate-50 to-gray-50 dark:from-slate-900/20 dark:to-gray-900/20 cursor-pointer hover:shadow-md transition-all hover:scale-[1.02]"
+                        onClick={() => handleDrillDown({
+                          type: item.type,
+                          value: item.filterValue,
+                          title: `${item.label} Models`
+                        })}
+                        title={`Click to view ${item.value} ${item.label.toLowerCase()}`}
+                      >
                         <div className="text-xs text-muted-foreground mb-1">{item.label}</div>
                         <div className={cn("text-lg font-bold", item.color)}>
                           {item.total > 0 ? Math.round((item.value / item.total) * 100) : 0}%
@@ -1238,12 +1444,41 @@ export default function LLMModels() {
           </TabsContent>
 
           <TabsContent value="models" className="space-y-6">
+            {/* Drill-down Filter Header */}
+            {drillDownFilter && (
+              <Card className="border-l-4 border-l-violet-500">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-violet-100 dark:bg-violet-900/20 rounded-lg">
+                        <Eye className="h-5 w-5 text-violet-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-lg">{drillDownFilter.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {drillDownModels.length} models matching your criteria
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={clearDrillDown}
+                      variant="outline"
+                      className="hover:bg-red-50 hover:border-red-200 hover:text-red-600"
+                    >
+                      <Maximize2 className="h-4 w-4 mr-2" />
+                      Back to All Models
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Sort Controls */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-4">
                   <span className="text-sm font-medium">Sort by:</span>
-                  <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+                  <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'name' | 'contextLength' | 'inputPrice' | 'outputPrice')}>
                     <SelectTrigger className="w-[160px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -1262,7 +1497,10 @@ export default function LLMModels() {
                     {sortOrder === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                   <span className="text-sm text-muted-foreground">
-                    Showing {filteredAndSortedModels.length} of {models.length} models
+                    {drillDownFilter
+                      ? `Showing ${drillDownModels.length} filtered models`
+                      : `Showing ${filteredAndSortedModels.length} of ${models.length} models`
+                    }
                   </span>
                 </div>
               </CardContent>
@@ -1271,7 +1509,7 @@ export default function LLMModels() {
             {/* Models Grid */}
             {loading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 9 }).map((_, i) => (
+                {Array.from({ length: Math.min(9, (drillDownFilter ? drillDownModels.length : filteredAndSortedModels.length) || 9) }).map((_, i) => (
                   <Card key={i} className="h-full">
                     <CardHeader className="pb-3">
                       <Skeleton className="h-4 w-3/4" />
@@ -1291,14 +1529,48 @@ export default function LLMModels() {
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredAndSortedModels.map(renderModelCard)}
+                  {(drillDownFilter ? drillDownModels : filteredAndSortedModels)
+                    .slice(0, 50) // Limit initial render to 50 items for performance
+                    .map(renderModelCard)}
                 </div>
 
-                {filteredAndSortedModels.length === 0 && (
+                {/* Show load more button if there are more models */}
+                {(drillDownFilter ? drillDownModels : filteredAndSortedModels).length > 50 && (
+                  <div className="text-center mt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        // For now, just show a message. In a real implementation,
+                        // you'd implement pagination or virtual scrolling
+                        alert('Load more functionality would be implemented here for better performance with large datasets')
+                      }}
+                    >
+                      Load More Models ({(drillDownFilter ? drillDownModels : filteredAndSortedModels).length - 50} remaining)
+                    </Button>
+                  </div>
+                )}
+
+                {(drillDownFilter ? drillDownModels : filteredAndSortedModels).length === 0 && (
                   <Card className="p-8 text-center">
                     <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No models found</h3>
-                    <p className="text-muted-foreground">Try adjusting your search criteria or filters.</p>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {drillDownFilter ? 'No models found for this filter' : 'No models found'}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {drillDownFilter
+                        ? 'Try selecting a different filter or go back to all models.'
+                        : 'Try adjusting your search criteria or filters.'
+                      }
+                    </p>
+                    {drillDownFilter && (
+                      <Button
+                        onClick={clearDrillDown}
+                        variant="outline"
+                        className="mt-4"
+                      >
+                        Back to All Models
+                      </Button>
+                    )}
                   </Card>
                 )}
               </>

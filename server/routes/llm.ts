@@ -78,6 +78,7 @@ export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig):
         providers: query.providers ? (Array.isArray(query.providers) ? query.providers : [query.providers]) as string[] : undefined,
         companies: query.companies ? (Array.isArray(query.companies) ? query.companies : [query.companies]) as string[] : undefined,
         minContextLength: query.minContextLength ? parseInt(query.minContextLength as string) : undefined,
+        maxContextLength: query.maxContextLength ? parseInt(query.maxContextLength as string) : undefined,
         maxPricing: query.maxInputPrice || query.maxOutputPrice ? {
           input: query.maxInputPrice ? parseFloat(query.maxInputPrice as string) : undefined,
           output: query.maxOutputPrice ? parseFloat(query.maxOutputPrice as string) : undefined

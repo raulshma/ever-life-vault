@@ -118,6 +118,7 @@ export class LLMDataService {
     providers?: string[]
     companies?: string[]
     minContextLength?: number
+    maxContextLength?: number
     maxPricing?: { input?: number; output?: number }
     capabilities?: string[]
   }): Promise<LLMModel[]> {
@@ -131,6 +132,9 @@ export class LLMDataService {
         return false
       }
       if (filters?.minContextLength && (model.contextLength || 0) < filters.minContextLength) {
+        return false
+      }
+      if (filters?.maxContextLength && (model.contextLength || 0) > filters.maxContextLength) {
         return false
       }
       if (filters?.maxPricing) {
