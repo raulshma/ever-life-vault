@@ -247,7 +247,17 @@ pipeline {
             def malClientSecret = readSecret('mal-client-secret')
             def malRedirectUri = readSecret('mal-redirect-uri')
             def malTokensSecret = readSecret('mal-tokens-secret')
-            
+
+            // Load OpenRouter credentials
+            def openRouterApiKey = readSecret('openrouter-api-key')
+            // Make the key available in the pipeline environment so later steps can reference it
+            env.OPENROUTER_API_KEY = openRouterApiKey
+            if (!openRouterApiKey?.trim()) {
+              echo "Warning: OpenRouter API key not provided (credential id: 'openrouter-api-key'). LLM routes may be registered without OpenRouter integration."
+            } else {
+              echo "OpenRouter API key loaded into pipeline environment (partial): ${openRouterApiKey.substring(0, Math.min(openRouterApiKey.length(), 8))}..."
+            }
+
             // Load Turnstile credentials
             def turnstileSiteKey = readSecret('turnstile-site-key')
             def turnstileSecretKey = readSecret('turnstile-secret-key')
@@ -298,6 +308,7 @@ MAL_CLIENT_ID=${malClientId}
 MAL_CLIENT_SECRET=${malClientSecret}
 MAL_REDIRECT_URI=${malRedirectUri}
 MAL_TOKENS_SECRET=${malTokensSecret}
+OPENROUTER_API_KEY=${openRouterApiKey}
 # Cloudflare Turnstile Configuration
 TURNSTILE_SITE_KEY=${turnstileSiteKey}
 TURNSTILE_SECRET_KEY=${turnstileSecretKey}

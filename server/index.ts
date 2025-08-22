@@ -16,6 +16,7 @@ import { registerMALRoutes } from './routes/mal.js'
 import { registerClipRoutes } from './routes/clips.js'
 import { registerInfrastructureRoutes } from './routes/infrastructure.js'
 import { registerRepoFlattenRoutes } from './routes/repo-flatten.js'
+import { registerLLMRoutes } from './routes/llm.js'
 import authRoutes from './routes/auth.js'
 import { registerSshRoutes } from './routes/ssh.js'
 
@@ -182,6 +183,24 @@ export async function buildServer(): Promise<FastifyInstance> {
     })
   } else {
     server.log.warn('Skipping infrastructure routes: SUPABASE_URL or SUPABASE_ANON_KEY not configured')
+  }
+
+  // LLM models routes
+  if (supabase && env.OPENROUTER_API_KEY) {
+    registerLLMRoutes(server, {
+      requireSupabaseUser,
+      supabase,
+      openRouterApiKey: env.OPENROUTER_API_KEY,
+    })
+    server.log.info('LLM routes registered with OpenRouter integration')
+  } else if (supabase) {
+    server.log.warn('LLM routes registered without OpenRouter integration (OPENROUTER_API_KEY not set)')
+    registerLLMRoutes(server, {
+      requireSupabaseUser,
+      supabase,
+    })
+  } else {
+    server.log.warn('Skipping LLM routes: Supabase not configured')
   }
 
   // Health check endpoint

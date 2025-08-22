@@ -58,6 +58,8 @@ export const env = {
   // Cloudflare Turnstile
   TURNSTILE_SITE_KEY: process.env.TURNSTILE_SITE_KEY,
   TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
+  // OpenRouter API
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
 } as const
 
 export type Env = typeof env

@@ -465,6 +465,25 @@ export function registerBuiltInWidgets() {
       component: React.lazy(() => import('./widgets/CronSchedulerStatusWidget')),
     }))
   } catch {}
+  // LLM Models widget
+  try {
+    widgetRegistry.register(createWidgetDefinition({
+      id: 'llm-models',
+      title: 'LLM Models',
+      category: 'analytics',
+      version: '1.0.0',
+      defaultConfig: {
+        defaultView: 'grid',
+        maxModels: 20,
+        showPricing: true,
+        showCapabilities: true,
+        cacheTimeMs: 10 * 60 * 1000
+      },
+      component: React.lazy(() => import('./widgets/LLMModelsWidget')),
+      usesExternalApis: true,
+      defaultCacheTimeMs: 10 * 60 * 1000,
+    }))
+  } catch {}
   // homelab-static widgets removed: servers, monitoring, network, storage
 }
 

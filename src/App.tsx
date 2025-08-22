@@ -44,6 +44,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Feeds = lazy(() => import("./pages/Feeds"));
 const RepoFlatten = lazy(() => import("./pages/RepoFlatten"));
 const Integrations = lazy(() => import("./pages/Integrations"));
+const LLMModels = lazy(() => import("./pages/LLMModels"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -201,6 +202,14 @@ function AppRoutes() {
           element={
             <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
               <Integrations />
+            </Suspense>
+          }
+        />
+        <Route
+          path="llm-models"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              <LLMModels />
             </Suspense>
           }
         />
