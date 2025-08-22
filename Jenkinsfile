@@ -322,6 +322,23 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
     failure {
       script {
         echo 'Deployment failed.'
+        // Send Discord notification on failure if webhook is configured
+        try {
+          def hook = env.DISCORD_WEBHOOK_URL?.trim()
+          if (hook) {
+            def title = "${env.APP_NAME} build #${env.BUILD_NUMBER} FAILED"
+            def desc = "Job: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}\nMode: ${params.REVERT_TO_LAST_BUILD ? 'Revert' : 'Deploy'}"
+            discordSend webhookURL: hook,
+              title: title,
+              description: desc,
+              link: env.BUILD_URL,
+              result: 'FAILURE'
+          } else {
+            echo 'DISCORD_WEBHOOK_URL not set; skipping Discord failure notification.'
+          }
+        } catch (err) {
+          echo "Discord notification failed: ${err}"
+        }
         
         // Offer automatic rollback option
         if (!params.REVERT_TO_LAST_BUILD) {
@@ -342,6 +359,25 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
           echo 'Revert to last build completed successfully.'
         } else {
           echo 'Deployment succeeded.'
+        }
+
+        // Send Discord notification on success if webhook is configured
+        try {
+          def hook = env.DISCORD_WEBHOOK_URL?.trim()
+          if (hook) {
+            def title = "${env.APP_NAME} build #${env.BUILD_NUMBER} SUCCESS"
+            def mode = params.REVERT_TO_LAST_BUILD ? "Reverted to build #${env.LAST_SUCCESSFUL_BUILD ?: 'N/A'}" : 'Deployment completed'
+            def desc = "Job: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}\n${mode}"
+            discordSend webhookURL: hook,
+              title: title,
+              description: desc,
+              link: env.BUILD_URL,
+              result: 'SUCCESS'
+          } else {
+            echo 'DISCORD_WEBHOOK_URL not set; skipping Discord success notification.'
+          }
+        } catch (err) {
+          echo "Discord notification failed: ${err}"
         }
       }
     }
