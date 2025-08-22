@@ -43,6 +43,7 @@ const ClipPage = lazy(() => import("./pages/ClipPage"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Feeds = lazy(() => import("./pages/Feeds"));
 const RepoFlatten = lazy(() => import("./pages/RepoFlatten"));
+const Integrations = lazy(() => import("./pages/Integrations"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -192,6 +193,14 @@ function AppRoutes() {
             <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
               {" "}
               <RepoFlatten />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="integrations"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              <Integrations />
             </Suspense>
           }
         />

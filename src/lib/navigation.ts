@@ -55,6 +55,7 @@ export const moduleCategories: NavGroups = {
     { name: "Infrastructure", path: "/infrastructure", icon: Server },
     { name: "Terminals", path: "/infrastructure/terminals", icon: TerminalSquare },
     { name: "Vault", path: "/vault", icon: Shield },
+    { name: "Integrations", path: "/integrations", icon: Monitor },
     { name: "Repo Flattener", path: "/repo-flatten", icon: GitBranch },
     { name: "Live Share", path: "/share/new", icon: Share2 },
     { name: "Clip", path: "/clip/new", icon: FileText },
