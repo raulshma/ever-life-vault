@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Progress } from '@/components/ui/progress'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { fetchWithAuth } from '@/lib/aggregatorClient'
 import {
   Search,
   RefreshCw,
@@ -211,7 +212,7 @@ export default function LLMModels() {
 
     setLoading(true)
     try {
-      const response = await fetch('/api/llm/models' + (forceRefresh ? '?forceRefresh=true' : ''))
+      const response = await fetchWithAuth('/api/llm/models' + (forceRefresh ? '?forceRefresh=true' : ''))
       if (!response.ok) throw new Error('Failed to fetch models')
       const data = await response.json()
 
@@ -232,7 +233,7 @@ export default function LLMModels() {
   // Fetch stats
   const fetchStats = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/llm/stats')
+      const response = await fetchWithAuth('/api/llm/stats')
       if (!response.ok) throw new Error('Failed to fetch stats')
       const data = await response.json()
 
