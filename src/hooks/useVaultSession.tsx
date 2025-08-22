@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
-import { deriveKey, generateSalt, uint8ArrayToBase64, base64ToUint8Array, validateMasterPassword } from '@/lib/crypto';
+import { deriveKey, generateSalt, uint8ArrayToBase64, base64ToUint8Array, base64ToArrayBuffer, decryptData, validateMasterPassword } from '@/lib/crypto';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -131,8 +131,7 @@ function useVaultSessionInternal() {
       if (error) return false;
       if (!data || data.length === 0) return true; // Nothing to validate against
       const item = data[0] as any;
-      // Attempt to decrypt minimal
-      const { decryptData, base64ToArrayBuffer, base64ToUint8Array } = await import('@/lib/crypto');
+      // Attempt to decrypt minimal using statically imported helpers
       await decryptData(
         base64ToArrayBuffer(item.encrypted_data),
         key,
