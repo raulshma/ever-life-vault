@@ -19,6 +19,16 @@ export const FloatingTerminal: React.FC = () => {
     mountSessionInto(active.id, hostRef.current)
   }, [activeId, sessions, mountSessionInto])
 
+  // When expanding from collapsed state, remount/fit the terminal to avoid blank view
+  React.useEffect(() => {
+    if (!collapsed) {
+      const active = sessions.find(s => s.id === activeId) ?? sessions[0]
+      if (active && hostRef.current) {
+        mountSessionInto(active.id, hostRef.current)
+      }
+    }
+  }, [collapsed, activeId, sessions, mountSessionInto])
+
   if (onTerminalsPage || !sessions.length) return null
 
   const active = sessions.find(s => s.id === activeId) ?? sessions[0]
