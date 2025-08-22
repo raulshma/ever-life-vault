@@ -558,6 +558,36 @@ export type Database = {
         }
         Relationships: []
       }
+      llm_models_cache: {
+        Row: {
+          company: string | null
+          data: Json
+          id: string
+          is_available: boolean
+          last_updated: string
+          provider: string
+          updated_at: string
+        }
+        Insert: {
+          company?: string | null
+          data: Json
+          id: string
+          is_available?: boolean
+          last_updated?: string
+          provider: string
+          updated_at?: string
+        }
+        Update: {
+          company?: string | null
+          data?: Json
+          id?: string
+          is_available?: boolean
+          last_updated?: string
+          provider?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       locations: {
         Row: {
           created_at: string
@@ -1198,6 +1228,10 @@ export type Database = {
       cleanup_expired_vault_sessions: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      cleanup_old_llm_cache: {
+        Args: { days_to_keep?: number }
+        Returns: number
       }
       delete_docker_compose_config: {
         Args: { _name: string }

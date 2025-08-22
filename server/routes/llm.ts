@@ -11,18 +11,25 @@ interface LLMRouteConfig {
   requireSupabaseUser: RequireUserFunction
   supabase: SupabaseClient
   openRouterApiKey?: string
+  modelsCacheTtlMs?: number
+  autoRefreshIntervalMs?: number
+  httpCacheSeconds?: number
 }
 
 // Global service instance
 let llmDataService: LLMDataService | null = null
 
+export function getLLMDataService(): LLMDataService | null {
+  return llmDataService
+}
+
 export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig): void {
   // Initialize LLM data service if not already done
   if (!llmDataService) {
     const config = {
-      providers: ['openrouter'], // Start with OpenRouter
-      cacheTimeMs: 5 * 60 * 1000, // 5 minutes cache
-      autoRefreshIntervalMs: 30 * 60 * 1000 // 30 minutes auto-refresh
+      providers: ['openrouter'],
+      cacheTimeMs: cfg.modelsCacheTtlMs ?? 5 * 60 * 1000,
+      autoRefreshIntervalMs: cfg.autoRefreshIntervalMs ?? 0,
     }
 
     llmDataService = new LLMDataService(cfg.supabase, config)
@@ -43,7 +50,9 @@ export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig):
       const { forceRefresh } = (request.query as Record<string, unknown>) || {}
 
       const models = await llmDataService!.getAllModels(forceRefresh === 'true')
-
+      if (cfg.httpCacheSeconds && cfg.httpCacheSeconds > 0) {
+        reply.header('Cache-Control', `public, max-age=${cfg.httpCacheSeconds}`)
+      }
       return reply.send({
         success: true,
         data: models,
@@ -77,6 +86,9 @@ export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig):
       }
 
       const models = await llmDataService!.getFilteredModels(filters)
+      if (cfg.httpCacheSeconds && cfg.httpCacheSeconds > 0) {
+        reply.header('Cache-Control', `public, max-age=${cfg.httpCacheSeconds}`)
+      }
 
       return reply.send({
         success: true,
@@ -100,6 +112,9 @@ export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig):
 
     try {
       const stats = await llmDataService!.getModelStats()
+      if (cfg.httpCacheSeconds && cfg.httpCacheSeconds > 0) {
+        reply.header('Cache-Control', `public, max-age=${cfg.httpCacheSeconds}`)
+      }
 
       return reply.send({
         success: true,
@@ -121,6 +136,9 @@ export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig):
 
     try {
       const providers = llmDataService!.getAvailableProviders()
+      if (cfg.httpCacheSeconds && cfg.httpCacheSeconds > 0) {
+        reply.header('Cache-Control', `public, max-age=${cfg.httpCacheSeconds}`)
+      }
 
       return reply.send({
         success: true,
@@ -181,6 +199,9 @@ export function registerLLMRoutes(server: FastifyInstance, cfg: LLMRouteConfig):
         })
       }
 
+      if (cfg.httpCacheSeconds && cfg.httpCacheSeconds > 0) {
+        reply.header('Cache-Control', `public, max-age=${cfg.httpCacheSeconds}`)
+      }
       return reply.send({
         success: true,
         data: model

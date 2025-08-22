@@ -14,6 +14,8 @@
     "postinstall": "npm run build"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.19",
+    "@fastify/caching": "^9.0.3",
     "@fastify/compress": "^8.1.0",
     "@fastify/cors": "^10.0.1",
     "@fastify/etag": "^6.0.3",
@@ -22,19 +24,22 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/websocket": "^11.2.0",
     "@supabase/supabase-js": "^2.45.4",
+    "ai": "^5.0.22",
     "dotenv": "^16.4.5",
     "fastify": "^5.5.0",
     "highlight.js": "^11.11.1",
     "js-yaml": "^4.1.0",
     "marked": "^12.0.2",
+    "node-cron": "^3.0.3",
     "simple-git": "^3.28.0",
     "ssh2": "^1.17.0",
     "yaml": "^2.5.1",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.5.5",
+    "@types/node-cron": "^3.0.11",
     "copyfiles": "^2.4.1",
     "rimraf": "^6.0.1",
     "tsx": "^4.19.2",

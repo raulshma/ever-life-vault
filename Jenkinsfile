@@ -338,8 +338,120 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
         try {
           def hook = env.DISCORD_WEBHOOK_URL?.trim()
           if (hook) {
-            def title = "${env.APP_NAME} build #${env.BUILD_NUMBER} FAILED"
-            def desc = "Job: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}\nMode: ${params.REVERT_TO_LAST_BUILD ? 'Revert' : 'Deploy'}"
+            // Collect git and runtime metadata where possible to include in notifications
+            def commitShort = ''
+            def commitFull = ''
+            def branch = ''
+            def author = ''
+            def commitMsg = ''
+            def remoteUrl = ''
+            def commitUrl = ''
+            def duration = currentBuild.durationString ?: 'N/A'
+            def nodeName = env.NODE_NAME ?: 'N/A'
+            def paramSummary = ''
+            def changedFiles = ''
+            def imagesInfo = ''
+            def deployTarget = env.DEPLOY_DIR ?: 'N/A'
+            def publicUrl = env.PUBLIC_BASE_URL ?: 'N/A'
+            def triggeredBy = 'N/A'
+
+            try {
+              // Git info
+              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>'").trim()
+              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s").trim()
+              remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url || true').trim()
+              if (remoteUrl) {
+                if (remoteUrl.startsWith('git@')) {
+                  remoteUrl = remoteUrl.replaceFirst('git@github.com:', 'https://github.com/')
+                }
+                if (remoteUrl.endsWith('.git')) {
+                  remoteUrl = remoteUrl[0..-5]
+                }
+                if (commitFull) {
+                  commitUrl = "${remoteUrl}/commit/${commitFull}"
+                }
+              }
+
+              // Changed files in the last commit (full list may be long)
+              changedFiles = sh(returnStdout: true, script: "git show --name-only --pretty=\"\" HEAD || true").trim()
+              // Truncate preview to avoid overly large notifications
+              def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
+              def changedCount = changedList.size()
+              def maxPreview = 10
+              def changedPreview = 'N/A'
+              if (changedCount > 0) {
+                def previewList = changedList.take(maxPreview)
+                changedPreview = previewList.join('\n')
+                if (changedCount > maxPreview) {
+                  changedPreview += "\n... and ${changedCount - maxPreview} more files"
+                }
+              }
+
+              // Who triggered the build (prefer env vars provided by common plugins to avoid Script Security approvals)
+              try {
+                // Common env vars provided by build-user-vars-plugin or multibranch/PR plugins
+                triggeredBy = env.BUILD_USER ?: env.BUILD_USER_ID ?: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR ?: env.ghprbTriggerAuthor ?: env.ghprbCommentAuthor ?: triggeredBy
+                // Fallback: try causes only if env data not available (this may require script approval in sandboxed Jenkins)
+                if (!triggeredBy || triggeredBy == 'N/A') {
+                  try {
+                    def causes = currentBuild.rawBuild.getCauses()
+                    if (causes && causes.size() > 0) {
+                      def first = causes[0]
+                      if (first.respondsTo('getUserName')) {
+                        triggeredBy = first.getUserName()
+                      } else {
+                        triggeredBy = first.toString()
+                      }
+                    }
+                  } catch (inner) {
+                    // ignore and leave triggeredBy as-is
+                  }
+                }
+              } catch (u) {
+                // ignore
+              }
+
+              // Parameters summary
+              try {
+                paramSummary = params.collect { k, v -> "${k}=${v}" }.join(', ')
+              } catch (p) {
+                paramSummary = 'N/A'
+              }
+
+              // Docker image info (if docker available on agent)
+              try {
+                imagesInfo = sh(returnStdout: true, script: "docker images ${env.APP_NAME} --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' || true").trim()
+              } catch (di) {
+                imagesInfo = 'N/A'
+              }
+            } catch (e) {
+              echo "Could not collect extended build info: ${e}"
+            }
+
+            def title = "${env.APP_NAME} build #${env.BUILD_NUMBER} FAILED (${commitShort ?: 'unknown'})"
+            def desc = """Job: ${env.JOB_NAME}
+URL: ${env.BUILD_URL}
+Mode: ${params.REVERT_TO_LAST_BUILD ? 'Revert' : 'Deploy'}
+Branch: ${branch ?: 'N/A'}
+Commit: ${commitShort ?: 'N/A'}
+Author: ${author ?: 'N/A'}
+Message: ${commitMsg ?: 'N/A'}
+Commit URL: ${commitUrl ?: 'N/A'}
+Duration: ${duration}
+Agent: ${nodeName}
+Triggered by: ${triggeredBy}
+Params: ${paramSummary ?: 'N/A'}
+Deploy target: ${deployTarget}
+Public URL: ${publicUrl}
+Images:
+${imagesInfo ?: 'N/A'}
+ Changed files (${changedCount}):
+${changedPreview}
+"""
+
             discordSend webhookURL: hook,
               title: title,
               description: desc,
@@ -377,9 +489,121 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
         try {
           def hook = env.DISCORD_WEBHOOK_URL?.trim()
           if (hook) {
-            def title = "${env.APP_NAME} build #${env.BUILD_NUMBER} SUCCESS"
+            // Collect git and runtime metadata where possible to include in notifications
+            def commitShort = ''
+            def commitFull = ''
+            def branch = ''
+            def author = ''
+            def commitMsg = ''
+            def remoteUrl = ''
+            def commitUrl = ''
+            def duration = currentBuild.durationString ?: 'N/A'
+            def nodeName = env.NODE_NAME ?: 'N/A'
+            def paramSummary = ''
+            def changedFiles = ''
+            def imagesInfo = ''
+            def deployTarget = env.DEPLOY_DIR ?: 'N/A'
+            def publicUrl = env.PUBLIC_BASE_URL ?: 'N/A'
+            def triggeredBy = 'N/A'
+
+            try {
+              // Git info
+              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
+              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
+              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>'").trim()
+              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s").trim()
+              remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url || true').trim()
+              if (remoteUrl) {
+                if (remoteUrl.startsWith('git@')) {
+                  remoteUrl = remoteUrl.replaceFirst('git@github.com:', 'https://github.com/')
+                }
+                if (remoteUrl.endsWith('.git')) {
+                  remoteUrl = remoteUrl[0..-5]
+                }
+                if (commitFull) {
+                  commitUrl = "${remoteUrl}/commit/${commitFull}"
+                }
+              }
+
+              // Changed files in the last commit (full list may be long)
+              changedFiles = sh(returnStdout: true, script: "git show --name-only --pretty=\"\" HEAD || true").trim()
+              // Truncate preview to avoid overly large notifications
+              def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
+              def changedCount = changedList.size()
+              def maxPreview = 10
+              def changedPreview = 'N/A'
+              if (changedCount > 0) {
+                def previewList = changedList.take(maxPreview)
+                changedPreview = previewList.join('\n')
+                if (changedCount > maxPreview) {
+                  changedPreview += "\n... and ${changedCount - maxPreview} more files"
+                }
+              }
+
+              // Who triggered the build (prefer env vars provided by common plugins to avoid Script Security approvals)
+              try {
+                // Common env vars provided by build-user-vars-plugin or multibranch/PR plugins
+                triggeredBy = env.BUILD_USER ?: env.BUILD_USER_ID ?: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR ?: env.ghprbTriggerAuthor ?: env.ghprbCommentAuthor ?: triggeredBy
+                // Fallback: try causes only if env data not available (this may require script approval in sandboxed Jenkins)
+                if (!triggeredBy || triggeredBy == 'N/A') {
+                  try {
+                    def causes = currentBuild.rawBuild.getCauses()
+                    if (causes && causes.size() > 0) {
+                      def first = causes[0]
+                      if (first.respondsTo('getUserName')) {
+                        triggeredBy = first.getUserName()
+                      } else {
+                        triggeredBy = first.toString()
+                      }
+                    }
+                  } catch (inner) {
+                    // ignore and leave triggeredBy as-is
+                  }
+                }
+              } catch (u) {
+                // ignore
+              }
+
+              // Parameters summary
+              try {
+                paramSummary = params.collect { k, v -> "${k}=${v}" }.join(', ')
+              } catch (p) {
+                paramSummary = 'N/A'
+              }
+
+              // Docker image info (if docker available on agent)
+              try {
+                imagesInfo = sh(returnStdout: true, script: "docker images ${env.APP_NAME} --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' || true").trim()
+              } catch (di) {
+                imagesInfo = 'N/A'
+              }
+            } catch (e) {
+              echo "Could not collect extended build info: ${e}"
+            }
+
+            def title = "${env.APP_NAME} build #${env.BUILD_NUMBER} SUCCESS (${commitShort ?: 'unknown'})"
             def mode = params.REVERT_TO_LAST_BUILD ? "Reverted to build #${env.LAST_SUCCESSFUL_BUILD ?: 'N/A'}" : 'Deployment completed'
-            def desc = "Job: ${env.JOB_NAME}\nURL: ${env.BUILD_URL}\n${mode}"
+            def desc = """Job: ${env.JOB_NAME}
+URL: ${env.BUILD_URL}
+${mode}
+Branch: ${branch ?: 'N/A'}
+Commit: ${commitShort ?: 'N/A'}
+Author: ${author ?: 'N/A'}
+Message: ${commitMsg ?: 'N/A'}
+Commit URL: ${commitUrl ?: 'N/A'}
+Duration: ${duration}
+Agent: ${nodeName}
+Triggered by: ${triggeredBy}
+Params: ${paramSummary ?: 'N/A'}
+Deploy target: ${deployTarget}
+Public URL: ${publicUrl}
+Images:
+${imagesInfo ?: 'N/A'}
+Changed files (${changedCount}):
+${changedPreview}
+"""
+
             discordSend webhookURL: hook,
               title: title,
               description: desc,

@@ -60,6 +60,10 @@ export const env = {
   TURNSTILE_SECRET_KEY: process.env.TURNSTILE_SECRET_KEY,
   // OpenRouter API
   OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+  // LLM Models data refresh and caching
+  LLM_MODELS_REFRESH_CRON: process.env.LLM_MODELS_REFRESH_CRON || '0 */6 * * *',
+  LLM_MODELS_CACHE_TTL_MS: numberFromEnv(process.env.LLM_MODELS_CACHE_TTL_MS, 15 * 60 * 1000),
+  LLM_MODELS_HTTP_CACHE_SECONDS: numberFromEnv(process.env.LLM_MODELS_HTTP_CACHE_SECONDS, 300),
 } as const
 
 export type Env = typeof env

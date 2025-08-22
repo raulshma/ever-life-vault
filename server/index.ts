@@ -17,6 +17,8 @@ import { registerClipRoutes } from './routes/clips.js'
 import { registerInfrastructureRoutes } from './routes/infrastructure.js'
 import { registerRepoFlattenRoutes } from './routes/repo-flatten.js'
 import { registerLLMRoutes } from './routes/llm.js'
+import cron from 'node-cron'
+import { getLLMDataService } from './routes/llm.js'
 import authRoutes from './routes/auth.js'
 import { registerSshRoutes } from './routes/ssh.js'
 
@@ -50,6 +52,12 @@ export async function buildServer(): Promise<FastifyInstance> {
     server.log.warn('SUPABASE_URL or SUPABASE_ANON_KEY not set. Authenticated routes will be disabled.')
   }
   const requireSupabaseUser = requireSupabaseUserFactory(supabase, server.log)
+
+  // Admin Supabase client (service role) for server-side writes (RLS bypass where appropriate)
+  const supabaseAdmin = createSupabaseClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY)
+  if (!supabaseAdmin) {
+    server.log.warn('SUPABASE_SERVICE_ROLE_KEY not set. LLM cache writes may fail due to RLS.')
+  }
 
   const isTargetAllowed = makeIsTargetAllowed(env.ALLOWED_TARGET_HOSTS)
   if (env.ALLOWED_TARGET_HOSTS.length === 0 && process.env.NODE_ENV === 'production') {
@@ -189,15 +197,21 @@ export async function buildServer(): Promise<FastifyInstance> {
   if (supabase && env.OPENROUTER_API_KEY) {
     registerLLMRoutes(server, {
       requireSupabaseUser,
-      supabase,
+      supabase: (supabaseAdmin || supabase)!,
       openRouterApiKey: env.OPENROUTER_API_KEY,
+      modelsCacheTtlMs: env.LLM_MODELS_CACHE_TTL_MS,
+      autoRefreshIntervalMs: 0,
+      httpCacheSeconds: env.LLM_MODELS_HTTP_CACHE_SECONDS,
     })
     server.log.info('LLM routes registered with OpenRouter integration')
   } else if (supabase) {
     server.log.warn('LLM routes registered without OpenRouter integration (OPENROUTER_API_KEY not set)')
     registerLLMRoutes(server, {
       requireSupabaseUser,
-      supabase,
+      supabase: (supabaseAdmin || supabase)!,
+      modelsCacheTtlMs: env.LLM_MODELS_CACHE_TTL_MS,
+      autoRefreshIntervalMs: 0,
+      httpCacheSeconds: env.LLM_MODELS_HTTP_CACHE_SECONDS,
     })
   } else {
     server.log.warn('Skipping LLM routes: Supabase not configured')
@@ -236,6 +250,26 @@ if (process.env.NODE_ENV !== 'test') {
       try {
         const addr = await server.listen({ port, host })
         server.log.info(`Proxy server listening on ${addr}`)
+
+        // Schedule background refresh of LLM models using cron
+        if (env.LLM_MODELS_REFRESH_CRON) {
+          try {
+            cron.schedule(env.LLM_MODELS_REFRESH_CRON, async () => {
+              const svc = getLLMDataService()
+              if (!svc) return
+              server.log.info('CRON: refreshing LLM models')
+              try {
+                await svc.refreshAll()
+                server.log.info('CRON: refreshed LLM models successfully')
+              } catch (e) {
+                server.log.error({ err: e }, 'CRON: error refreshing LLM models')
+              }
+            }, { timezone: 'UTC' })
+            server.log.info({ cron: env.LLM_MODELS_REFRESH_CRON }, 'LLM models refresh cron scheduled')
+          } catch (e) {
+            server.log.error({ err: e }, 'Failed to schedule LLM models refresh cron')
+          }
+        }
       } catch (err) {
         server.log.error(err)
         process.exit(1)

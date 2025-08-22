@@ -67,11 +67,18 @@ export class LLMDataService {
     const cacheKey = 'all_models'
     const now = Date.now()
 
-    // Check cache unless force refresh
+    // Check in-memory cache unless force refresh
     if (!forceRefresh) {
       const cached = this.cache.get(cacheKey)
       if (cached && (now - cached.timestamp) < this.config.cacheTimeMs) {
         return cached.data
+      }
+
+      // If not in cache, attempt DB-backed cache before hitting providers
+      const persisted = await this.loadPersistedModels()
+      if (persisted && persisted.length > 0) {
+        this.cache.set(cacheKey, { data: persisted, timestamp: now })
+        return persisted
       }
     }
 
@@ -213,6 +220,11 @@ export class LLMDataService {
       clearInterval(this.refreshTimer)
     }
 
+    // Allow disabling auto-refresh by setting interval <= 0
+    if (!this.config.autoRefreshIntervalMs || this.config.autoRefreshIntervalMs <= 0) {
+      return
+    }
+
     this.refreshTimer = setInterval(async () => {
       try {
         console.log('Auto-refreshing LLM data...')
@@ -234,16 +246,20 @@ export class LLMDataService {
   // Persist models to Supabase
   private async persistModels(models: LLMModel[]): Promise<void> {
     try {
-      // Store in a dedicated table (you might need to create this table)
+      const nowIso = new Date().toISOString()
+      const rows = models.map((model) => ({
+        id: model.id,
+        provider: model.provider,
+        company: model.company ?? null,
+        is_available: model.isAvailable,
+        last_updated: model.lastUpdated || nowIso,
+        data: model as unknown as Record<string, unknown>,
+        updated_at: nowIso,
+      }))
+
       const { error } = await this.supabase
         .from('llm_models_cache')
-        .upsert(
-          models.map(model => ({
-            ...model,
-            updated_at: new Date().toISOString()
-          })),
-          { onConflict: 'id' }
-        )
+        .upsert(rows, { onConflict: 'id' })
 
       if (error) {
         console.error('Error persisting LLM models:', error)
@@ -258,15 +274,16 @@ export class LLMDataService {
     try {
       const { data, error } = await this.supabase
         .from('llm_models_cache')
-        .select('*')
-        .order('lastUpdated', { ascending: false })
+        .select('data')
+        .order('updated_at', { ascending: false })
 
       if (error) {
         console.error('Error loading persisted models:', error)
         return []
       }
 
-      return data || []
+      const rows = (data as Array<{ data: LLMModel }> | null) || []
+      return rows.map((r) => r.data)
     } catch (error) {
       console.error('Error loading persisted models:', error)
       return []

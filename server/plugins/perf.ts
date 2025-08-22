@@ -86,6 +86,16 @@ export async function registerPerfPlugins(server: FastifyInstance): Promise<void
   } catch (e) {
     server.log.warn('ETag plugin not installed; skipping @fastify/etag')
   }
+
+  // Server-side caching (in-memory LRU for HTTP responses)
+  try {
+    const caching = await import('@fastify/caching').then(m => m.default || m)
+    await server.register(caching, {
+      privacy: 'public',
+    } as any)
+  } catch (e) {
+    server.log.warn('Caching plugin not installed; skipping @fastify/caching')
+  }
 }
 
 
