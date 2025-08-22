@@ -25,14 +25,14 @@ import {
   Clock,
   BarChart3
 } from 'lucide-react'
-import { useApiCache, generateCacheKey } from '../hooks/useApiCache'
-import { CacheConfig } from '../components/CacheConfig'
+import { fetchWithAuth } from '@/lib/aggregatorClient'
 
 type LLMModelsConfig = BaseWidgetConfig & {
   defaultView?: 'grid' | 'table'
   maxModels?: number
   showPricing?: boolean
   showCapabilities?: boolean
+  cacheTimeMs?: number
 }
 
 interface LLMModel {
@@ -53,6 +53,7 @@ interface LLMModel {
   architecture?: string
   isAvailable: boolean
   lastUpdated: string
+  metadata?: Record<string, unknown>
 }
 
 interface LLMStats {
@@ -66,7 +67,7 @@ interface LLMStats {
   }
 }
 
-const CAPABILITY_ICONS: Record<string, React.ComponentType<any>> = {
+const CAPABILITY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   text: MessageSquare,
   vision: Eye,
   function_calling: Zap,
@@ -92,47 +93,32 @@ export default function LLMModelsWidget({ config, onConfigChange, isEditing }: W
   const [providerFilter, setProviderFilter] = useState<string>('all')
   const [companyFilter, setCompanyFilter] = useState<string>('all')
   const [capabilityFilter, setCapabilityFilter] = useState<string>('all')
-  const [sortBy, setSortBy] = useState<'name' | 'contextLength' | 'inputPrice' | 'outputPrice'>('name')
+  const [sortBy, setSortBy] = useState<string>('name')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [view, setView] = useState<'grid' | 'table'>(config?.defaultView || 'grid')
 
-  const { getCached, getCachedAsync, setCached } = useApiCache()
-
-  // Fetch models with caching
+  // Fetch models using server-side caching
   const fetchModels = React.useCallback(async (forceRefresh = false) => {
-    const cacheKey = generateCacheKey('llm_models', {})
-    const now = Date.now()
-
-    // Check cache unless force refresh
-    if (!forceRefresh) {
-      const cached = await getCachedAsync(cacheKey, config.cacheTimeMs)
-      if (cached) {
-        setModels(cached)
-        return
-      }
-    }
-
     setLoading(true)
     try {
-      const response = await fetch('/api/llm/models' + (forceRefresh ? '?forceRefresh=true' : ''))
+      const response = await fetchWithAuth('/api/llm/models' + (forceRefresh ? '?forceRefresh=true' : ''))
       if (!response.ok) throw new Error('Failed to fetch models')
       const data = await response.json()
 
       if (data.success) {
         setModels(data.data)
-        setCached(cacheKey, data.data, config.cacheTimeMs)
       }
     } catch (error) {
       console.error('Error fetching LLM models:', error)
     } finally {
       setLoading(false)
     }
-  }, [config.cacheTimeMs, getCached, setCached])
+  }, [])
 
   // Fetch stats
   const fetchStats = React.useCallback(async () => {
     try {
-      const response = await fetch('/api/llm/stats')
+      const response = await fetchWithAuth('/api/llm/stats')
       if (!response.ok) throw new Error('Failed to fetch stats')
       const data = await response.json()
 
@@ -154,7 +140,7 @@ export default function LLMModelsWidget({ config, onConfigChange, isEditing }: W
 
   // Filter and sort models
   const filteredAndSortedModels = useMemo(() => {
-    let filtered = models.filter(model => {
+    const filtered = models.filter(model => {
       const matchesSearch = searchQuery === '' ||
         model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         model.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -170,7 +156,7 @@ export default function LLMModelsWidget({ config, onConfigChange, isEditing }: W
 
     // Sort models
     filtered.sort((a, b) => {
-      let aVal: any, bVal: any
+      let aVal: string | number, bVal: string | number
 
       switch (sortBy) {
         case 'name':
@@ -528,7 +514,7 @@ export default function LLMModelsWidget({ config, onConfigChange, isEditing }: W
         {/* Sort Controls */}
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">Sort by:</span>
-          <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+          <Select value={sortBy} onValueChange={(value: string) => setSortBy(value)}>
             <SelectTrigger className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
@@ -597,9 +583,12 @@ export default function LLMModelsWidget({ config, onConfigChange, isEditing }: W
           )}
         </div>
 
-        {/* Cache Configuration */}
+        {/* Cache Configuration - Now handled server-side */}
         {isEditing && (
-          <CacheConfig config={config} onConfigChange={onConfigChange} />
+          <div className="text-xs text-muted-foreground">
+            Cache settings are managed server-side via environment variables.
+            Data is cached for improved performance and refreshed via cron jobs.
+          </div>
         )}
       </div>
     </WidgetShell>
