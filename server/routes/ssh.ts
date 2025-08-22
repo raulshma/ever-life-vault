@@ -1,6 +1,8 @@
+/// <reference path="../types/ssh2-shim.d.ts" />
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 // @ts-ignore - types are provided via local shims
-import fastifyWebsocket from '@fastify/websocket'
+// WebSocket plugin is registered globally in server/index.ts
+// import fastifyWebsocket from '@fastify/websocket'
 // @ts-ignore - ambient types provided in server/types/external.d.ts
 import { Client as SSHClient } from 'ssh2'
 import { z } from 'zod'
@@ -44,7 +46,7 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
   })
 
   // Test WebSocket endpoint without authentication
-  server.get('/ssh/test-ws', { websocket: true } as any, async (socket: any, req: any) => {
+  server.get('/ssh/test-ws', { websocket: true } as any, async (socket: any) => {
     server.log.info('Test WebSocket connection received')
     socket.send(JSON.stringify({ type: 'connected', message: 'WebSocket test successful' }))
 

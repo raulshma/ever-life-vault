@@ -5,13 +5,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Suspense, lazy } from "react";
 import { AuthProvider, useAuth } from "./hooks/useAuth";
-import { useSettings } from "./hooks/useSettings";
 import { VaultSessionProvider } from "./hooks/useVaultSession";
 import { SettingsProvider } from "./hooks/useSettings";
 import { Layout } from "@/components/Layout";
 import { FocusTimerProvider } from "@/hooks/useFocusTimerController";
-import { Skeleton } from "@/components/ui/skeleton";
-import PageSkeleton from "@/components/PageSkeleton";
+import { TerminalProvider } from '@/features/infrastructure/terminal/TerminalProvider'
+import { FloatingTerminal } from '@/features/infrastructure/terminal/FloatingTerminal'
+// import { Skeleton } from "@/components/ui/skeleton";
+// import PageSkeleton from "@/components/PageSkeleton";
 import RouteLoadingFallback from "@/components/RouteLoadingFallback";
 
 // Route-level code splitting
@@ -322,12 +323,16 @@ const App = () => (
           <AuthProvider>
             <VaultSessionProvider>
               <FocusTimerProvider>
+                <TerminalProvider>
                 {/* Keep outer Suspense for initial app boot; use same fallback style for consistency */}
                 <Suspense
                   fallback={<RouteLoadingFallback variant="fullscreen" />}
                 >
                   <AppRoutes />
                 </Suspense>
+                  {/* Global floating terminal (PiP) */}
+                  <FloatingTerminal />
+                </TerminalProvider>
               </FocusTimerProvider>
             </VaultSessionProvider>
           </AuthProvider>

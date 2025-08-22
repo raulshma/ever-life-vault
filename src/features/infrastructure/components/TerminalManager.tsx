@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,15 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/useAuth'
 import { useEncryptedVault } from '@/hooks/useEncryptedVault'
-import { useTerminalSettings, useRecentTerminals } from '../hooks'
-import { Terminal as XTerm } from 'xterm'
-import { FitAddon } from 'xterm-addon-fit'
+import { useRecentTerminals } from '../hooks'
 import 'xterm/css/xterm.css'
 import { Computer, Plus, Save, Trash2, Settings, History, Zap, Clock, X, Loader2, Maximize2, Minimize2, Copy as CopyIcon, Eraser, Search, Trash } from 'lucide-react'
 import { useToast } from '@/components/ui/use-toast'
 import { ResponsiveGrid, ResponsiveButtonGroup } from './ResponsiveLayout'
 import { useScreenSize, isMobile } from '../utils/responsive'
-import { getXTermTheme } from '../utils/terminalThemes'
+// keep theme util imported elsewhere; provider owns xterm options
 import { TerminalSettings } from './TerminalSettings'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { RecentTerminal } from '../types'
@@ -38,25 +36,23 @@ type NewSessionForm = {
 type SessionState = {
   id: string
   title: string
-  ws?: WebSocket
-  term?: XTerm
-  fit?: FitAddon
   containerRef: React.RefObject<HTMLDivElement | null>
   status: 'connecting' | 'connected' | 'closed' | 'error'
 }
 
+import { useTerminal } from '../terminal/TerminalProvider'
+
 export const TerminalManager: React.FC = () => {
   const { session } = useAuth()
   const { items, addItem } = useEncryptedVault()
-  const { settings: terminalSettings } = useTerminalSettings()
   const { recentTerminals, addRecentTerminal, removeRecentTerminal, clearRecentTerminals } = useRecentTerminals()
   const { toast } = useToast()
   const { width } = useScreenSize()
   const sshItems = useMemo(() => items.filter(i => i.type === 'ssh'), [items])
   const mobile = isMobile(width)
 
+  const { sessions: globalSessions, activeId, setActiveId, createSession: createGlobalSession, closeSession: closeGlobalSession, mountSessionInto } = useTerminal()
   const [sessions, setSessions] = useState<SessionState[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [fullscreenId, setFullscreenId] = useState<string | null>(null)
   const [recentFilter, setRecentFilter] = useState('')
@@ -108,102 +104,58 @@ export const TerminalManager: React.FC = () => {
     }
   }, [form.mode, form.vaultItemId, form.host, form.port, form.username, form.authMode, form.password, form.privateKey, form.passphrase, sshItems])
 
-  // Handle terminal focus when active session changes
+  // Mirror provider sessions into local view state with container refs
   useEffect(() => {
-    if (activeId) {
-      const activeSession = sessions.find(s => s.id === activeId)
-      if (activeSession?.term && activeSession.status === 'connected') {
-        // Focus the active terminal
-        activeSession.term.focus()
-      }
-    }
-  }, [activeId, sessions])
+    setSessions(prev => {
+      const refMap = new Map(prev.map(p => [p.id, p.containerRef]))
+      return globalSessions.map(gs => ({
+        id: gs.id,
+        title: gs.title,
+        status: gs.status as SessionState['status'],
+        containerRef: refMap.get(gs.id) ?? React.createRef<HTMLDivElement>(),
+      }))
+    })
+  }, [globalSessions])
 
-  // Apply settings live to existing terminals
+  // Mount sessions into their containers
   useEffect(() => {
-    try {
-      sessions.forEach(s => {
-        if (s.term) {
-          try {
-            const setOpt = (s.term as any).setOption
-            if (typeof setOpt === 'function') {
-              setOpt.call(s.term, 'fontSize', terminalSettings.fontSize)
-              setOpt.call(s.term, 'theme', getXTermTheme(terminalSettings.theme))
-            } else {
-              // best-effort fallback - avoid setting readonly ctor-only options
-              try { ;(s.term as any).options.fontSize = terminalSettings.fontSize } catch (err) { }
-              try { ;(s.term as any).options.theme = getXTermTheme(terminalSettings.theme) } catch (err) { }
-            }
-            s.fit?.fit()
-          } catch (innerErr) {
-            console.warn('Unable to update terminal options for a session', { sessionId: s.id, error: innerErr })
-          }
-        }
-      })
-    } catch (e) {
-      console.error('Failed to apply terminal settings to sessions', e)
+    sessions.forEach(s => {
+      if (s.containerRef.current) mountSessionInto(s.id, s.containerRef.current)
+    })
+  }, [sessions, mountSessionInto])
+
+  // Also remount when active tab changes to ensure focus and fit
+  useEffect(() => {
+    const s = sessions.find(x => x.id === activeId)
+    if (s?.containerRef.current) {
+      mountSessionInto(s.id, s.containerRef.current)
     }
-  }, [terminalSettings.fontSize, terminalSettings.theme, sessions])
+  }, [activeId, sessions, mountSessionInto])
 
   const createSession = async () => {
     if (!session?.access_token) return
     setCreating(true)
     try {
-      const body: {
-        host: string
-        port: number
-        username: string
-        password?: string
-        privateKey?: string
-        passphrase?: string
-      } = {
-        host: form.host,
-        port: Number(form.port) || 22,
-        username: form.username,
-      }
-      if (form.authMode === 'password') {
-        body.password = form.password
-      } else {
-        body.privateKey = form.privateKey
-        if (form.passphrase) body.passphrase = form.passphrase
-      }
-      // Use Vite proxy or same-origin path in production
-      const res = await fetch(`/ssh/sessions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        let bodyText = ''
-        try { bodyText = await res.text() } catch (e) { bodyText = String(e) }
-        console.error('Failed to create SSH session', { status: res.status, statusText: res.statusText, body: bodyText })
-        toast({ title: 'Failed to create session', description: bodyText || res.statusText, variant: 'destructive' })
-        return
-      }
-      const { sessionId } = await res.json()
-      const containerRef = React.createRef<HTMLDivElement>()
-      const newState: SessionState = {
-        id: sessionId,
-        title: `${form.username}@${form.host}`,
-        containerRef,
-        status: 'connecting',
-      }
-      setSessions(prev => [...prev, newState])
-      setActiveId(sessionId)
-
-      // Track recent terminal connection
-      await addRecentTerminal({
+      const id = await createGlobalSession({
         host: form.host,
         port: Number(form.port) || 22,
         username: form.username,
         authMode: form.authMode,
-        name: `${form.username}@${form.host}`,
+        password: form.authMode === 'password' ? form.password : undefined,
+        privateKey: form.authMode === 'key' ? form.privateKey : undefined,
+        passphrase: form.authMode === 'key' ? form.passphrase : undefined,
       })
-
-      setTimeout(() => attachTerminal(sessionId, containerRef), 0)
+      if (id) {
+        await addRecentTerminal({
+          host: form.host,
+          port: Number(form.port) || 22,
+          username: form.username,
+          authMode: form.authMode,
+          name: `${form.username}@${form.host}`,
+        })
+      } else {
+        toast({ title: 'Failed to create session', description: 'Unable to start SSH session', variant: 'destructive' })
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -211,313 +163,11 @@ export const TerminalManager: React.FC = () => {
     }
   }
 
-  const attachTerminal = (id: string, containerRef: React.RefObject<HTMLDivElement | null>) => {
-    const token = session?.access_token
-    if (!token) {
-      console.error('No access token available for SSH connection')
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
-      return
-    }
+  // attachTerminal removed — handled by TerminalProvider
 
-    // Build WS URL against current origin; Vite dev server proxies /ssh with ws enabled
-    const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsHost = location.host // includes port
-    const wsUrl = `${wsProtocol}//${wsHost}/ssh/sessions/${id}/attach?token=${encodeURIComponent(token)}`
+  const closeSession = async (id: string) => { await closeGlobalSession(id) }
 
-    console.log('Opening SSH WebSocket connection:', {
-      sessionId: id,
-      wsUrl: wsUrl.replace(/token=[^&]*/, 'token=[HIDDEN]'),
-    })
-
-    const ws = new WebSocket(wsUrl)
-
-    // Set up connection timeout
-    const connectionTimeout = setTimeout(() => {
-      console.error('SSH WebSocket connection timeout')
-      ws.close(1000, 'connection_timeout')
-    }, 10000)
-
-    const term = new XTerm({
-      cursorBlink: true,
-      fontFamily: 'ui-monospace, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-      fontSize: terminalSettings.fontSize,
-      convertEol: true,
-      theme: getXTermTheme(terminalSettings.theme),
-      allowTransparency: true,
-      rightClickSelectsWord: true,
-      // Mobile-friendly settings
-      ...(mobile && {
-        lineHeight: 1.2,
-        letterSpacing: 0,
-      }),
-      // Force terminal to respect container width
-      cols: mobile ? 60 : 80,
-      rows: mobile ? 20 : 25,
-      scrollback: mobile ? 100 : 1000,
-    })
-
-
-    const fit = new FitAddon()
-    term.loadAddon(fit)
-
-    ws.binaryType = 'arraybuffer'
-
-    ws.onmessage = (ev) => {
-      try {
-        if (ev.data instanceof ArrayBuffer) {
-          const text = new TextDecoder().decode(new Uint8Array(ev.data))
-          term.write(text)
-        } else if (typeof ev.data === 'string') {
-          term.write(ev.data)
-        }
-      } catch (error) {
-        console.error('Error processing WebSocket message', { sessionId: id, error })
-      }
-    }
-
-    ws.onclose = (ev: CloseEvent) => {
-      clearTimeout(connectionTimeout)
-      const code = ev.code || 0
-      const reason = ev.reason || 'unknown'
-      console.log('SSH WebSocket closed', { sessionId: id, code, reason })
-
-      // Clean up terminal
-      try {
-        const cleanupResize = (term as unknown as { _cleanupResize?: (() => void) | null })._cleanupResize
-        if (cleanupResize) {
-          window.removeEventListener('resize', cleanupResize)
-        }
-        term.dispose()
-      } catch (error) {
-        console.error('Error cleaning up terminal', { sessionId: id, error })
-      }
-
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'closed' } : s))
-    }
-
-    ws.onerror = (err) => {
-      clearTimeout(connectionTimeout)
-      console.error('SSH WebSocket error', { sessionId: id, err })
-
-      // Clean up terminal on error
-      try {
-        const cleanupResize = (term as unknown as { _cleanupResize?: (() => void) | null })._cleanupResize
-        if (cleanupResize) {
-          window.removeEventListener('resize', cleanupResize)
-        }
-        term.dispose()
-      } catch (error) {
-        console.error('Error cleaning up terminal after WebSocket error', { sessionId: id, error })
-      }
-
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
-    }
-
-    // Handle connection state changes for better UX
-    ws.onopen = () => {
-      console.log('SSH WebSocket connected successfully', { sessionId: id })
-      clearTimeout(connectionTimeout)
-
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, ws, term, fit, status: 'connected' } : s))
-
-      if (containerRef.current) {
-        try {
-          term.open(containerRef.current)
-          fit.fit()
-
-          // Add CSS classes to prevent overflow
-          const termElement = term.element
-          if (termElement) {
-            termElement.classList.add('xterm-container')
-            // Use setTimeout to ensure DOM is fully rendered
-            setTimeout(() => {
-              const viewport = termElement.querySelector('.xterm-viewport') as HTMLElement
-              if (viewport) {
-                viewport.classList.add('xterm-viewport')
-                // Force viewport to respect boundaries
-                viewport.style.overflow = 'hidden'
-                viewport.style.maxWidth = '100%'
-                viewport.style.width = '100%'
-              }
-              const screen = termElement.querySelector('.xterm-screen') as HTMLElement
-              if (screen) {
-                screen.classList.add('xterm-screen')
-                // Force screen to respect boundaries
-                screen.style.overflow = 'hidden'
-                screen.style.maxWidth = '100%'
-                screen.style.width = '100%'
-              }
-              // Force the entire terminal element to respect boundaries
-              ;(termElement as HTMLElement).style.overflow = 'hidden'
-              ;(termElement as HTMLElement).style.maxWidth = '100%'
-              ;(termElement as HTMLElement).style.width = '100%'
-            }, 0)
-          }
-
-          // Send initial resize
-          const cols = term.cols
-          const rows = term.rows
-          console.log('Sending initial terminal size', { sessionId: id, cols, rows })
-          ws.send(JSON.stringify({ type: 'resize', cols, rows }))
-        } catch (error) {
-          console.error('Error initializing terminal', { sessionId: id, error })
-        }
-      }
-
-      // Focus terminal only if it's the active session
-      if (activeId === id) {
-        term.focus()
-      }
-
-      // Handle terminal input
-      term.onData(data => {
-        try {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(data)
-          } else {
-            console.warn('Cannot send data: WebSocket not open', { sessionId: id, readyState: ws.readyState })
-          }
-        } catch (error) {
-          console.error('Error sending terminal data', { sessionId: id, error })
-        }
-      })
-
-      // Handle window resize and orientation change
-      const onResize = () => {
-        try {
-          fit.fit()
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }))
-          }
-        } catch (error) {
-          console.error('Error handling resize', { sessionId: id, error })
-        }
-      }
-
-      window.addEventListener('resize', onResize)
-
-      // Handle orientation change on mobile devices
-      if (mobile) {
-        window.addEventListener('orientationchange', () => {
-          // Delay to ensure the orientation change has completed
-          setTimeout(onResize, 300)
-        })
-      }
-      // Store cleanup handler on term
-      ;(term as unknown as { _cleanupResize: (() => void) | null })._cleanupResize = onResize
-    }
-  }
-
-  const closeSession = async (id: string) => {
-    console.log('Closing SSH session', { sessionId: id })
-    const s = sessions.find(x => x.id === id)
-
-    if (!s) {
-      console.warn('Session not found for closing', { sessionId: id })
-      return
-    }
-
-    // Update session status to 'closed' immediately
-    setSessions(prev => prev.map(session =>
-      session.id === id ? { ...session, status: 'closed' } : session
-    ))
-
-    // Delete session on server FIRST, before closing WebSocket
-    // This prevents the WebSocket close handler from cleaning up the session
-    try {
-      const response = await fetch(`/ssh/sessions/${id}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        }
-      })
-
-    // Close WebSocket connection
-    try {
-      if (s.ws && s.ws.readyState === WebSocket.OPEN) {
-        s.ws.close(1000, 'user_closed')
-        console.log('WebSocket closed', { sessionId: id })
-      }
-    } catch (error) {
-      console.error('Error closing WebSocket', { sessionId: id, error })
-    }
-
-    // Clean up terminal and event listeners
-    try {
-      const cleanupResize = (s.term as unknown as { _cleanupResize?: (() => void) | null })?._cleanupResize
-      if (cleanupResize) {
-        window.removeEventListener('resize', cleanupResize)
-      }
-      s.term?.dispose()
-      console.log('Terminal disposed', { sessionId: id })
-    } catch (error) {
-      console.error('Error disposing terminal', { sessionId: id, error })
-    }
-
-    // Remove session from state
-    setSessions(prev => {
-      const newSessions = prev.filter(x => x.id !== id)
-      // Update activeId if we're closing the active session
-      if (activeId === id) {
-        setActiveId(newSessions.length > 0 ? newSessions[0].id : null)
-      }
-      return newSessions
-    })
-
-      if (!response.ok) {
-        // Don't treat 404 or 409 as errors since session might already be cleaned up
-        if (response.status === 404) {
-          console.log('Session already cleaned up on server', { sessionId: id })
-        } else if (response.status === 409) {
-          console.log('Session is already being cleaned up', { sessionId: id })
-        } else {
-          // Get the response body for better error debugging
-          let errorBody = 'Unable to parse error response'
-          try {
-            errorBody = await response.text()
-          } catch (e) {
-            console.debug('Could not read error response body', { sessionId: id, error: e })
-          }
-
-          console.error('Failed to delete session on server', {
-            sessionId: id,
-            status: response.status,
-            statusText: response.statusText,
-            responseBody: errorBody
-          })
-        }
-      } else {
-        console.log('Session deleted on server', { sessionId: id })
-      }
-    } catch (error) {
-      console.error('Error deleting session on server', { sessionId: id, error })
-    }
-  }
-
-  // Cleanup function for component unmount
-  useEffect(() => {
-    return () => {
-      // Cleanup all sessions when component unmounts
-      sessions.forEach(s => {
-        try {
-          if (s.ws && s.ws.readyState === WebSocket.OPEN) {
-            s.ws.close(1000, 'component_unmount')
-          }
-          const cleanupResize = (s.term as unknown as { _cleanupResize?: (() => void) | null })?._cleanupResize
-          if (cleanupResize) {
-            window.removeEventListener('resize', cleanupResize)
-            // Also remove orientation change listener on mobile
-            if (mobile) {
-              window.removeEventListener('orientationchange', cleanupResize)
-            }
-          }
-          s.term?.dispose()
-        } catch (error) {
-          console.error('Error during session cleanup on unmount', { sessionId: s.id, error })
-        }
-      })
-    }
-  }, [sessions, mobile])
+  // Component unmount cleanup handled by provider
 
   // Helper function to check if we can create a new session
   const canCreate = form.host && form.username && (form.authMode === 'password' ? !!form.password : !!form.privateKey)
@@ -534,7 +184,7 @@ export const TerminalManager: React.FC = () => {
   }
 
   // Helper function to check if maximum sessions limit is reached
-  const maxSessionsReached = sessions.length >= 10 // Limit to 10 concurrent sessions
+  const maxSessionsReached = globalSessions.length >= 10 // Limit to 10 concurrent sessions
 
   // Quick connect to recent terminal
   const quickConnect = async (terminal: RecentTerminal) => {
@@ -849,17 +499,17 @@ export const TerminalManager: React.FC = () => {
           </div>
         )}
 
-        {sessions.length === 0 ? (
+        {globalSessions.length === 0 ? (
           <div className="text-center text-muted-foreground py-10">No sessions yet. Create one above.</div>
         ) : (
           <>
             <div className="mb-4 text-sm text-muted-foreground">
-              {sessions.length} active session{sessions.length !== 1 ? 's' : ''} • {sessions.filter(s => s.status === 'connected').length} connected
+              {globalSessions.length} active session{globalSessions.length !== 1 ? 's' : ''} • {globalSessions.filter(s => s.status === 'connected').length} connected
             </div>
-            <Tabs value={activeId ?? sessions[0]?.id} onValueChange={setActiveId}>
+            <Tabs value={activeId ?? globalSessions[0]?.id} onValueChange={setActiveId}>
               <div className="w-full overflow-hidden">
                 <TabsList className={`${mobile ? 'flex overflow-x-auto scrollbar-hide pb-1 min-w-0' : 'flex flex-wrap'} gap-1 ${mobile ? 'px-1' : ''} w-full`}>
-                  {sessions.map(s => (
+                  {globalSessions.map(s => (
                     <TabsTrigger
                       key={s.id}
                       value={s.id}
@@ -902,13 +552,13 @@ export const TerminalManager: React.FC = () => {
                     )}
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline" onClick={() => { try { s.fit?.fit() } catch {} }} title="Fit to container">
+                    <Button size="sm" variant="outline" onClick={() => { /* fit handled by provider */ }} title="Fit to container">
                       <Maximize2 className="h-4 w-4 mr-1" /> Fit
                     </Button>
-                    <Button size="sm" variant="outline" onClick={async () => { try { const sel = s.term?.getSelection() || ''; await navigator.clipboard.writeText(sel); toast({ title: 'Copied', description: 'Selection copied to clipboard.' }) } catch (e) { toast({ title: 'Copy failed', description: e instanceof Error ? e.message : 'Unable to copy', variant: 'destructive' }) } }} title="Copy selection">
+                    <Button size="sm" variant="outline" onClick={async () => { toast({ title: 'Tip', description: 'Select in terminal and press Ctrl+C to copy.' }) }} title="Copy selection">
                       <CopyIcon className="h-4 w-4 mr-1" /> Copy
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { try { s.term?.clear() } catch {} }} title="Clear terminal">
+                    <Button size="sm" variant="outline" disabled title="Clear terminal">
                       <Eraser className="h-4 w-4 mr-1" /> Clear
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => setFullscreenId(prev => prev === s.id ? null : s.id)} title={fullscreenId === s.id ? 'Exit fullscreen' : 'Fullscreen'}>
