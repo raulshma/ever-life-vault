@@ -44,7 +44,8 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:8787",
         changeOrigin: true,
       },
-      "/integrations": {
+      // Only proxy OAuth endpoints under /integrations; let SPA handle /integrations route
+      "/integrations/oauth": {
         target: "http://localhost:8787",
         changeOrigin: true,
       },
@@ -68,14 +69,7 @@ export default defineConfig(({ mode }) => ({
         target: "http://localhost:8787",
         changeOrigin: true,
       },
-      "/steam": {
-        target: "http://localhost:8787",
-        changeOrigin: true,
-      },
-      "/mal": {
-        target: "http://localhost:8787",
-        changeOrigin: true,
-      },
+      // Do not proxy SPA routes like /steam or /anime so history fallback serves index.html on refresh
       // SSH/WebTerminal endpoints (HTTP + WebSocket)
       "/ssh": {
         target: "http://localhost:8787",
