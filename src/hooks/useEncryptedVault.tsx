@@ -407,6 +407,8 @@ export function useEncryptedVault() {
       item.data?.url,
       item.data?.notes,
       item.data?.content,
+  (item.data as any)?.host,
+  String((item.data as any)?.port || ''),
     ].filter(Boolean).join(' ').toLowerCase();
     return searchableText.includes(q);
   });

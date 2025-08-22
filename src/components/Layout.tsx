@@ -173,19 +173,15 @@ const SidebarNavigation: React.FC<{
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <SidebarMenuButton onClick={onOpenSearch}>
-                    <Search className="h-4 w-4" />
-                    <span>Search</span>
-                  </SidebarMenuButton>
+                <SidebarMenuButton onClick={onOpenSearch}>
+                  <Search className="h-4 w-4" />
+                  <span>Search</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton>
-                  <SidebarMenuButton onClick={onOpenQuickAdd}>
-                    <Plus className="h-4 w-4" />
-                    <span>Quick Add</span>
-                  </SidebarMenuButton>
+                <SidebarMenuButton onClick={onOpenQuickAdd}>
+                  <Plus className="h-4 w-4" />
+                  <span>Quick Add</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>

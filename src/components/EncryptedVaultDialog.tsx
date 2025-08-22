@@ -37,6 +37,7 @@ interface EncryptedVaultDialogProps {
   onSave: (data: Omit<VaultItem, 'id' | 'created_at' | 'updated_at'>) => Promise<VaultItem | null>;
   onUpdate: (id: string, updates: Partial<Omit<VaultItem, 'id' | 'created_at' | 'updated_at'>>) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
+  defaultType?: 'login' | 'note' | 'api' | 'document' | 'ssh';
 }
 
 export function EncryptedVaultDialog({ 
@@ -45,7 +46,8 @@ export function EncryptedVaultDialog({
   onOpenChange, 
   onSave, 
   onUpdate,
-  onDelete 
+  onDelete,
+  defaultType,
 }: EncryptedVaultDialogProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<'login' | 'note' | 'api' | 'document' | 'ssh'>('login');
@@ -69,10 +71,10 @@ export function EncryptedVaultDialog({
       setData(item.data);
     } else {
       setName('');
-      setType('login');
+      setType(defaultType || 'login');
       setData({});
     }
-  }, [item]);
+  }, [item, defaultType]);
 
   const generatePassword = () => {
     const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -227,7 +229,7 @@ export function EncryptedVaultDialog({
                       onClick={() => copyToClipboard(data.username, 'username')}
                     >
                       {copied === 'username' ? 
-                        <Check className="w-4 h-4 text-[hsl(var(--success))]" /> : 
+                        <Check className="w-4 h-4 text-success" /> : 
                         <Copy className="w-4 h-4" />
                       }
                     </Button>
@@ -267,7 +269,7 @@ export function EncryptedVaultDialog({
                             onClick={() => copyToClipboard(data.password, 'password')}
                           >
                             {copied === 'password' ? 
-                              <Check className="w-3 h-3 text-[hsl(var(--success))]" /> : 
+                              <Check className="w-3 h-3 text-success" /> : 
                               <Copy className="w-3 h-3" />
                             }
                           </Button>
@@ -373,7 +375,7 @@ export function EncryptedVaultDialog({
                       onClick={() => copyToClipboard(data.serverUrl, 'serverUrl')}
                     >
                       {copied === 'serverUrl' ? (
-                        <Check className="w-4 h-4 text-[hsl(var(--success))]" />
+                        <Check className="w-4 h-4 text-success" />
                       ) : (
                         <Copy className="w-4 h-4" />
                       )}
@@ -415,7 +417,7 @@ export function EncryptedVaultDialog({
                           onClick={() => copyToClipboard(data.apiKey, 'apiKey')}
                         >
                             {copied === 'apiKey' ? (
-                              <Check className="w-3 h-3 text-[hsl(var(--success))]" />
+                              <Check className="w-3 h-3 text-success" />
                           ) : (
                             <Copy className="w-3 h-3" />
                           )}

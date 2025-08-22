@@ -92,7 +92,7 @@ export const ValidationDisplay: React.FC<ValidationDisplayProps> = ({
             {/* Detailed Warnings */}
             {warnings.length > 0 && (
               <div className="space-y-2">
-                <h4 className="text-sm font-medium text-orange-600 flex items-center gap-2">
+                <h4 className="text-sm font-medium text-warning flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4" />
                   Warnings
                 </h4>
@@ -140,8 +140,8 @@ const ValidationWarningItem: React.FC<{
   onDismiss?: () => void;
 }> = ({ warning, onDismiss }) => {
   return (
-    <div className="flex items-start gap-3 p-3 border border-orange-200 rounded-lg bg-orange-50">
-      <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
+    <div className="flex items-start gap-3 p-3 border border-warning/20 rounded-lg bg-warning/5">
+      <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
           <Badge variant="outline" className="text-xs border-orange-200">
@@ -194,7 +194,7 @@ export const FieldValidation: React.FC<FieldValidationProps> = ({
         </div>
       ))}
       {warnings.map((warning, index) => (
-        <div key={`warning-${index}`} className="flex items-center gap-2 text-sm text-orange-600">
+        <div key={`warning-${index}`} className="flex items-center gap-2 text-sm text-warning">
           <AlertTriangle className="h-3 w-3 flex-shrink-0" />
           <span>{warning.message}</span>
         </div>
@@ -237,7 +237,7 @@ export const ValidationStatus: React.FC<ValidationStatusProps> = ({
 
   if (hasWarnings) {
     return (
-      <div className={`flex items-center gap-2 text-sm text-orange-600 ${className}`}>
+      <div className={`flex items-center gap-2 text-sm text-warning ${className}`}>
         <AlertTriangle className="h-3 w-3" />
         <span>Has warnings</span>
       </div>
@@ -245,8 +245,8 @@ export const ValidationStatus: React.FC<ValidationStatusProps> = ({
   }
 
   return (
-    <div className={`flex items-center gap-2 text-sm text-green-600 ${className}`}>
-      <div className="h-3 w-3 rounded-full bg-green-600" />
+    <div className={`flex items-center gap-2 text-sm text-success ${className}`}>
+      <div className="h-3 w-3 rounded-full bg-success" />
       <span>Valid</span>
     </div>
   );

@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,15 +24,15 @@ import {
   AlertTriangle,
   Loader2,
   Edit,
-  Trash2,
   ExternalLink,
   Check,
   Search,
-  Settings,
   Zap,
   RefreshCw,
   Download,
   Upload,
+  FileText,
+  Server,
 } from "lucide-react";
 import { useVaultSession } from "@/hooks/useVaultSession";
 import { useEncryptedVault } from "@/hooks/useEncryptedVault";
@@ -230,7 +229,7 @@ function QuickAddCredentials({
                 (quickForm.type === 'api' && !quickForm.serverUrl.trim()) ||
                 isAdding
               }
-            className="h-8 bg-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.9)] px-3 w-full sm:w-auto sm:flex-shrink-0"
+              className="h-8 w-full sm:w-auto sm:flex-shrink-0"
               size="sm"
             >
               {isAdding ? (
@@ -278,6 +277,11 @@ export default function Vault() {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  // Must be declared before any early returns to avoid hooks order changes
+  const [newItemType, setNewItemType] = useState<'login' | 'note' | 'api' | 'document' | 'ssh'>('login');
+  const [activeTypeFilter, setActiveTypeFilter] = useState<
+    'all' | 'login' | 'note' | 'api' | 'document' | 'ssh'
+  >('all');
   const [pendingImportFile, setPendingImportFile] = useState<File | null>(null);
   const { toast } = useToast();
 
@@ -356,7 +360,8 @@ export default function Vault() {
     }, 2000);
   };
 
-  const handleAddItem = (type: "login" | "note" | "api" | "document") => {
+  const handleAddItem = (type: "login" | "note" | "api" | "document" | "ssh") => {
+    setNewItemType(type);
     setSelectedItem(null);
     setShowDialog(true);
   };
@@ -551,18 +556,18 @@ export default function Vault() {
 
           {/* Export/Import Info */}
           {totalItems > 0 && (
-          <Card className="border-[hsl(var(--info)/0.35)] bg-[hsl(var(--info)/0.12)]">
+          <Card className="border-info/20 bg-info/5">
               <CardContent className="p-4">
                 <div className="flex items-start space-x-3">
                   <div className="flex space-x-2">
-                  <Download className="w-4 h-4 text-[hsl(var(--accent))] mt-0.5" />
-                  <Upload className="w-4 h-4 text-[hsl(var(--accent))] mt-0.5" />
+                    <Download className="w-4 h-4 text-info mt-0.5" />
+                    <Upload className="w-4 h-4 text-info mt-0.5" />
                   </div>
                   <div className="flex-1">
-                  <h3 className="font-semibold text-[hsl(var(--info))] mb-1">
+                    <h3 className="font-semibold text-foreground mb-1">
                       Backup & Restore
                     </h3>
-                  <p className="text-[hsl(var(--accent))] text-sm">
+                    <p className="text-muted-foreground text-sm">
                       Export your vault to create encrypted backups. Import from
                       backup files to restore data. All exports are encrypted
                       with your master password for maximum security.
@@ -575,6 +580,42 @@ export default function Vault() {
 
           {/* Quick Add Section */}
           <QuickAddCredentials onAdd={addItem} />
+
+          {/* Type Filters */}
+          <Card>
+            <CardContent className="p-3">
+              <div className="flex flex-wrap gap-2 items-center">
+                {([
+                  { key: 'all', label: 'All', icon: Shield },
+                  { key: 'login', label: 'Logins', icon: Key },
+                  { key: 'note', label: 'Notes', icon: Lock },
+                  { key: 'api', label: 'API Keys', icon: Shield },
+                  { key: 'document', label: 'Documents', icon: FileText },
+                  { key: 'ssh', label: 'SSH', icon: Server },
+                ] as const).map((f) => (
+                  <Button
+                    key={f.key}
+                    size="sm"
+                    variant={activeTypeFilter === f.key ? 'default' : 'outline'}
+                    onClick={() => setActiveTypeFilter(f.key as any)}
+                    className="h-8 px-3"
+                  >
+                    <f.icon className="w-3.5 h-3.5 mr-1.5" />
+                    {f.label}
+                    {f.key !== 'all' && (
+                      <Badge variant="secondary" className="ml-2">
+                        {f.key === 'login' && itemsByType.login.length}
+                        {f.key === 'note' && itemsByType.note.length}
+                        {f.key === 'api' && itemsByType.api.length}
+                        {f.key === 'document' && itemsByType.document.length}
+                        {f.key === 'ssh' && itemsByType.ssh.length}
+                      </Badge>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Vault Categories */}
@@ -607,6 +648,7 @@ export default function Vault() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {/* Login Credentials */}
+            {(activeTypeFilter === 'all' || activeTypeFilter === 'login') && (
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
@@ -628,21 +670,22 @@ export default function Vault() {
                               <div className="font-medium text-sm truncate">
                                 {item.name}
                               </div>
-                              {item.data.url && (
+                              {Boolean((item.data as any)?.url) && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                                  onClick={() =>
-                                    window.open(item.data.url, "_blank")
-                                  }
+                                  onClick={() => {
+                                    const url = String((item.data as any)?.url || '');
+                                    if (url) window.open(url, "_blank");
+                                  }}
                                 >
                                   <ExternalLink className="w-3 h-3" />
                                 </Button>
                               )}
                             </div>
                             <div className="text-xs text-muted-foreground truncate">
-                              {item.data.username}
+                              {String((item.data as any)?.username || '')}
                             </div>
                           </div>
                           <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -658,20 +701,20 @@ export default function Vault() {
                                 <Eye className="w-3 h-3" />
                               )}
                             </Button>
-                            {item.data.username && (
+          {Boolean((item.data as any)?.username) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
                                 onClick={() =>
                                   copyToClipboard(
-                                    item.data.username,
+            String((item.data as any)?.username || ''),
                                     `${item.id}-username`
                                   )
                                 }
                               >
                                 {copiedItems.has(`${item.id}-username`) ? (
-                                  <Check className="w-3 h-3 text-[hsl(var(--success))]" />
+                                  <Check className="w-3 h-3 text-success" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -688,10 +731,10 @@ export default function Vault() {
                           </div>
                         </div>
                         {visiblePasswords.has(item.id) &&
-                          item.data.password && (
+                          Boolean((item.data as any)?.password) && (
                             <div className="mt-2 p-2 bg-muted rounded text-xs font-mono break-all flex items-center justify-between">
                               <span className="truncate mr-2">
-                                {item.data.password}
+                                {String((item.data as any)?.password || '')}
                               </span>
                               <Button
                                 variant="ghost"
@@ -699,13 +742,13 @@ export default function Vault() {
                                 className="h-5 w-5 shrink-0"
                                 onClick={() =>
                                   copyToClipboard(
-                                    item.data.password,
+                                    String((item.data as any)?.password || ''),
                                     `${item.id}-password`
                                   )
                                 }
                               >
                                 {copiedItems.has(`${item.id}-password`) ? (
-                                  <Check className="w-3 h-3 text-[hsl(var(--success))]" />
+                                  <Check className="w-3 h-3 text-success" />
                                 ) : (
                                   <Copy className="w-3 h-3" />
                                 )}
@@ -732,8 +775,10 @@ export default function Vault() {
                 </Button>
               </CardContent>
             </Card>
+            )}
 
             {/* Secure Notes */}
+            {(activeTypeFilter === 'all' || activeTypeFilter === 'note') && (
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
@@ -754,9 +799,9 @@ export default function Vault() {
                             <div className="font-medium text-sm truncate">
                               {item.name}
                             </div>
-                            {item.data.content && (
+              {Boolean((item.data as any)?.content) && (
                               <div className="text-xs text-muted-foreground truncate">
-                                {item.data.content.substring(0, 50)}...
+                {String((item.data as any)?.content || '').substring(0, 50)}...
                               </div>
                             )}
                           </div>
@@ -783,9 +828,9 @@ export default function Vault() {
                             </Button>
                           </div>
                         </div>
-                        {visiblePasswords.has(item.id) && item.data.content && (
+            {visiblePasswords.has(item.id) && Boolean((item.data as any)?.content) && (
                           <div className="mt-2 p-2 bg-muted rounded text-xs whitespace-pre-wrap">
-                            {item.data.content}
+              {String((item.data as any)?.content || '')}
                           </div>
                         )}
                       </div>
@@ -808,8 +853,10 @@ export default function Vault() {
                 </Button>
               </CardContent>
             </Card>
+            )}
 
             {/* API Keys */}
+            {(activeTypeFilter === 'all' || activeTypeFilter === 'api') && (
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
@@ -830,9 +877,9 @@ export default function Vault() {
                             <div className="font-medium text-sm truncate">
                               {item.name}
                             </div>
-                            {item.data.notes && (
+              {Boolean((item.data as any)?.notes) && (
                               <div className="text-xs text-muted-foreground truncate">
-                                {item.data.notes}
+                {String((item.data as any)?.notes || '')}
                               </div>
                             )}
                           </div>
@@ -849,14 +896,14 @@ export default function Vault() {
                                 <Eye className="w-3 h-3" />
                               )}
                             </Button>
-                            {item.data.apiKey && (
+          {Boolean((item.data as any)?.apiKey) && (
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-6 w-6"
                                 onClick={() =>
                                   copyToClipboard(
-                                    item.data.apiKey,
+            String((item.data as any)?.apiKey || ''),
                                     `${item.id}-key`
                                   )
                                 }
@@ -878,9 +925,9 @@ export default function Vault() {
                             </Button>
                           </div>
                         </div>
-                        {visiblePasswords.has(item.id) && item.data.apiKey && (
+            {visiblePasswords.has(item.id) && Boolean((item.data as any)?.apiKey) && (
                           <div className="mt-2 p-2 bg-muted rounded text-xs font-mono break-all">
-                            {item.data.apiKey}
+              {String((item.data as any)?.apiKey || '')}
                           </div>
                         )}
                       </div>
@@ -903,8 +950,10 @@ export default function Vault() {
                 </Button>
               </CardContent>
             </Card>
+            )}
 
             {/* Documents */}
+            {(activeTypeFilter === 'all' || activeTypeFilter === 'document') && (
             <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
               <CardHeader>
                 <CardTitle className="flex items-center text-lg">
@@ -925,9 +974,9 @@ export default function Vault() {
                             <div className="font-medium text-sm truncate">
                               {item.name}
                             </div>
-                            {item.data.documentType && (
+              {Boolean((item.data as any)?.documentType) && (
                               <div className="text-xs text-muted-foreground truncate">
-                                {item.data.documentType}
+                {String((item.data as any)?.documentType || '')}
                               </div>
                             )}
                           </div>
@@ -954,17 +1003,17 @@ export default function Vault() {
                             </Button>
                           </div>
                         </div>
-                        {visiblePasswords.has(item.id) && (
+            {visiblePasswords.has(item.id) && (
                           <div className="mt-2 p-2 bg-muted rounded text-xs space-y-1">
-                            {item.data.documentNumber && (
+              {Boolean((item.data as any)?.documentNumber) && (
                               <div>
                                 <strong>Number:</strong>{" "}
-                                {item.data.documentNumber}
+                {String((item.data as any)?.documentNumber || '')}
                               </div>
                             )}
-                            {item.data.notes && (
+              {Boolean((item.data as any)?.notes) && (
                               <div>
-                                <strong>Notes:</strong> {item.data.notes}
+                <strong>Notes:</strong> {String((item.data as any)?.notes || '')}
                               </div>
                             )}
                           </div>
@@ -989,6 +1038,98 @@ export default function Vault() {
                 </Button>
               </CardContent>
             </Card>
+            )}
+
+            {/* SSH Credentials */}
+            {(activeTypeFilter === 'all' || activeTypeFilter === 'ssh') && (
+            <Card className="bg-gradient-card shadow-card hover:shadow-elegant transition-all duration-300">
+              <CardHeader>
+                <CardTitle className="flex items-center text-lg">
+                  <Server className="w-5 h-5 mr-2 text-[hsl(var(--info))]" />
+                  SSH Credentials ({itemsByType.ssh.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {itemsByType.ssh.length > 0 ? (
+                    itemsByType.ssh.map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 bg-card rounded-lg border group hover:shadow-sm transition-shadow"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm truncate">
+                              {item.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {String((item.data as any)?.username || '')}@{String((item.data as any)?.host || '')}:{String((item.data as any)?.port || 22)}
+                            </div>
+                          </div>
+                          <div className="flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => togglePasswordVisibility(item.id)}
+                              title="Toggle details"
+                            >
+                              {visiblePasswords.has(item.id) ? (
+                                <EyeOff className="w-3 h-3" />
+                              ) : (
+                                <Eye className="w-3 h-3" />
+                              )}
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => handleEditItem(item)}
+                            >
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {visiblePasswords.has(item.id) && (
+                          <div className="mt-2 p-2 bg-muted rounded text-xs space-y-1">
+                            {(item.data as any)?.privateKey && (
+                              <div className="font-mono break-all">
+                                <strong>Private Key:</strong> {(item.data as any).privateKey}
+                              </div>
+                            )}
+                            {(item.data as any)?.password && (
+                              <div className="font-mono break-all">
+                                <strong>Password:</strong> {(item.data as any).password}
+                              </div>
+                            )}
+                            {(item.data as any)?.passphrase && (
+                              <div className="font-mono break-all">
+                                <strong>Passphrase:</strong> {(item.data as any).passphrase}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Server className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <p>No SSH credentials yet</p>
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  variant="ghost"
+                  className="w-full mt-4"
+                  onClick={() => handleAddItem("ssh")}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add SSH Credential
+                </Button>
+              </CardContent>
+            </Card>
+            )}
           </div>
         )}
 
@@ -1053,6 +1194,7 @@ export default function Vault() {
           onSave={addItem}
           onUpdate={updateItem}
           onDelete={deleteItem}
+          defaultType={selectedItem ? selectedItem.type : newItemType}
         />
 
         {/* Import Confirmation Dialog */}
