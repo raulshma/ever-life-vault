@@ -8,6 +8,7 @@ pipeline {
     DEPLOY_DIR = "${env.DEPLOY_BASE_DIR ?: '/home/raulshma/apps'}/ever-life-vault"
     // Use Secret Text credential id 'github-pat' for private repo access
     GITHUB_PAT = credentials('github-pat')
+    DISCORD_WEBHOOK_URL = credentials('DISCORD_WEBHOOK_URL')
   }
 
   parameters {
