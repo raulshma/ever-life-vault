@@ -39,7 +39,6 @@ export const moduleCategories: NavGroups = {
     { name: "Dashboard", path: "/", icon: Home },
     { name: "Day Tracker", path: "/day-tracker", icon: Calendar },
     { name: "Focus", path: "/focus", icon: Sparkles },
-    { name: "Tasks", path: "/tasks", icon: Bookmark },
     { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
     { name: "Documents", path: "/documents", icon: FileText },
     { name: "Inventory", path: "/inventory", icon: Package2 },
