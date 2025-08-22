@@ -1,4 +1,4 @@
-import { OAuthProvider, ProviderCommonConfig } from '../types.js'
+import { OAuthProvider, ProviderCommonConfig, OAuthTokens } from '../types.js'
 import { ProviderNotConfiguredError, TokenExchangeError, TokenRefreshError } from '../errors.js'
 
 export class RedditProvider implements OAuthProvider {
@@ -22,7 +22,7 @@ export class RedditProvider implements OAuthProvider {
     return u.toString()
   }
 
-  async exchangeCodeForTokens(code: string): Promise<Record<string, any>> {
+  async exchangeCodeForTokens(code: string): Promise<OAuthTokens> {
     if (!this.isConfigured()) throw new ProviderNotConfiguredError(this.name)
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
@@ -39,13 +39,13 @@ export class RedditProvider implements OAuthProvider {
       body: body.toString(),
     })
     try {
-      return (await res.json()) as Record<string, any>
+      return (await res.json()) as OAuthTokens
     } catch (e) {
       throw new TokenExchangeError(this.name, e)
     }
   }
 
-  async refreshTokens(refreshToken: string): Promise<Record<string, any>> {
+  async refreshTokens(refreshToken: string): Promise<OAuthTokens> {
     if (!this.isConfigured()) throw new ProviderNotConfiguredError(this.name)
     const body = new URLSearchParams({
       grant_type: 'refresh_token',
@@ -61,7 +61,7 @@ export class RedditProvider implements OAuthProvider {
       body: body.toString(),
     })
     try {
-      return (await res.json()) as Record<string, any>
+      return (await res.json()) as OAuthTokens
     } catch (e) {
       throw new TokenRefreshError(this.name, e)
     }

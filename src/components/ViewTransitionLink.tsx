@@ -6,6 +6,11 @@ interface ViewTransitionLinkProps extends LinkProps {
   children: React.ReactNode;
 }
 
+interface NetworkConnection {
+  saveData?: boolean;
+  effectiveType?: string;
+}
+
 export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, children, ...props }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -32,9 +37,9 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
     ];
     const match = prefetchers.find((f) => f.test(path));
     if (match && 'connection' in navigator) {
-      const conn: any = (navigator as any).connection;
+      const conn: NetworkConnection = (navigator as Navigator & { connection?: NetworkConnection }).connection;
       const saveData = Boolean(conn?.saveData);
-      const slow = ['slow-2g', '2g'].includes(conn?.effectiveType);
+      const slow = ['slow-2g', '2g'].includes(conn?.effectiveType || '');
       if (saveData || slow) return; // Respect Data Saver/slow connections
     }
     if (match) match.load().catch(() => {});
@@ -55,7 +60,7 @@ export const ViewTransitionLink: React.FC<ViewTransitionLinkProps> = ({ to, chil
 
     const vtClass = isSteamTarget || isFromSteam ? 'steam-vt' : (isAnimeTarget || isFromAnime ? 'anime-vt' : '');
     if (vtClass) document.documentElement.classList.add(vtClass);
-    const transition = (document as any).startViewTransition(() => {
+    const transition = (document as Document & { startViewTransition: () => ViewTransition }).startViewTransition(() => {
       startTransition(() => navigate(to as string));
     });
     // Always cleanup the flag, whether success or error

@@ -101,7 +101,9 @@ export default function Auth() {
           } else {
             sessionStorage.removeItem(SUPABASE_NO_REMEMBER_FLAG_KEY);
           }
-        } catch {}
+        } catch {
+          // Ignore sessionStorage errors (e.g., in private browsing mode)
+        }
 
         const { error } = await supabase.auth.signInWithPassword({
           email,

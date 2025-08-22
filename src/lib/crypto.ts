@@ -211,7 +211,7 @@ export type VaultItem = {
   id: string;
   type: 'login' | 'note' | 'api' | 'document' | 'ssh';
   name: string;
-  data: Record<string, any>;
+  data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 };

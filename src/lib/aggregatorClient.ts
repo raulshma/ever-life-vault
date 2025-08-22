@@ -16,7 +16,7 @@ export async function fetchWithAuth(input: RequestInfo | URL, init?: RequestInit
   return fetch(input, { ...init, headers })
 }
 
-export async function agpFetch(targetUrl: string, options?: { method?: string; headers?: Record<string, string>; body?: any }): Promise<Response> {
+export async function agpFetch(targetUrl: string, options?: { method?: string; headers?: Record<string, string>; body?: unknown }): Promise<Response> {
   const token = await getAccessToken()
   const headers = new Headers(options?.headers || {})
   if (token) headers.set('Authorization', `Bearer ${token}`)

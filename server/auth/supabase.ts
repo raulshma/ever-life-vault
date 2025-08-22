@@ -1,11 +1,10 @@
-import type { FastifyBaseLogger } from 'fastify'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { FastifyBaseLogger, FastifyRequest, FastifyReply } from 'fastify'
+import { createClient, type SupabaseClient, type SupabaseClientOptions } from '@supabase/supabase-js'
 
-export function createSupabaseClient(url?: string, anonKey?: string, options?: any): SupabaseClient | null {
+export function createSupabaseClient(url?: string, anonKey?: string, options?: SupabaseClientOptions): SupabaseClient | null {
   if (!url || !anonKey) return null
   // Basic validation to avoid throwing inside supabase-js when URL is malformed
   try {
-     
     new URL(url)
   } catch {
     return null
@@ -17,7 +16,7 @@ export function requireSupabaseUserFactory(
   supabase: SupabaseClient | null,
   log: FastifyBaseLogger
 ) {
-  return async function requireSupabaseUser(request: any, reply: any) {
+  return async function requireSupabaseUser(request: FastifyRequest, reply: FastifyReply) {
     if (!supabase) {
       reply.code(500).send({ error: 'Server auth not configured' })
       return null

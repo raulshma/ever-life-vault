@@ -4,10 +4,12 @@ import { z } from 'zod'
 import { HandoffStore } from '../integrations/handoffStore.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-type RequireUser = (request: FastifyRequest, reply: FastifyReply) => Promise<any | null>
+interface RequireUserFunction {
+  (request: FastifyRequest, reply: FastifyReply): Promise<{ id: string } | null>
+}
 
 interface SteamRouteConfig {
-  requireSupabaseUser: RequireUser
+  requireSupabaseUser: RequireUserFunction
   SUPABASE_URL?: string
   SUPABASE_ANON_KEY?: string
   SUPABASE_SERVICE_ROLE_KEY?: string
@@ -61,11 +63,11 @@ async function verifyOpenIdResponse(params: Record<string, string>): Promise<boo
   return /is_valid\s*:\s*true/i.test(text)
 }
 
-export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConfig) {
+export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConfig): void {
   const handoffs = new HandoffStore<{ userId: string }>()
 
   // Start OpenID link flow
-  server.post('/api/steam/link/start', async (request, reply) => {
+  server.post('/api/steam/link/start', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const state = crypto.randomUUID()
@@ -89,8 +91,8 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // OpenID callback
-  server.get('/api/steam/link/callback', async (request, reply) => {
-    const q = (request as any).query || {}
+  server.get('/api/steam/link/callback', async (request: FastifyRequest, reply: FastifyReply) => {
+    const q = (request.query as Record<string, unknown>) || {}
     const state = q?.state as string | undefined
     if (!state) return reply.code(400).send({ error: 'missing_state' })
     const stateInfo = handoffs.take(`state:${state}`)
@@ -125,7 +127,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // Trigger sync
-  server.post('/api/steam/sync', async (request, reply) => {
+  server.post('/api/steam/sync', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     if (!cfg.STEAM_WEB_API_KEY) return reply.code(500).send({ error: 'missing_steam_api_key' })
@@ -142,11 +144,11 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       .eq('user_id', user.id)
       .maybeSingle()
     
-    const steamid: string | undefined = (acct as any)?.steamid64
+    const steamid: string | undefined = acct?.steamid64
     if (!steamid) return reply.code(400).send({ error: 'not_linked' })
     
     // Check throttling using the data we already fetched
-    const last = acct?.synced_at ? Date.parse(acct.synced_at as any) : 0
+    const last = acct?.synced_at ? Date.parse(acct.synced_at) : 0
     const sixHours = 6 * 60 * 60 * 1000
     if (last && Date.now() - last < sixHours) {
       return reply.code(429).send({ error: 'too_many_requests', retryAfterSec: Math.ceil((sixHours - (Date.now() - last)) / 1000) })
@@ -158,7 +160,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
 
     // Fetch player summaries
     const sumRes = await fetch(`https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${encodeURIComponent(key!)}&steamids=${encodeURIComponent(steamid)}`)
-    const sumJson = (await sumRes.json()) as any
+    const sumJson = (await sumRes.json()) as { response?: { players?: Array<{ personaname?: string; avatarfull?: string; avatar?: string; communityvisibilitystate?: number; loccountrycode?: string }> } }
     const player = (sumJson?.response?.players || [])[0] || {}
 
     // Update profile fields
@@ -175,12 +177,12 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
 
     // Fetch owned games with appinfo
     const ownRes = await fetch(`https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=${encodeURIComponent(key!)}&steamid=${encodeURIComponent(steamid)}&include_appinfo=1&include_played_free_games=1&format=json`)
-    const ownJson = (await ownRes.json()) as any
-    const games: any[] = ownJson?.response?.games || []
+    const ownJson = (await ownRes.json()) as { response?: { games?: Array<{ appid?: number; name?: string; is_free?: boolean; playtime_forever?: number; playtime_2weeks?: number; rtime_last_played?: number }> } }
+    const games = ownJson?.response?.games || []
 
     // Upsert steam_games and steam_ownership
-    const ownershipRows: any[] = []
-    const gameRows: any[] = []
+    const ownershipRows: Array<{ user_id: string; appid: number; playtime_forever_minutes: number; playtime_2weeks_minutes: number; last_played_at: string | null }> = []
+    const gameRows: Array<{ appid: number; name: string | null; header_image: string; genres: string | null; metascore: number | null; is_free: boolean | null; updated_at: string }> = []
     for (const g of games) {
       const appid = Number(g?.appid)
       if (!Number.isFinite(appid)) continue
@@ -228,14 +230,14 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     try {
       const recentRes = await fetch(`https://api.steampowered.com/IPlayerService/GetRecentlyPlayedGames/v0001/?key=${encodeURIComponent(key!)}&steamid=${encodeURIComponent(steamid)}&count=100&format=json`)
       if (recentRes.ok) {
-        const recentJson = (await recentRes.json()) as any
-        const rec: any[] = recentJson?.response?.games || []
+        const recentJson = (await recentRes.json()) as { response?: { games?: Array<{ appid?: number; playtime_2weeks?: number }> } }
+        const rec = recentJson?.response?.games || []
         if (rec.length > 0) {
-          const recRows = rec.map((g: any) => ({
+          const recRows = rec.map((g) => ({
             user_id: user.id,
             appid: Number(g?.appid),
             playtime_2weeks_minutes: typeof g?.playtime_2weeks === 'number' ? g.playtime_2weeks : 0,
-          })).filter((r: any) => Number.isFinite(r.appid))
+          })).filter((r) => Number.isFinite(r.appid))
           if (recRows.length > 0) await admin.from('steam_ownership').upsert(recRows, { onConflict: 'user_id,appid' })
         }
       }
@@ -248,7 +250,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // Get profile
-  server.get('/api/steam/profile', async (request, reply) => {
+  server.get('/api/steam/profile', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const supabase = makeSupabaseForRequest(cfg, request)
@@ -263,13 +265,13 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // Get library with pagination/sort (DB-side)
-  server.get('/api/steam/library', async (request, reply) => {
+  server.get('/api/steam/library', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const supabase = makeSupabaseForRequest(cfg, request)
     if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
 
-    const q = (request.query as any) || {}
+    const q = (request.query as Record<string, unknown>) || {}
     const page = Math.max(1, Number(q.page) || 1)
     const pageSize = Math.min(200, Math.max(1, Number(q.pageSize) || 50))
     const sort = (q.sort as string) || 'name'
@@ -295,7 +297,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const { data, error, count } = await query.range(from, to)
     if (error) return reply.code(400).send({ error: error.message })
 
-    const items = (data || []).map((row: any) => ({
+    const items = (data || []).map((row) => ({
       appid: row.appid,
       name: row.steam_games?.name || String(row.appid),
       header_image: row.steam_games?.header_image || null,
@@ -312,7 +314,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // Recently played (with names)
-  server.get('/api/steam/recent', async (request, reply) => {
+  server.get('/api/steam/recent', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const supabase = makeSupabaseForRequest(cfg, request)
@@ -324,17 +326,17 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       .order('playtime_2weeks_minutes', { ascending: false })
     if (error) return reply.code(400).send({ error: error.message })
     const recent = (data || [])
-      .filter((o: any) => (o.playtime_2weeks_minutes || 0) > 0)
-      .map((o: any) => ({ appid: o.appid, name: o.steam_games?.name || String(o.appid), playtime_2weeks_minutes: o.playtime_2weeks_minutes, last_played_at: o.last_played_at || null }))
+      .filter((o) => (o.playtime_2weeks_minutes || 0) > 0)
+      .map((o) => ({ appid: o.appid, name: o.steam_games?.name || String(o.appid), playtime_2weeks_minutes: o.playtime_2weeks_minutes, last_played_at: o.last_played_at || null }))
 
     return reply.send({ items: recent })
   })
 
   // Basic game detail for user
-  server.get('/api/steam/game/:appid', async (request, reply) => {
+  server.get('/api/steam/game/:appid', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const params = z.object({ appid: z.string() }).parse((request as any).params)
+    const params = z.object({ appid: z.string() }).parse(request.params as Record<string, unknown>)
     const supabase = makeSupabaseForRequest(cfg, request)
     if (!supabase) return reply.code(500).send({ error: 'server_not_configured' })
     const id = Number(params.appid)
@@ -348,7 +350,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
   })
 
   // Suggestions v0 (include names)
-  server.get('/api/steam/suggestions', async (request, reply) => {
+  server.get('/api/steam/suggestions', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const supabase = makeSupabaseForRequest(cfg, request)
@@ -359,7 +361,7 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       .eq('user_id', user.id)
     if (error) return reply.code(400).send({ error: error.message })
     const now = Date.now()
-    const items = (own || []).map((o: any) => {
+    const items = (own || []).map((o) => {
       const minutes = o.playtime_forever_minutes || 0
       const twoWeeks = o.playtime_2weeks_minutes || 0
       const last = o.last_played_at ? Date.parse(o.last_played_at) : 0
@@ -372,14 +374,14 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
       if (stale) score += 0.2
       return { appid: o.appid, score }
     })
-    const top = items.filter((i: any) => i.score > 0).sort((a: any, b: any) => b.score - a.score).slice(0, 10)
-    const ids = top.map((t: any) => t.appid)
+    const top = items.filter((i) => i.score > 0).sort((a, b) => b.score - a.score).slice(0, 10)
+    const ids = top.map((t) => t.appid)
     const { data: games } = await supabase
       .from('steam_games')
       .select('appid, name')
       .in('appid', ids.length ? ids : [-1])
-    const nameById = Object.fromEntries((games || []).map((g: any) => [g.appid, g.name]))
-    const withNames = top.map((t: any) => ({ ...t, name: nameById[t.appid] || String(t.appid) }))
+    const nameById = Object.fromEntries((games || []).map((g) => [g.appid, g.name]))
+    const withNames = top.map((t) => ({ ...t, name: nameById[t.appid] || String(t.appid) }))
 
     return reply.send({ items: withNames })
   })

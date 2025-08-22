@@ -53,6 +53,39 @@ declare module "qrcode" {
   
   export default QRCode;
   export const toDataURL: (text: string, options?: QRCodeOptions) => Promise<string>;
+declare module 'xterm' {
+  export class Terminal {
+    constructor(options?: any)
+    open(container: HTMLElement): void
+    write(text: string): void
+    writeln(text: string): void
+    clear(): void
+    focus(): void
+    blur(): void
+    dispose(): void
+    on(event: string, callback: (...args: any[]) => void): void
+    off(event: string, callback: (...args: any[]) => void): void
+    loadAddon(addon: any): void
+    cols: number
+    rows: number
+    onData(callback: (data: string) => void): void
+  }
+}
+
+declare module 'xterm-addon-fit' {
+  export class FitAddon {
+    activate(terminal: any): void
+    fit(): void
+    dispose(): void
+  }
+}
+
+declare module 'vitest' {
+  export const vi: {
+    fn<T = any>(implementation?: T): jest.Mock<T>
+    mock(path: string, factory?: () => any): void
+  }
+  export const afterAll: (fn: () => void | Promise<void>) => void
 }
 
 

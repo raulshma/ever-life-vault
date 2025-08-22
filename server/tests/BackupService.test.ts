@@ -8,7 +8,7 @@ vi.mock('../services/DockerService.js')
 vi.mock('../services/SecretsService.js')
 
 // Create a more flexible mock that can handle chaining
-const createMockSupabaseQuery = (finalResult: any) => {
+const createMockSupabaseQuery = (finalResult: { data?: unknown; error?: unknown }) => {
   const mockQuery = {
     select: vi.fn(() => mockQuery),
     eq: vi.fn(() => mockQuery),

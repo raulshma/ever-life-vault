@@ -17,7 +17,7 @@ export async function registerServiceProxies(
       await instance.register(fastifyHttpProxy, {
         upstream: ensureTarget(service, targets),
         rewritePrefix: '',
-      } as any)
+      })
     }, { prefix: `/${service}` })
   }
 }

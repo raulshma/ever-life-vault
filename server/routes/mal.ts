@@ -3,10 +3,12 @@ import crypto from 'node:crypto'
 import { HandoffStore } from '../integrations/handoffStore.js'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-type RequireUser = (request: FastifyRequest, reply: FastifyReply) => Promise<any | null>
+interface RequireUserFunction {
+  (request: FastifyRequest, reply: FastifyReply): Promise<{ id: string } | null>
+}
 
 interface MALRouteConfig {
-  requireSupabaseUser: RequireUser
+  requireSupabaseUser: RequireUserFunction
   SUPABASE_URL?: string
   SUPABASE_ANON_KEY?: string
   SUPABASE_SERVICE_ROLE_KEY?: string
@@ -78,7 +80,7 @@ function decryptString(cipherB64: string, ivB64: string, tagB64: string, key: Bu
   return dec.toString('utf8')
 }
 
-async function fetchJson(url: string, init?: RequestInit): Promise<any> {
+async function fetchJson(url: string, init?: RequestInit): Promise<unknown> {
   const res = await fetch(url, init)
   const text = await res.text()
   try {
@@ -88,12 +90,12 @@ async function fetchJson(url: string, init?: RequestInit): Promise<any> {
   }
 }
 
-export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) {
+export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig): void {
   const handoffs = new HandoffStore<{ userId: string; codeVerifier: string }>()
   const tokenKey = getCipherKey(cfg.MAL_TOKENS_SECRET)
 
   // Start PKCE OAuth flow
-  server.post('/api/mal/link/start', async (request, reply) => {
+  server.post('/api/mal/link/start', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     if (!cfg.MAL_CLIENT_ID || !cfg.MAL_REDIRECT_URI) return reply.code(500).send({ error: 'server_not_configured' })
@@ -118,8 +120,8 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
   })
 
   // OAuth callback
-  server.get('/api/mal/link/callback', async (request, reply) => {
-    const q = (request as any).query || {}
+  server.get('/api/mal/link/callback', async (request: FastifyRequest, reply: FastifyReply) => {
+    const q = (request.query as Record<string, unknown>) || {}
     const code = (q?.code as string | undefined) || undefined
     const state = (q?.state as string | undefined) || undefined
     if (!code || !state) return reply.code(400).send({ error: 'missing_code_or_state' })
@@ -140,10 +142,10 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
       body: body.toString(),
     })
     if (!tokenRes.ok) {
-      server.log.error({ event: 'mal_token_exchange_failed', status: (tokenRes as any).status }, 'MAL token exchange failed')
+      server.log.error({ event: 'mal_token_exchange_failed', status: tokenRes.status }, 'MAL token exchange failed')
       return reply.code(400).send({ error: 'token_exchange_failed' })
     }
-    const tokenJson = (await tokenRes.json()) as any
+    const tokenJson = (await tokenRes.json()) as { access_token?: string; refresh_token?: string }
     const accessToken: string | undefined = tokenJson?.access_token
     const refreshToken: string | undefined = tokenJson?.refresh_token
     if (!accessToken) return reply.code(400).send({ error: 'no_access_token' })
@@ -153,10 +155,18 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (!meRes.ok) {
-      server.log.error({ event: 'mal_me_failed', status: (meRes as any).status }, 'MAL /users/@me failed')
+      server.log.error({ event: 'mal_me_failed', status: meRes.status }, 'MAL /users/@me failed')
       return reply.code(400).send({ error: 'profile_fetch_failed' })
     }
-    const me = (await meRes.json()) as any
+    const me = (await meRes.json()) as { 
+      id?: number; 
+      name?: string; 
+      picture?: string; 
+      anime_statistics?: { 
+        mean_score?: number; 
+        num_days?: number 
+      } 
+    }
     const malUserId: number | undefined = me?.id
     const malUsername: string | undefined = me?.name
     const displayName: string | undefined = me?.name
@@ -226,7 +236,7 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     // Throttle: allow at most once per 30 minutes
     {
       const { data: row } = await supabase.from('mal_accounts').select('synced_at').eq('user_id', user.id).maybeSingle()
-      const last = row?.synced_at ? Date.parse(row.synced_at as any) : 0
+      const last = row?.synced_at ? Date.parse(row.synced_at) : 0
       const cooldown = 30 * 60 * 1000
       if (last && Date.now() - last < cooldown) {
         return reply.code(429).send({ error: 'too_many_requests', retryAfterSec: Math.ceil((cooldown - (Date.now() - last)) / 1000) })
@@ -238,7 +248,7 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
       supabase.from('mal_accounts').select('mal_username').eq('user_id', user.id).maybeSingle(),
       supabase.from('mal_tokens').select('access_encrypted, refresh_encrypted, iv, auth_tag').eq('user_id', user.id).maybeSingle(),
     ])
-    const username: string | undefined = (acct as any)?.mal_username
+    const username: string | undefined = (acct as { mal_username?: string })?.mal_username
     if (!username) return reply.code(400).send({ error: 'not_linked' })
 
     let accessToken: string | null = null
@@ -255,7 +265,19 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     const histUrl = `https://api.myanimelist.net/v2/users/${encodeURIComponent(username)}/history?type=anime&limit=50`
     const histRes = await fetch(histUrl, { headers: { Authorization: `Bearer ${accessToken}` } })
     if (!histRes.ok) return reply.code(400).send({ error: 'history_fetch_failed' })
-    const hist = (await histRes.json()) as any
+    const hist = (await histRes.json()) as { 
+      history?: Array<{ 
+        node?: { id?: number; title?: string }; 
+        anime?: { id?: number; title?: string }; 
+        entry?: { id?: number; title?: string }; 
+        episode?: number; 
+        increment?: number; 
+        episodes_watched?: number; 
+        date?: string; 
+        updated_at?: string; 
+        watching_date?: string 
+      }> 
+    }
     const items: Array<{ mal_id: number; episode: number; watched_at: string; title?: string }> = []
     for (const h of hist?.history || []) {
       // MAL returns { node: { id, title }, list_status? } or { anime: { id, title }, episode, date }
@@ -328,10 +350,10 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
       .order('watched_at', { ascending: false })
       .limit(25)
     if (error) return reply.code(400).send({ error: error.message })
-    const ids = (hist || []).map((h: any) => h.mal_id)
+    const ids = (hist || []).map((h: { mal_id: number }) => h.mal_id)
     const { data: anime } = await supabase.from('mal_anime').select('mal_id, title, main_picture').in('mal_id', ids.length ? ids : [-1])
-    const byId: Record<number, any> = Object.fromEntries((anime || []).map((a: any) => [a.mal_id, a]))
-    const out = (hist || []).map((h: any) => ({
+    const byId: Record<number, { mal_id: number; title?: string; main_picture?: string | null }> = Object.fromEntries((anime || []).map((a: { mal_id: number; title?: string; main_picture?: string | null }) => [a.mal_id, a]))
+    const out = (hist || []).map((h: { mal_id: number; episode: number; watched_at: string }) => ({
       mal_id: h.mal_id,
       episode: h.episode,
       watched_at: h.watched_at,
@@ -358,8 +380,21 @@ export function registerMALRoutes(server: FastifyInstance, cfg: MALRouteConfig) 
     const url = `https://api.myanimelist.net/v2/anime/season/${year}/${season}?limit=100&sort=anime_num_list_users`
     const res = await fetch(url, { headers: { 'X-MAL-CLIENT-ID': cfg.MAL_CLIENT_ID } })
     if (!res.ok) return reply.code(400).send({ error: 'seasonal_fetch_failed' })
-    const json = (await res.json()) as any
-    const items: any[] = []
+    const json = (await res.json()) as { 
+      data?: Array<{ 
+        node?: { id?: number; title?: string; main_picture?: string | null }; 
+        id?: number; 
+        title?: string; 
+        main_picture?: string | null 
+      }>; 
+      anime?: Array<{ 
+        node?: { id?: number; title?: string; main_picture?: string | null }; 
+        id?: number; 
+        title?: string; 
+        main_picture?: string | null 
+      }> 
+    }
+    const items: Array<{ mal_id: number; title?: string; main_picture: string | null }> = []
     for (const it of json?.data || json?.anime || []) {
       const node = it?.node || it
       const id = Number(node?.id)

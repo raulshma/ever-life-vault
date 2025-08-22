@@ -19,7 +19,7 @@ export interface BackupValidationResult {
   format?: 'json' | 'yaml'
   errors: string[]
   warnings: string[]
-  metadata?: any
+  metadata?: Record<string, unknown>
 }
 
 export class BackupService {
@@ -32,7 +32,7 @@ export class BackupService {
     supabaseAnonKey: string
   ) {
     this.dockerService = new DockerService()
-    this.secretsService = new SecretsService(this.supabase as any)
+    this.secretsService = new SecretsService(this.supabase)
   }
 
   /**
@@ -116,8 +116,9 @@ export class BackupService {
     for (const config of configsToImport) {
       try {
         await this.importConfiguration(userId, config, options.overwrite_existing, result)
-      } catch (error: any) {
-        result.errors.push(`Failed to import configuration "${config.name}": ${error.message}`)
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        result.errors.push(`Failed to import configuration "${config.name}": ${errorMessage}`)
       }
     }
 
@@ -132,8 +133,9 @@ export class BackupService {
       for (const secret of secretsToImport) {
         try {
           await this.importSecret(userId, secret, options.overwrite_existing, result)
-        } catch (error: any) {
-          result.errors.push(`Failed to import secret "${secret.key}": ${error.message}`)
+        } catch (error: unknown) {
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          result.errors.push(`Failed to import secret "${secret.key}": ${errorMessage}`)
         }
       }
     }
@@ -181,7 +183,7 @@ export class BackupService {
       }
     }
 
-    const data = parsedData as any
+    const data = parsedData as { version?: string; configurations?: unknown[]; secrets?: unknown[] }
 
     if (!data.version) {
       errors.push('Missing version field')
@@ -238,8 +240,8 @@ export class BackupService {
 
     const existingNames = new Set((existingConfigs || []).map(c => c.name))
     return backupData.configurations
-      .map((c: any) => c.name)
-      .filter((name: any) => existingNames.has(name))
+      .map((c: { name: string }) => c.name)
+      .filter((name: string) => existingNames.has(name))
   }
 
   /**

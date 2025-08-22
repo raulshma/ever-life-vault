@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { z } from 'zod'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { DockerService } from '../services/DockerService.js'
@@ -97,7 +97,7 @@ const bulkSecretsSchema = z.object({
 })
 
 // Helper function to create authenticated Supabase client for requests
-function makeSupabaseForRequest(options: { SUPABASE_URL: string; SUPABASE_ANON_KEY: string }, request: any): SupabaseClient | null {
+function makeSupabaseForRequest(options: { SUPABASE_URL: string; SUPABASE_ANON_KEY: string }, request: FastifyRequest): SupabaseClient | null {
   if (!options.SUPABASE_URL || !options.SUPABASE_ANON_KEY) return null
   const token = request.headers.authorization?.replace(/^Bearer\s+/i, '')
   
@@ -107,16 +107,18 @@ function makeSupabaseForRequest(options: { SUPABASE_URL: string; SUPABASE_ANON_K
   })
 }
 
-
+interface RequireUserFunction {
+  (request: FastifyRequest, reply: FastifyReply): Promise<{ id: string } | null>
+}
 
 export function registerInfrastructureRoutes(
   server: FastifyInstance,
   options: {
-    requireSupabaseUser: (request: any, reply: any) => Promise<any>
+    requireSupabaseUser: RequireUserFunction
     SUPABASE_URL: string
     SUPABASE_ANON_KEY: string
   }
-) {
+): void {
   const { requireSupabaseUser, SUPABASE_URL, SUPABASE_ANON_KEY } = options
 
   // Initialize services
@@ -155,7 +157,7 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.send({ configurations: data || [] })
-    } catch (error: any) {
+    } catch (error: unknown) {
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
     }
@@ -201,9 +203,9 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.code(201).send({ configuration: data })
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -221,7 +223,7 @@ export function registerInfrastructureRoutes(
     }
 
     try {
-      const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
+      const params = z.object({ id: z.string().uuid() }).parse(request.params as Record<string, unknown>)
 
       const { data, error } = await authenticatedSupabase
         .from('docker_compose_configs')
@@ -238,8 +240,8 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.send({ configuration: data })
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
         return reply.code(400).send({ error: 'Invalid configuration ID' })
       }
       server.log.error(error)
@@ -258,7 +260,7 @@ export function registerInfrastructureRoutes(
     }
 
     try {
-      const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
+      const params = z.object({ id: z.string().uuid() }).parse(request.params as Record<string, unknown>)
       const body = updateConfigSchema.parse(request.body)
 
       // Validate compose content if provided
@@ -292,9 +294,9 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.send({ configuration: data })
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -312,7 +314,7 @@ export function registerInfrastructureRoutes(
     }
 
     try {
-      const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
+      const params = z.object({ id: z.string().uuid() }).parse(request.params as Record<string, unknown>)
 
       const { error } = await authenticatedSupabase
         .from('docker_compose_configs')
@@ -325,8 +327,8 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.code(204).send()
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
         return reply.code(400).send({ error: 'Invalid configuration ID' })
       }
       server.log.error(error)
@@ -345,7 +347,7 @@ export function registerInfrastructureRoutes(
     }
 
     try {
-      const params = z.object({ id: z.string().uuid() }).parse((request as any).params)
+      const params = z.object({ id: z.string().uuid() }).parse(request.params as Record<string, unknown>)
 
       // Get configuration
       const { data: config, error } = await authenticatedSupabase
@@ -366,8 +368,8 @@ export function registerInfrastructureRoutes(
       const validation = await dockerService.validateCompose(config.compose_content)
       
       return reply.send(validation)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
         return reply.code(400).send({ error: 'Invalid configuration ID' })
       }
       server.log.error(error)
@@ -385,9 +387,9 @@ export function registerInfrastructureRoutes(
       const validation = await dockerService.validateCompose(body.compose_content)
       
       return reply.send(validation)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -415,13 +417,13 @@ export function registerInfrastructureRoutes(
     if (!user) return
 
     try {
-      const query = pathValidationSchema.parse((request as any).query)
+      const query = pathValidationSchema.parse(request.query as Record<string, unknown>)
       const result = await fileSystemService.validatePath(query.path)
       
       return reply.send(result)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid path parameter', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid path parameter', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -446,9 +448,9 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.send(result)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -473,9 +475,9 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.send(result)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -488,13 +490,13 @@ export function registerInfrastructureRoutes(
     if (!user) return
 
     try {
-      const query = pathValidationSchema.parse((request as any).query)
+      const query = pathValidationSchema.parse(request.query as Record<string, unknown>)
       const permissions = await fileSystemService.checkPermissions(query.path)
       
       return reply.send({ permissions })
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid path parameter', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid path parameter', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -508,13 +510,13 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const secretsService = new SecretsService(authenticatedSupabase)
       const keys = await secretsService.listSecretKeys(user.id)
       return reply.send({ secret_keys: keys })
     } catch (error: unknown) {
@@ -529,14 +531,14 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
       const body = secretSchema.parse(request.body)
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const secretsService = new SecretsService(authenticatedSupabase)
       
       // Sanitize the secret key
       const sanitizedKey = secretsService.sanitizeSecretKey(body.key)
@@ -549,7 +551,7 @@ export function registerInfrastructureRoutes(
       })
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as any).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
@@ -562,14 +564,14 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
-      const params = z.object({ key: z.string().min(1) }).parse((request as any).params)
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const params = z.object({ key: z.string().min(1) }).parse(request.params as Record<string, unknown>)
+      const secretsService = new SecretsService(authenticatedSupabase)
       
       const value = await secretsService.retrieveSecret(params.key, user.id)
       
@@ -593,14 +595,14 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
-      const params = z.object({ key: z.string().min(1) }).parse((request as any).params)
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const params = z.object({ key: z.string().min(1) }).parse(request.params as Record<string, unknown>)
+      const secretsService = new SecretsService(authenticatedSupabase)
       
       await secretsService.deleteSecret(params.key, user.id)
       
@@ -620,14 +622,14 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
       const body = bulkSecretsSchema.parse(request.body)
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const secretsService = new SecretsService(authenticatedSupabase)
       
       // Sanitize all secret keys
       const sanitizedSecrets: Record<string, string> = {}
@@ -645,7 +647,7 @@ export function registerInfrastructureRoutes(
       })
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as any).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
@@ -658,21 +660,21 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
       const body = validateComposeSchema.parse(request.body)
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const secretsService = new SecretsService(authenticatedSupabase)
       
       const validation = await secretsService.validateSecretsExist(body.compose_content, user.id)
       
       return reply.send(validation)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as any).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
@@ -721,12 +723,12 @@ export function registerInfrastructureRoutes(
         reply.header('Content-Disposition', `attachment; filename="${backupService.generateBackupFilename('json')}"`)
         return reply.send(jsonContent)
       }
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
-      return reply.code(500).send({ error: 'Failed to create backup', details: error.message })
+      return reply.code(500).send({ error: 'Failed to create backup', details: error instanceof Error ? error.message : 'Unknown error' })
     }
   })
 
@@ -739,7 +741,7 @@ export function registerInfrastructureRoutes(
       const body = restoreImportSchema.parse(request.body)
       
       // Parse backup data
-      let backupData: any
+      let backupData: unknown
       try {
         // Try JSON first
         backupData = JSON.parse(body.backup_data)
@@ -774,12 +776,12 @@ export function registerInfrastructureRoutes(
       const result = await backupService.importBackup(user.id, backupData, restoreOptions)
       
       return reply.send(result)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
-      return reply.code(500).send({ error: 'Failed to import backup', details: error.message })
+      return reply.code(500).send({ error: 'Failed to import backup', details: error instanceof Error ? error.message : 'Unknown error' })
     }
   })
 
@@ -817,12 +819,12 @@ export function registerInfrastructureRoutes(
       }
 
       return reply.send(validation)
-    } catch (error: any) {
-      if (error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: error.errors })
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'ZodError') {
+        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
       }
       server.log.error(error)
-      return reply.code(500).send({ error: 'Failed to validate backup', details: error.message })
+      return reply.code(500).send({ error: 'Failed to validate backup', details: error instanceof Error ? error.message : 'Unknown error' })
     }
   })
 
@@ -831,13 +833,13 @@ export function registerInfrastructureRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    const authenticatedSupabase = makeSupabaseForRequest(options, request)
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
     }
 
     try {
-      const secretsService = new SecretsService(authenticatedSupabase as any)
+      const secretsService = new SecretsService(authenticatedSupabase)
       const result = await secretsService.exportSecretKeys(user.id)
       
       return reply.send({

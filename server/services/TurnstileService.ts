@@ -52,7 +52,7 @@ export class TurnstileService {
         return false;
       }
 
-      const result: TurnstileVerifyResponse = await response.json();
+      const result: TurnstileVerifyResponse = await response.json() as TurnstileVerifyResponse;
 
       if (!result.success) {
         console.warn('Turnstile verification failed:', result['error-codes']);
@@ -109,7 +109,7 @@ export class TurnstileService {
         };
       }
 
-      const result: TurnstileVerifyResponse = await response.json();
+      const result: TurnstileVerifyResponse = await response.json() as TurnstileVerifyResponse;
 
       if (!result.success) {
         const errorCodes = result['error-codes'] || [];

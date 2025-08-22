@@ -65,7 +65,7 @@ export function sanitizeHtml(html: string): string {
 /**
  * Validate and sanitize user input with security checks
  */
-export function validateInput(input: any, maxLength: number = 1000): string {
+export function validateInput(input: unknown, maxLength: number = 1000): string {
   if (typeof input !== 'string') return '';
   
   let sanitized = input.trim();
@@ -186,8 +186,8 @@ export function generateSecureRandomString(length: number = 32): string {
  * This helps reduce the number of database round trips
  */
 export class BatchDBOperations {
-  private operations: Array<() => Promise<any>> = []
-  private results: any[] = []
+  private operations: Array<() => Promise<unknown>> = []
+  private results: unknown[] = []
 
   /**
    * Add a database operation to the batch
@@ -199,7 +199,7 @@ export class BatchDBOperations {
   /**
    * Execute all operations in parallel
    */
-  async execute(): Promise<any[]> {
+  async execute(): Promise<unknown[]> {
     if (this.operations.length === 0) {
       return []
     }
@@ -216,7 +216,7 @@ export class BatchDBOperations {
   /**
    * Execute operations sequentially (useful when order matters)
    */
-  async executeSequential(): Promise<any[]> {
+  async executeSequential(): Promise<unknown[]> {
     if (this.operations.length === 0) {
       return []
     }
@@ -261,8 +261,8 @@ export function createBatchDBOperations(): BatchDBOperations {
  * Database connection pool utility for optimizing Supabase connections
  * This helps reduce connection overhead and improve performance
  */
-export class DatabaseConnectionPool {
-  private connections: Map<string, { client: any; lastUsed: number; inUse: boolean }> = new Map()
+export class DatabaseConnectionPool<T> {
+  private connections: Map<string, { client: T; lastUsed: number; inUse: boolean }> = new Map()
   private maxConnections: number
   private connectionTimeout: number
   private cleanupInterval: NodeJS.Timeout | null = null
@@ -276,7 +276,7 @@ export class DatabaseConnectionPool {
   /**
    * Get or create a database connection for a specific user/context
    */
-  async getConnection(key: string, createClient: () => any): Promise<any> {
+  async getConnection(key: string, createClient: () => T): Promise<T> {
     const existing = this.connections.get(key)
     
     if (existing && !existing.inUse) {
@@ -370,6 +370,6 @@ export class DatabaseConnectionPool {
 /**
  * Helper function to create a database connection pool
  */
-export function createDatabaseConnectionPool(maxConnections?: number, connectionTimeout?: number): DatabaseConnectionPool {
-  return new DatabaseConnectionPool(maxConnections, connectionTimeout)
+export function createDatabaseConnectionPool<T = unknown>(maxConnections?: number, connectionTimeout?: number): DatabaseConnectionPool<T> {
+  return new DatabaseConnectionPool<T>(maxConnections, connectionTimeout)
 }

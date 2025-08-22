@@ -1,3 +1,12 @@
+export interface OAuthTokens {
+  access_token: string
+  refresh_token?: string
+  expires_in?: number
+  token_type?: string
+  scope?: string
+  [key: string]: unknown
+}
+
 export interface OAuthProvider {
   /** Provider key used in routes and UI */
   readonly name: string
@@ -6,9 +15,9 @@ export interface OAuthProvider {
   /** Build the authorization URL for this provider */
   buildAuthorizationUrl(state: string): string
   /** Exchange authorization code for tokens */
-  exchangeCodeForTokens(code: string): Promise<Record<string, any>>
+  exchangeCodeForTokens(code: string): Promise<OAuthTokens>
   /** Refresh tokens */
-  refreshTokens(refreshToken: string): Promise<Record<string, any>>
+  refreshTokens(refreshToken: string): Promise<OAuthTokens>
 }
 
 export interface ProviderCommonConfig {

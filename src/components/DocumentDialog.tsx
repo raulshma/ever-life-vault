@@ -23,8 +23,21 @@ import {
   DollarSign
 } from 'lucide-react';
 
+interface Document {
+  id: string;
+  name: string;
+  category: string;
+  value?: number;
+  tags: string[];
+  expiry_date?: string;
+  purchase_date?: string;
+  file_path?: string;
+  file_size?: number;
+  mime_type?: string;
+}
+
 interface DocumentDialogProps {
-  document?: any;
+  document?: Document;
   mode: 'add' | 'edit' | 'view';
   trigger?: React.ReactNode;
   open?: boolean;

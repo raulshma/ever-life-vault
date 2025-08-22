@@ -91,7 +91,7 @@ export default function ClipNew() {
         proof = await sha256Base64(`${id}:${password}:${saltB64}`);
       }
 
-      const { data, error } = await (supabase as any).rpc("upsert_clip", {
+      const { data, error } = await (supabase as { rpc: (name: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> }).rpc("upsert_clip", {
         _id: id,
         _content: content,
         _expires_at: expiresAt,
@@ -114,14 +114,17 @@ export default function ClipNew() {
       }
       const urlStr = url.toString();
       setLink(urlStr);
-      try { await navigator.clipboard.writeText(urlStr); } catch {}
+      try { await navigator.clipboard.writeText(urlStr); } catch {
+        // Ignore clipboard errors (e.g., permission denied)
+      }
       const message = oneTimeView 
         ? "One-time clip created! Link copied to clipboard. It will be deleted after first view."
         : "Clip created! Link copied to clipboard.";
       toast({ title: "Clip created", description: message });
       // Don't navigate to the clip, just show the link
-    } catch (e: any) {
-      toast({ title: "Error", description: e?.message ?? String(e), variant: "destructive" });
+    } catch (e: unknown) {
+      const errorMessage = e instanceof Error ? e.message : String(e);
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     } finally {
       setSaving(false);
     }

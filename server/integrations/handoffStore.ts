@@ -1,9 +1,9 @@
-interface HandoffRecord<T = any> {
+interface HandoffRecord<T = unknown> {
   payload: T
   expiresAt: number
 }
 
-export class HandoffStore<T = any> {
+export class HandoffStore<T = unknown> {
   private readonly store = new Map<string, HandoffRecord<T>>()
 
   put(id: string, payload: T, ttlMs = 5 * 60_000): void {

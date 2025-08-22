@@ -56,31 +56,33 @@ const ThemeMenuButton: React.FC = () => {
           role="menu"
           className="absolute right-0 mt-2 z-50 min-w-[10rem] rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
         >
-          {(
-            [
+          {(() => {
+            type LocalThemeMode = 'light' | 'dark' | 'amoled' | 'system';
+            const opts: { key: LocalThemeMode; label: string; icon: React.ComponentType<React.SVGProps<SVGSVGElement>> }[] = [
               { key: 'light', label: 'Light', icon: Sun },
               { key: 'dark', label: 'Dark', icon: Moon },
               { key: 'amoled', label: 'AMOLED Black', icon: Contrast },
               { key: 'system', label: 'System', icon: Laptop2 },
-            ] as const
-          ).map((opt) => (
-            <button
-              key={opt.key}
-              role="menuitemradio"
-              aria-checked={themeMode === opt.key}
-              onClick={() => {
-                setThemeMode(opt.key);
-                setOpenThemeMenu(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
-                themeMode === opt.key ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
-              )}
-            >
-              <opt.icon className="h-4 w-4" />
-              <span>{opt.label}</span>
-            </button>
-          ))}
+            ];
+            return opts.map((opt) => (
+              <button
+                key={opt.key}
+                role="menuitemradio"
+                aria-checked={themeMode === opt.key}
+                onClick={() => {
+                  setThemeMode(opt.key);
+                  setOpenThemeMenu(false);
+                }}
+                className={cn(
+                  "w-full flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
+                  themeMode === opt.key ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
+                )}
+              >
+                {React.createElement(opt.icon, { className: 'h-4 w-4' })}
+                <span>{opt.label}</span>
+              </button>
+            ));
+          })()}
         </div>
       )}
     </div>
@@ -171,15 +173,19 @@ const SidebarNavigation: React.FC<{
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={onOpenSearch}>
-                  <Search className="h-4 w-4" />
-                  <span>Search</span>
+                <SidebarMenuButton>
+                  <SidebarMenuButton onClick={onOpenSearch}>
+                    <Search className="h-4 w-4" />
+                    <span>Search</span>
+                  </SidebarMenuButton>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton onClick={onOpenQuickAdd}>
-                  <Plus className="h-4 w-4" />
-                  <span>Quick Add</span>
+                <SidebarMenuButton>
+                  <SidebarMenuButton onClick={onOpenQuickAdd}>
+                    <Plus className="h-4 w-4" />
+                    <span>Quick Add</span>
+                  </SidebarMenuButton>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -193,7 +199,7 @@ const SidebarNavigation: React.FC<{
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  const Icon = item.icon;
+                  const Icon = item.icon as React.ComponentType<any>;
                   const isActive = location.pathname === item.path;
                   return (
                     <SidebarMenuItem key={item.path}>
@@ -206,7 +212,7 @@ const SidebarNavigation: React.FC<{
                             if ("startViewTransition" in document) {
                               e.preventDefault();
                               document.documentElement.classList.add("steam-vt");
-                              const t: any = (document as any).startViewTransition(() => {
+                              const t = (document as any).startViewTransition?.(() => {
                                 navigate("/steam");
                               });
                               Promise.resolve(t?.finished).finally(() => {
@@ -230,7 +236,7 @@ const SidebarNavigation: React.FC<{
                             if ("startViewTransition" in document) {
                               e.preventDefault();
                               document.documentElement.classList.add("anime-vt");
-                              const t: any = (document as any).startViewTransition(() => {
+                              const t = (document as any).startViewTransition?.(() => {
                                 navigate("/anime");
                               });
                               Promise.resolve(t?.finished).finally(() => {
@@ -334,7 +340,7 @@ const MobileTabBar: React.FC<{ location: ReturnType<typeof useLocation>; onQuick
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-card/90 dark:bg-card/70 backdrop-blur-xl border-t border-border safe-bottom safe-left safe-right">
       <div className="flex items-stretch justify-between px-2 py-1">
         {tabs.map((t) => {
-          const Icon = t.icon;
+          const Icon = t.icon as React.ComponentType<any>;
           const targetPath = t.path;
           const isActive = location.pathname === t.path;
           return (
@@ -457,7 +463,7 @@ export const Layout: React.FC = React.memo(() => {
                 }}
                 className="py-3 md:py-2 text-base md:text-sm"
               >
-                <m.icon className="mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4" />
+                {React.createElement(m.icon, { className: 'mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4' })}
                 <span>{m.name}</span>
               </CommandItem>
             ))}
@@ -472,7 +478,7 @@ export const Layout: React.FC = React.memo(() => {
                 }}
                 className="py-3 md:py-2 text-base md:text-sm"
               >
-                <m.icon className="mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4" />
+                {React.createElement(m.icon, { className: 'mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4' })}
                 <span>{m.name}</span>
               </CommandItem>
             ))}
@@ -487,7 +493,7 @@ export const Layout: React.FC = React.memo(() => {
                 }}
                 className="py-3 md:py-2 text-base md:text-sm"
               >
-                <m.icon className="mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4" />
+                {React.createElement(m.icon, { className: 'mr-3 md:mr-2 h-5 w-5 md:h-4 md:w-4' })}
                 <span>{m.name}</span>
               </CommandItem>
             ))}

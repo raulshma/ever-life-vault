@@ -1,3 +1,4 @@
+import type React from "react";
 import {
   Home,
   Calendar,
@@ -24,7 +25,8 @@ import type { ComponentType } from "react";
 export type NavItem = {
   name: string;
   path: string;
-  icon: ComponentType<{ className?: string }>;
+  // Icons from lucide-react are SVG components — use the SVG element props for better compatibility in JSX
+  icon: ComponentType<React.SVGProps<SVGSVGElement>>;
 };
 
 export type NavGroups = Record<

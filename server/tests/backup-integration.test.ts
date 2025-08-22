@@ -40,7 +40,7 @@ vi.mock('../services/FileSystemService.js', () => ({
 }))
 
 // Create a more flexible mock that can handle chaining
-const createMockSupabaseQuery = (finalResult: any) => {
+const createMockSupabaseQuery = (finalResult: { data?: unknown; error?: unknown }) => {
   const mockQuery = {
     select: vi.fn(() => mockQuery),
     eq: vi.fn(() => mockQuery),

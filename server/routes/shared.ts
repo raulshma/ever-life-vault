@@ -7,10 +7,10 @@ import { Readable } from 'node:stream'
 /**
  * Validate and sanitize request body to prevent injection attacks
  */
-export function sanitizeRequestBody(body: any): any {
+export function sanitizeRequestBody(body: unknown): unknown {
   if (!body || typeof body !== 'object') return body;
   
-  const sanitized: any = {};
+  const sanitized: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(body)) {
     if (typeof value === 'string') {
       // Sanitize string values
@@ -77,11 +77,11 @@ export function checkRateLimit(key: string, maxRequests: number = 100, windowMs:
 }
 
 export function buildForwardHeaders(
-  incomingHeaders: Record<string, any>,
+  incomingHeaders: Record<string, string | string[] | undefined>,
   omitAuthorization: boolean = false,
   omitCookies: boolean = false,
-) {
-  const forwardHeaders: Record<string, any> = {}
+): Record<string, string | string[] | undefined> {
+  const forwardHeaders: Record<string, string | string[] | undefined> = {}
   for (const [key, value] of Object.entries(incomingHeaders)) {
     const k = key.toLowerCase()
     // Never forward hop-by-hop headers
@@ -93,11 +93,11 @@ export function buildForwardHeaders(
   return forwardHeaders
 }
 
-export async function sendUpstreamResponse(reply: any, res: Response, allowSetCookie: boolean = true) {
+export async function sendUpstreamResponse(reply: { header: (key: string, value: string) => void; code: (status: number) => void; send: (payload?: unknown) => void }, res: Response, allowSetCookie: boolean = true): Promise<unknown> {
   // Forward only safe headers
   // Convert headers iterator to array for consistent typing across runtimes
-  const headerEntries: Array<[string, string]> = (res && (res as any).headers && typeof (res as any).headers.entries === 'function')
-    ? Array.from((res as any).headers.entries())
+  const headerEntries: Array<[string, string]> = (res && res.headers && typeof res.headers.entries === 'function')
+    ? Array.from(res.headers.entries())
     : [];
 
   for (const [hk, hv] of headerEntries) {
@@ -114,16 +114,16 @@ export async function sendUpstreamResponse(reply: any, res: Response, allowSetCo
     const text = await res.text()
     return reply.send(text)
   }
-  if ((res as any).body) {
-    return reply.send(Readable.fromWeb((res as any).body))
+  if (res.body) {
+    return reply.send(Readable.fromWeb(res.body))
   }
   return reply.send()
 }
 
-export function prepareBody(method: string, incomingHeaders: Record<string, any>, requestBody: any, forwardHeaders: Record<string, any>) {
-  let body: any
+export function prepareBody(method: string, incomingHeaders: Record<string, string | string[] | undefined>, requestBody: unknown, forwardHeaders: Record<string, string | string[] | undefined>): string | Buffer | undefined {
+  let body: string | Buffer | undefined
   if (!['GET', 'HEAD'].includes(method)) {
-    const ct = (incomingHeaders['content-type'] || (incomingHeaders as any)['Content-Type'] || '').toString()
+    const ct = (incomingHeaders['content-type'] || incomingHeaders['Content-Type'] || '').toString()
     if (typeof requestBody === 'string' || Buffer.isBuffer(requestBody)) {
       body = requestBody
     } else if (requestBody && typeof requestBody === 'object') {

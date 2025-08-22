@@ -51,17 +51,18 @@ export class FileSystemService {
 
       // Check if path exists
       let exists = false;
-      let stats: any = null;
+      let stats: { uid: number; gid: number; mode: number } | null = null;
       try {
         stats = await fs.stat(normalizedPath);
         exists = true;
-      } catch (error: any) {
-        if (error.code !== 'ENOENT') {
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code !== 'ENOENT') {
+          const errorMessage = error instanceof Error ? error.message : String(error)
           return {
             valid: false,
             exists: false,
             writable: false,
-            message: `Cannot access path: ${error.message}`
+            message: `Cannot access path: ${errorMessage}`
           };
         }
       }
@@ -115,12 +116,13 @@ export class FileSystemService {
         suggested_permissions: suggestedPermissions
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       return {
         valid: false,
         exists: false,
         writable: false,
-        message: `Path validation failed: ${error.message}`
+        message: `Path validation failed: ${errorMessage}`
       };
     }
   }
@@ -174,11 +176,12 @@ export class FileSystemService {
         message: `Directory created successfully at ${normalizedPath}`
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       return {
         success: false,
         message: 'Failed to create directory',
-        error: error.message
+        error: errorMessage
       };
     }
   }
@@ -227,8 +230,8 @@ export class FileSystemService {
       // Set ownership
       try {
         await fs.chown(normalizedPath, request.uid, request.gid);
-      } catch (error: any) {
-        if (error.code === 'EPERM') {
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'EPERM') {
           return {
             success: false,
             message: 'Permission denied: insufficient privileges to change ownership',
@@ -247,11 +250,12 @@ export class FileSystemService {
         message: `Permissions set successfully: ${request.mode} (${request.uid}:${request.gid})`
       };
 
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
       return {
         success: false,
         message: 'Failed to set permissions',
-        error: error.message
+        error: errorMessage
       };
     }
   }

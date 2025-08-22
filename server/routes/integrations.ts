@@ -1,13 +1,15 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import crypto from 'node:crypto'
 import { ProviderRegistry } from '../integrations/registry.js'
 import { HandoffStore } from '../integrations/handoffStore.js'
 import { InvalidStateError, UnsupportedProviderError, toHttpError } from '../integrations/errors.js'
 
-type RequireUser = (request: any, reply: any) => Promise<any | null>
+interface RequireUserFunction {
+  (request: FastifyRequest, reply: FastifyReply): Promise<{ id: string } | null>
+}
 
 export interface IntegrationConfig {
-  requireSupabaseUser: RequireUser
+  requireSupabaseUser: RequireUserFunction
   OAUTH_REDIRECT_BASE_URL: string
   OAUTH_REDIRECT_PATH: string
   REDDIT_CLIENT_ID?: string
@@ -30,7 +32,7 @@ export interface IntegrationConfig {
   SPOTIFY_REDIRECT_URI?: string
 }
 
-export function registerIntegrationRoutes(server: FastifyInstance, cfg: IntegrationConfig) {
+export function registerIntegrationRoutes(server: FastifyInstance, cfg: IntegrationConfig): void {
   const registry = new ProviderRegistry({
     reddit: { clientId: cfg.REDDIT_CLIENT_ID, clientSecret: cfg.REDDIT_CLIENT_SECRET, redirectUri: cfg.REDDIT_REDIRECT_URI },
     google: { clientId: cfg.GOOGLE_CLIENT_ID, clientSecret: cfg.GOOGLE_CLIENT_SECRET, redirectUri: cfg.GOOGLE_REDIRECT_URI },
@@ -39,12 +41,12 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     youtubemusic: { clientId: cfg.YTM_CLIENT_ID, clientSecret: cfg.YTM_CLIENT_SECRET, redirectUri: cfg.YTM_REDIRECT_URI },
     spotify: { clientId: cfg.SPOTIFY_CLIENT_ID, clientSecret: cfg.SPOTIFY_CLIENT_SECRET, redirectUri: cfg.SPOTIFY_REDIRECT_URI },
   })
-  const handoffs = new HandoffStore<any>()
+  const handoffs = new HandoffStore<{ provider: string; tokens: unknown }>()
 
-  server.get('/integrations/oauth/start', async (request, reply) => {
+  server.get('/integrations/oauth/start', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { provider } = (request as any).query || {}
+    const { provider } = (request.query as Record<string, unknown>) || {}
     if (!provider || typeof provider !== 'string') return reply.code(400).send({ error: 'Missing provider' })
 
     try {
@@ -62,36 +64,36 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     }
   })
 
-  server.get('/integrations/oauth/callback/:provider', async (request, reply) => {
-    const { provider } = (request as any).params
-    const { code, state, error } = (request as any).query || {}
+  server.get('/integrations/oauth/callback/:provider', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { provider } = (request.params as Record<string, unknown>)
+    const { code, state, error } = (request.query as Record<string, unknown>) || {}
     if (error) {
       server.log.error({ provider, error }, 'OAuth error')
-      return reply.redirect(`${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?oauth=error&provider=${encodeURIComponent(provider)}&reason=${encodeURIComponent(error)}`)
+      return reply.redirect(`${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?oauth=error&provider=${encodeURIComponent(String(provider))}&reason=${encodeURIComponent(String(error))}`)
     }
     try {
-      const p = registry.get(provider)
-      if (!p) throw new UnsupportedProviderError(provider)
+      const p = registry.get(String(provider))
+      if (!p) throw new UnsupportedProviderError(String(provider))
       const stateInfo = handoffs.take(`state:${state}`)
       if (!stateInfo) throw new InvalidStateError()
-      const tokenResult = await p.exchangeCodeForTokens(code)
+      const tokenResult = await p.exchangeCodeForTokens(String(code))
       const handoffId = `handoff:${crypto.randomUUID()}`
-      handoffs.put(handoffId, { provider, tokens: tokenResult })
+      handoffs.put(handoffId, { provider: String(provider), tokens: tokenResult })
       server.log.info({ event: 'oauth_callback', provider, userId: stateInfo.userId, handoffId }, 'OAuth callback success')
-      const redirectUrl = `${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?handoff=${encodeURIComponent(handoffId)}&provider=${encodeURIComponent(provider)}`
+      const redirectUrl = `${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?handoff=${encodeURIComponent(handoffId)}&provider=${encodeURIComponent(String(provider))}`
       return reply.redirect(redirectUrl)
     } catch (err) {
-      server.log.error(err as any)
-      const reason = (err as any)?.code || 'exception'
+      server.log.error(err)
+      const reason = err instanceof Error && 'code' in err ? (err as { code: string }).code : 'exception'
       server.log.error({ event: 'oauth_callback_error', provider, reason, err }, 'OAuth callback error')
-      return reply.redirect(`${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?oauth=error&provider=${encodeURIComponent(provider)}&reason=${encodeURIComponent(reason)}`)
+      return reply.redirect(`${cfg.OAUTH_REDIRECT_BASE_URL}${cfg.OAUTH_REDIRECT_PATH}?oauth=error&provider=${encodeURIComponent(String(provider))}&reason=${encodeURIComponent(reason)}`)
     }
   })
 
-  server.get('/integrations/oauth/handoff', async (request, reply) => {
+  server.get('/integrations/oauth/handoff', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { id } = (request as any).query || {}
+    const { id } = (request.query as Record<string, unknown>) || {}
     if (!id || typeof id !== 'string') return reply.code(400).send({ error: 'Missing id' })
     
     const payload = handoffs.take(id)
@@ -104,10 +106,10 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send(payload)
   })
 
-  server.get('/integrations/oauth/complete', async (request, reply) => {
+  server.get('/integrations/oauth/complete', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { handoff, provider } = (request as any).query || {}
+    const { handoff, provider } = (request.query as Record<string, unknown>) || {}
     if (!handoff || typeof handoff !== 'string') return reply.code(400).send({ error: 'Missing handoff parameter' })
     
     try {
@@ -124,10 +126,10 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     }
   })
 
-  server.post('/integrations/oauth/refresh', async (request, reply) => {
+  server.post('/integrations/oauth/refresh', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { provider, refresh_token } = (request as any).body || {}
+    const { provider, refresh_token } = (request.body as Record<string, unknown>) || {}
     if (!provider || !refresh_token) return reply.code(400).send({ error: 'Missing provider or refresh_token' })
     try {
       const p = registry.get(provider)
@@ -143,12 +145,12 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
   })
 
   // Aggregation endpoints to centralize fetchers and hide token usage specifics
-  server.get('/aggregations/reddit', async (request, reply) => {
+  server.get('/aggregations/reddit', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { sub_limit, posts_per_sub } = (request.query as any) || {}
+    const { sub_limit, posts_per_sub } = (request.query as Record<string, unknown>) || {}
     const subLimit = Number(sub_limit) > 0 ? Number(sub_limit) : 10
     const postsPerSub = Number(posts_per_sub) > 0 ? Number(posts_per_sub) : 5
 
@@ -156,14 +158,14 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     const headers: Record<string, string> = { Authorization: token.toString(), 'User-Agent': 'ever-life-vault/1.0' }
     const subsRes = await fetch('https://oauth.reddit.com/subreddits/mine/subscriber', { headers })
     try {
-      const rateRemaining = (subsRes as any).headers?.get?.('x-ratelimit-remaining')
-      const rateUsed = (subsRes as any).headers?.get?.('x-ratelimit-used')
-      const rateReset = (subsRes as any).headers?.get?.('x-ratelimit-reset')
+      const rateRemaining = subsRes.headers?.get?.('x-ratelimit-remaining')
+      const rateUsed = subsRes.headers?.get?.('x-ratelimit-used')
+      const rateReset = subsRes.headers?.get?.('x-ratelimit-reset')
       server.log.info({
         event: 'aggregation_upstream',
         provider: 'reddit',
         step: 'subreddits',
-        status: (subsRes as any).status,
+        status: subsRes.status,
         ratelimit_remaining: rateRemaining,
         ratelimit_used: rateUsed,
         ratelimit_reset: rateReset,
@@ -180,31 +182,31 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       }
       return reply.code(200).send({ items: [] })
     }
-    const subsJson = (await subsRes.json()) as any
+    const subsJson = (await subsRes.json()) as { data?: { children?: Array<{ data?: { display_name?: string } }> } }
     const subNames: string[] = (subsJson?.data?.children || [])
-      .map((c: any) => c?.data?.display_name)
+      .map((c) => c?.data?.display_name)
       .filter(Boolean)
       .filter((name: string) => /^[A-Za-z0-9_]{1,21}$/.test(name)) // Valid subreddit name pattern
-    const out: any[] = []
+    const out: Array<{ id: string; provider: string; title?: string; url: string; author?: string; timestamp?: number; score?: number; extra: { subreddit?: string; comments?: number } }> = []
     for (const sub of subNames.slice(0, subLimit)) {
       const res = await fetch(`https://oauth.reddit.com/r/${encodeURIComponent(sub)}/top?t=day&limit=${postsPerSub}`, { headers })
       try {
-        const rateRemaining = (res as any).headers?.get?.('x-ratelimit-remaining')
-        const rateUsed = (res as any).headers?.get?.('x-ratelimit-used')
-        const rateReset = (res as any).headers?.get?.('x-ratelimit-reset')
+        const rateRemaining = res.headers?.get?.('x-ratelimit-remaining')
+        const rateUsed = res.headers?.get?.('x-ratelimit-used')
+        const rateReset = res.headers?.get?.('x-ratelimit-reset')
         server.log.info({
           event: 'aggregation_upstream',
           provider: 'reddit',
           step: 'sub_top',
           subreddit: sub,
-          status: (res as any).status,
+          status: res.status,
           ratelimit_remaining: rateRemaining,
           ratelimit_used: rateUsed,
           ratelimit_reset: rateReset,
         }, 'Upstream request')
       } catch {}
       if (!res.ok) continue
-      const json = (await res.json()) as any
+      const json = (await res.json()) as { data?: { children?: Array<{ data?: { id?: string; title?: string; url_overridden_by_dest?: string; permalink?: string; author?: string; created_utc?: number; score?: number; subreddit?: string; num_comments?: number } }> } }
       for (const child of json?.data?.children || []) {
         const d = child?.data
         out.push({
@@ -223,12 +225,12 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send({ items: out })
   })
 
-  server.get('/aggregations/twitter', async (request, reply) => {
+  server.get('/aggregations/twitter', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 20
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
@@ -236,7 +238,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     let userId: string | undefined
     const meRes = await fetch('https://api.twitter.com/2/users/me?user.fields=username,name', { headers })
     if (meRes.ok) {
-      const me = (await meRes.json()) as any
+      const me = (await meRes.json()) as { data?: { id?: string; username?: string } }
       userId = me?.data?.id
       username = me?.data?.username
     }
@@ -244,12 +246,12 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     const url = `https://api.twitter.com/2/users/${encodeURIComponent(userId)}/tweets?max_results=${Math.min(100, max)}&tweet.fields=created_at,public_metrics&exclude=replies`
     const res = await fetch(url, { headers })
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const out: any[] = []
+    const json = (await res.json()) as { data?: Array<{ id: string; text?: string; created_at?: string; public_metrics?: { like_count?: number; retweet_count?: number; reply_count?: number; quote_count?: number } }> }
+    const out: Array<{ id: string; provider: string; title: string; url: string; author?: string; timestamp?: number; score: number }> = []
     for (const t of json?.data || []) {
       const metrics = t?.public_metrics || {}
       const score = [metrics.like_count, metrics.retweet_count, metrics.reply_count, metrics.quote_count]
-        .map((n: any) => (typeof n === 'number' ? n : 0))
+        .map((n) => (typeof n === 'number' ? n : 0))
         .reduce((a: number, b: number) => a + b, 0)
       out.push({
         id: `twitter_${t.id}`,
@@ -264,19 +266,19 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send({ items: out.slice(0, max) })
   })
 
-  server.get('/aggregations/facebook', async (request, reply) => {
+  server.get('/aggregations/facebook', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 20
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     const res = await fetch(`https://graph.facebook.com/v19.0/me/feed?fields=message,story,permalink_url,created_time,from&limit=${Math.min(100, max)}`, { headers })
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const out: any[] = []
+    const json = (await res.json()) as { data?: Array<{ id: string; message?: string; story?: string; permalink_url?: string; created_time?: string; from?: { name?: string } }> }
+    const out: Array<{ id: string; provider: string; title: string; author?: string; timestamp?: number; url?: string }> = []
     for (const p of json?.data || []) {
       const title: string = p?.message || p?.story || '(post)'
       const author: string | undefined = p?.from?.name
@@ -287,19 +289,19 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send({ items: out.slice(0, max) })
   })
 
-  server.get('/aggregations/instagram', async (request, reply) => {
+  server.get('/aggregations/instagram', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 20
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     const res = await fetch(`https://graph.instagram.com/me/media?fields=id,caption,permalink,timestamp,username&limit=${Math.min(100, max)}`, { headers })
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const out: any[] = []
+    const json = (await res.json()) as { data?: Array<{ id: string; caption?: string; permalink?: string; timestamp?: string; username?: string }> }
+    const out: Array<{ id: string; provider: string; title: string; url?: string; author?: string; timestamp?: number }> = []
     for (const m of json?.data || []) {
       out.push({
         id: `instagram_${m.id}`,
@@ -313,75 +315,75 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send({ items: out.slice(0, max) })
   })
 
-  server.get('/aggregations/gmail', async (request, reply) => {
+  server.get('/aggregations/gmail', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 25
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     const res = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages?q=is%3Aunread&maxResults=${Math.min(500, max)}`, { headers })
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const ids: string[] = (json?.messages || []).map((m: any) => (m as any).id)
-    const out: any[] = []
+    const json = (await res.json()) as { messages?: Array<{ id: string }> }
+    const ids: string[] = (json?.messages || []).map((m) => m.id)
+    const out: Array<{ id: string; provider: string; title: string; author?: string; timestamp?: number; url: string }> = []
     for (const id of ids.slice(0, max)) {
       const mRes = await fetch(`https://www.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From&metadataHeaders=Date`, { headers })
       if (!mRes.ok) continue
-      const m = (await mRes.json()) as any
+      const m = (await mRes.json()) as { id: string; payload?: { headers?: Array<{ name: string; value: string }> } }
       const headersArr: Array<{ name: string; value: string }> = m?.payload?.headers || []
       const subject = headersArr.find(h => h.name === 'Subject')?.value
       const from = headersArr.find(h => h.name === 'From')?.value
       const date = headersArr.find(h => h.name === 'Date')?.value
-      out.push({ id: `gmail_${(m as any).id}`, provider: 'gmail', title: subject || '(no subject)', author: from, timestamp: date ? Date.parse(date) : undefined, url: `https://mail.google.com/mail/u/0/#all/${(m as any).id}` })
+      out.push({ id: `gmail_${m.id}`, provider: 'gmail', title: subject || '(no subject)', author: from, timestamp: date ? Date.parse(date) : undefined, url: `https://mail.google.com/mail/u/0/#all/${m.id}` })
     }
     return reply.send({ items: out })
   })
 
-  server.get('/aggregations/outlook', async (request, reply) => {
+  server.get('/aggregations/outlook', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 25
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     const res = await fetch(`https://graph.microsoft.com/v1.0/me/messages?$filter=isRead%20eq%20false&$top=${Math.min(50, max)}`, { headers })
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const out: any[] = []
-    for (const m of (json?.value || []) as any[]) {
-      out.push({ id: `outlook_${(m as any).id}`, provider: 'outlook', title: (m as any).subject || '(no subject)', author: (m as any).from?.emailAddress?.name, timestamp: (m as any).receivedDateTime ? Date.parse((m as any).receivedDateTime) : undefined, url: undefined })
+    const json = (await res.json()) as { value?: Array<{ id: string; subject?: string; from?: { emailAddress?: { name?: string } }; receivedDateTime?: string }> }
+    const out: Array<{ id: string; provider: string; title: string; author?: string; timestamp?: number; url: undefined }> = []
+    for (const m of (json?.value || [])) {
+      out.push({ id: `outlook_${m.id}`, provider: 'outlook', title: m.subject || '(no subject)', author: m.from?.emailAddress?.name, timestamp: m.receivedDateTime ? Date.parse(m.receivedDateTime) : undefined, url: undefined })
     }
     return reply.send({ items: out.slice(0, max) })
   })
 
-  server.get('/aggregations/youtube', async (request, reply) => {
+  server.get('/aggregations/youtube', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 20
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     // Fetch latest uploads from subscriptions
     const subsRes = await fetch('https://www.googleapis.com/youtube/v3/subscriptions?part=snippet&mine=true&maxResults=50', { headers: { ...headers, Accept: 'application/json' } })
-    server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'subscriptions', status: (subsRes as any).status }, 'Upstream request')
+    server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'subscriptions', status: subsRes.status }, 'Upstream request')
     if (!subsRes.ok) return reply.send({ items: [] })
-    const subsJson = (await subsRes.json()) as any
-    const channelIds: string[] = (subsJson?.items || []).map((it: any) => it?.snippet?.resourceId?.channelId).filter(Boolean)
-    const out: any[] = []
+    const subsJson = (await subsRes.json()) as { items?: Array<{ snippet?: { resourceId?: { channelId?: string } } }> }
+    const channelIds: string[] = (subsJson?.items || []).map((it) => it?.snippet?.resourceId?.channelId).filter(Boolean)
+    const out: Array<{ id: string; provider: string; title: string; url?: string; author?: string; timestamp?: number }> = []
     // Fetch latest videos for each channel via search (publishedAfter not used here; limit overall)
     for (const channelId of channelIds.slice(0, 25)) {
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${encodeURIComponent(channelId)}&order=date&maxResults=5`
       const res = await fetch(url, { headers: { ...headers, Accept: 'application/json' } })
-      server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'search', channelId, status: (res as any).status }, 'Upstream request')
+      server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'search', channelId, status: res.status }, 'Upstream request')
       if (!res.ok) continue
-      const json = (await res.json()) as any
+      const json = (await res.json()) as { items?: Array<{ id?: { kind?: string; videoId?: string }; snippet?: { title?: string; channelTitle?: string; publishedAt?: string } }> }
       for (const it of json?.items || []) {
         if ((it?.id?.kind as string) !== 'youtube#video') continue
         const vid = it?.id?.videoId
@@ -402,21 +404,21 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send({ items: out.slice(0, max) })
   })
 
-  server.get('/aggregations/youtubemusic', async (request, reply) => {
+  server.get('/aggregations/youtubemusic', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 20
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     // YouTube Music doesn't have a distinct public API; use YouTube Data API liked videos as proxy for music activity
     const res = await fetch('https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&myRating=like&maxResults=50', { headers: { ...headers, Accept: 'application/json' } })
-    server.log.info({ event: 'aggregation_upstream', provider: 'youtubemusic', step: 'liked_videos', status: (res as any).status }, 'Upstream request')
+    server.log.info({ event: 'aggregation_upstream', provider: 'youtubemusic', step: 'liked_videos', status: res.status }, 'Upstream request')
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const out: any[] = []
+    const json = (await res.json()) as { items?: Array<{ id?: string; snippet?: { title?: string; channelTitle?: string; publishedAt?: string } }> }
+    const out: Array<{ id: string; provider: string; title: string; url?: string; author?: string; timestamp?: number }> = []
     for (const v of json?.items || []) {
       const vid = v?.id
       const sn = v?.snippet
@@ -434,26 +436,26 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     return reply.send({ items: out.slice(0, max) })
   })
 
-  server.get('/aggregations/spotify', async (request, reply) => {
+  server.get('/aggregations/spotify', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
-    const { ['x-target-authorization']: targetAuth } = request.headers as any
+    const { ['x-target-authorization']: targetAuth } = request.headers as Record<string, string | string[] | undefined>
     const token = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth
-    const { limit } = (request.query as any) || {}
+    const { limit } = (request.query as Record<string, unknown>) || {}
     const max = Number(limit) > 0 ? Number(limit) : 20
     if (!token) return reply.code(400).send({ error: 'Missing provider token' })
     const headers: Record<string, string> = { Authorization: token.toString() }
     const res = await fetch(`https://api.spotify.com/v1/me/player/recently-played?limit=${Math.min(50, max)}`, { headers: { ...headers, Accept: 'application/json' } })
     if (!res.ok) return reply.send({ items: [] })
-    const json = (await res.json()) as any
-    const out: any[] = []
+    const json = (await res.json()) as { items?: Array<{ track?: { id?: string; name?: string; external_urls?: { spotify?: string }; artists?: Array<{ name?: string }> }; played_at?: string }> }
+    const out: Array<{ id: string; provider: string; title: string; url?: string; author?: string; timestamp?: number }> = []
     for (const it of json?.items || []) {
       const track = it?.track
       const playedAt = it?.played_at
       if (!track) continue
       const url = (track?.external_urls?.spotify as string | undefined)
       const name = (track?.name as string | undefined)
-      const artists = Array.isArray(track?.artists) ? track.artists.map((a: any) => a?.name).filter(Boolean).join(', ') : undefined
+      const artists = Array.isArray(track?.artists) ? track.artists.map((a) => a?.name).filter(Boolean).join(', ') : undefined
       out.push({
         id: `spotify_${track?.id || playedAt}`,
         provider: 'spotify',

@@ -1,11 +1,11 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { buildForwardHeaders, prepareBody, sendUpstreamResponse } from './shared.js'
 
 function isLikelySupabaseAuthBearer(headerValue: string): boolean {
   const match = /^Bearer\s+([A-Za-z0-9-_]+)\.([A-Za-z0-9-_]+)\.[A-Za-z0-9-_]+$/.exec(headerValue)
   if (!match) return false
   try {
-    const payloadJson = JSON.parse(Buffer.from(match[2], 'base64url').toString('utf8')) as Record<string, any>
+    const payloadJson = JSON.parse(Buffer.from(match[2], 'base64url').toString('utf8')) as Record<string, unknown>
     const iss = String(payloadJson?.iss || '')
     return iss.includes('supabase')
   } catch {
@@ -16,9 +16,9 @@ function isLikelySupabaseAuthBearer(headerValue: string): boolean {
 export function registerDynRoute(
   server: FastifyInstance,
   isTargetAllowed: (url: string) => boolean,
-) {
-  server.all('/dyn', async (request, reply) => {
-    const { url: targetUrl } = (request as any).query || {}
+): void {
+  server.all('/dyn', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { url: targetUrl } = (request.query as Record<string, unknown>) || {}
     if (!targetUrl || typeof targetUrl !== 'string') {
       return reply.code(400).send({ error: 'Missing url query parameter' })
     }
@@ -28,7 +28,7 @@ export function registerDynRoute(
 
     const method = request.method.toUpperCase()
 
-    const incomingHeaders = request.headers as Record<string, any>
+    const incomingHeaders = request.headers as Record<string, string | string[] | undefined>
     // Do not forward cookies; conditionally drop Supabase Authorization tokens
     const forwardHeaders = buildForwardHeaders(incomingHeaders, false, true)
     const authVal = forwardHeaders['authorization']
@@ -36,14 +36,14 @@ export function registerDynRoute(
       delete forwardHeaders['authorization']
     }
 
-    const body = prepareBody(method, incomingHeaders, (request as any).body, forwardHeaders)
+    const body = prepareBody(method, incomingHeaders, request.body, forwardHeaders)
 
     // Add a timeout to avoid resource exhaustion from slow upstreams
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 30_000) // 30s timeout
     let res: Response
     try {
-      res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as any })
+      res = await fetch(targetUrl, { method, headers: forwardHeaders, body: body, signal: ac.signal })
     } finally {
       clearTimeout(to)
     }

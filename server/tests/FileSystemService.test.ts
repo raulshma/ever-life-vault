@@ -42,8 +42,16 @@ Object.defineProperty(process, 'getgid', {
 
 describe('FileSystemService', () => {
   let fileSystemService: FileSystemService;
-  let mockFs: any;
-  let mockExec: any;
+  let mockFs: {
+    stat: ReturnType<typeof vi.mocked<typeof fs.stat>>;
+    access: ReturnType<typeof vi.mocked<typeof fs.access>>;
+    mkdir: ReturnType<typeof vi.mocked<typeof fs.mkdir>>;
+    chown: ReturnType<typeof vi.mocked<typeof fs.chown>>;
+    chmod: ReturnType<typeof vi.mocked<typeof fs.chmod>>;
+    mkdtemp: ReturnType<typeof vi.mocked<typeof fs.mkdtemp>>;
+    rm: ReturnType<typeof vi.mocked<typeof fs.rm>>;
+  };
+  let mockExec: ReturnType<typeof vi.mocked<typeof exec>>;
 
   beforeEach(() => {
     fileSystemService = new FileSystemService(['/home', '/opt', '/tmp'], false); // Explicitly set to Linux

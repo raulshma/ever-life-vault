@@ -10,10 +10,8 @@ export interface KarakeepTag {
 }
 
 export interface KarakeepItem {
-  id: string | number;
-  // In Karakeep API, the top-level doesn't expose `type`; it's under `content.type`.
-  // Keep optional for back-compat with other sources.
-  type?: KarakeepItemType;
+  id: string;
+  type: KarakeepItemType;
   title?: string;
   url?: string;
   text?: string;
@@ -21,7 +19,7 @@ export interface KarakeepItem {
   created_at?: string;
   updated_at?: string;
   // Allow unknown fields
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface KarakeepConfig {

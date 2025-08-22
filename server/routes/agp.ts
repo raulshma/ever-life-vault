@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { buildForwardHeaders, prepareBody, sendUpstreamResponse, sanitizeRequestBody, checkRateLimit } from './shared.js'
 
 interface FastifyRequestWithUser {
@@ -20,8 +20,8 @@ export function registerAgpRoute(
   isTargetAllowed: (url: string) => boolean,
   requireSupabaseUser: (request: FastifyRequestWithUser, reply: FastifyReplyWithCode) => Promise<{ id: string } | null>,
   allowUnauthenticated: boolean = false,
-) {
-  server.all('/agp', async (request, reply) => {
+): void {
+  server.all('/agp', async (request: FastifyRequest, reply: FastifyReply) => {
     // Rate limiting - configurable limits
     const clientId = (request as FastifyRequestWithUser).user?.id || request.ip;
     const rateLimit = process.env.AGP_RATE_LIMIT ? parseInt(process.env.AGP_RATE_LIMIT) : 100;
@@ -37,11 +37,11 @@ export function registerAgpRoute(
     }
 
     if (!allowUnauthenticated) {
-  const user = await requireSupabaseUser(request as unknown as FastifyRequestWithUser, reply)
+      const user = await requireSupabaseUser(request as unknown as FastifyRequestWithUser, reply)
       if (!user) return
     }
 
-    const { url: targetUrl } = (request as any).query || {}
+    const { url: targetUrl } = (request.query as Record<string, unknown>) || {}
     if (!targetUrl || typeof targetUrl !== 'string') {
       return reply.code(400).send({ error: 'Missing url query parameter' })
     }
@@ -57,11 +57,11 @@ export function registerAgpRoute(
       return reply.code(403).send({ error: 'Target not allowed' })
     }
 
-    const incomingHeaders = request.headers as Record<string, any>
+    const incomingHeaders = request.headers as Record<string, string | string[] | undefined>
     // Do not forward Authorization or Cookie from the caller by default; we inject provider auth below
     const forwardHeaders = buildForwardHeaders(incomingHeaders, true, true)
 
-    const targetAuth = incomingHeaders['x-target-authorization'] || (incomingHeaders as any)['X-Target-Authorization']
+    const targetAuth = incomingHeaders['x-target-authorization'] || incomingHeaders['X-Target-Authorization']
     if (targetAuth) {
       forwardHeaders['authorization'] = Array.isArray(targetAuth) ? targetAuth[0] : targetAuth.toString()
     }
@@ -69,14 +69,14 @@ export function registerAgpRoute(
     const method = request.method.toUpperCase()
 
     // Sanitize request body
-    const sanitizedBody = sanitizeRequestBody((request as any).body);
+    const sanitizedBody = sanitizeRequestBody(request.body);
     const body = prepareBody(method, incomingHeaders, sanitizedBody, forwardHeaders)
 
     // Add a timeout to avoid resource exhaustion from slow upstreams
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 30_000)
     try {
-      const res = await fetch(targetUrl, { method, headers: forwardHeaders as any, body: body as any, signal: ac.signal as AbortSignal })
+      const res = await fetch(targetUrl, { method, headers: forwardHeaders, body: body, signal: ac.signal })
       clearTimeout(to)
       return sendUpstreamResponse(reply, res)
     } catch (e: unknown) {
