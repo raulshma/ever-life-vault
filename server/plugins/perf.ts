@@ -1,9 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify'
 
-interface RateLimitContext {
-  after: number
-}
-
 interface RateLimitRequest extends FastifyRequest {
   user?: { id: string }
 }
@@ -60,11 +56,11 @@ export async function registerPerfPlugins(server: FastifyInstance): Promise<void
         const user = request.user;
         return user ? user.id : request.ip;
       },
-      errorResponseBuilder: (request: FastifyRequest, context: RateLimitContext) => ({
+      errorResponseBuilder: (request: FastifyRequest, context: { after: string }) => ({
         code: 429,
         error: 'Too Many Requests',
-        message: `Rate limit exceeded, retry in ${Math.ceil(context.after / 1000)} seconds`,
-        retryAfter: Math.ceil(context.after / 1000)
+        message: `Rate limit exceeded, retry in ${Math.ceil(parseInt(context.after) / 1000)} seconds`,
+        retryAfter: Math.ceil(parseInt(context.after) / 1000)
       })
     })
   } catch (e) {

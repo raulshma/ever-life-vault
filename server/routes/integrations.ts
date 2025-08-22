@@ -41,7 +41,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     youtubemusic: { clientId: cfg.YTM_CLIENT_ID, clientSecret: cfg.YTM_CLIENT_SECRET, redirectUri: cfg.YTM_REDIRECT_URI },
     spotify: { clientId: cfg.SPOTIFY_CLIENT_ID, clientSecret: cfg.SPOTIFY_CLIENT_SECRET, redirectUri: cfg.SPOTIFY_REDIRECT_URI },
   })
-  const handoffs = new HandoffStore<{ provider: string; tokens: unknown }>()
+  const handoffs = new HandoffStore<{ provider: string; tokens: unknown; userId?: string }>()
 
   server.get('/integrations/oauth/start', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await cfg.requireSupabaseUser(request, reply)
@@ -54,7 +54,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
       const p = registry.get(provider)
       if (!p) throw new UnsupportedProviderError(provider)
       const url = p.buildAuthorizationUrl(state)
-      handoffs.put(`state:${state}`, { userId: user.id, provider })
+      handoffs.put(`state:${state}`, { provider, tokens: null, userId: user.id })
       server.log.info({ event: 'oauth_start', provider, userId: user.id }, 'OAuth start')
       return reply.send({ url })
     } catch (err) {
@@ -130,7 +130,9 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     const user = await cfg.requireSupabaseUser(request, reply)
     if (!user) return
     const { provider, refresh_token } = (request.body as Record<string, unknown>) || {}
-    if (!provider || !refresh_token) return reply.code(400).send({ error: 'Missing provider or refresh_token' })
+    if (!provider || !refresh_token || typeof provider !== 'string' || typeof refresh_token !== 'string') {
+      return reply.code(400).send({ error: 'Missing or invalid provider or refresh_token' })
+    }
     try {
       const p = registry.get(provider)
       if (!p) throw new UnsupportedProviderError(provider)
@@ -185,7 +187,7 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     const subsJson = (await subsRes.json()) as { data?: { children?: Array<{ data?: { display_name?: string } }> } }
     const subNames: string[] = (subsJson?.data?.children || [])
       .map((c) => c?.data?.display_name)
-      .filter(Boolean)
+      .filter((name): name is string => Boolean(name))
       .filter((name: string) => /^[A-Za-z0-9_]{1,21}$/.test(name)) // Valid subreddit name pattern
     const out: Array<{ id: string; provider: string; title?: string; url: string; author?: string; timestamp?: number; score?: number; extra: { subreddit?: string; comments?: number } }> = []
     for (const sub of subNames.slice(0, subLimit)) {
@@ -375,7 +377,9 @@ export function registerIntegrationRoutes(server: FastifyInstance, cfg: Integrat
     server.log.info({ event: 'aggregation_upstream', provider: 'youtube', step: 'subscriptions', status: subsRes.status }, 'Upstream request')
     if (!subsRes.ok) return reply.send({ items: [] })
     const subsJson = (await subsRes.json()) as { items?: Array<{ snippet?: { resourceId?: { channelId?: string } } }> }
-    const channelIds: string[] = (subsJson?.items || []).map((it) => it?.snippet?.resourceId?.channelId).filter(Boolean)
+    const channelIds: string[] = (subsJson?.items || [])
+      .map((it) => it?.snippet?.resourceId?.channelId)
+      .filter((id): id is string => Boolean(id))
     const out: Array<{ id: string; provider: string; title: string; url?: string; author?: string; timestamp?: number }> = []
     // Fetch latest videos for each channel via search (publishedAfter not used here; limit overall)
     for (const channelId of channelIds.slice(0, 25)) {

@@ -43,7 +43,20 @@ export function registerDynRoute(
     const to = setTimeout(() => ac.abort(), 30_000) // 30s timeout
     let res: Response
     try {
-      res = await fetch(targetUrl, { method, headers: forwardHeaders, body: body, signal: ac.signal })
+      // Convert headers to fetch-compatible format
+      const fetchHeaders: Record<string, string> = {}
+      for (const [key, value] of Object.entries(forwardHeaders)) {
+        if (value !== undefined) {
+          fetchHeaders[key] = Array.isArray(value) ? value.join(', ') : String(value)
+        }
+      }
+      
+      res = await fetch(targetUrl, { 
+        method, 
+        headers: fetchHeaders, 
+        body: body as BodyInit, 
+        signal: ac.signal 
+      })
     } finally {
       clearTimeout(to)
     }

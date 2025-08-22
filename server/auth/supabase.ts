@@ -1,7 +1,7 @@
 import type { FastifyBaseLogger, FastifyRequest, FastifyReply } from 'fastify'
 import { createClient, type SupabaseClient, type SupabaseClientOptions } from '@supabase/supabase-js'
 
-export function createSupabaseClient(url?: string, anonKey?: string, options?: SupabaseClientOptions): SupabaseClient | null {
+export function createSupabaseClient(url?: string, anonKey?: string, options?: SupabaseClientOptions<any>): SupabaseClient | null {
   if (!url || !anonKey) return null
   // Basic validation to avoid throwing inside supabase-js when URL is malformed
   try {

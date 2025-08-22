@@ -18,7 +18,7 @@ interface FastifyReplyWithCode {
 export function registerAgpRoute(
   server: FastifyInstance,
   isTargetAllowed: (url: string) => boolean,
-  requireSupabaseUser: (request: FastifyRequestWithUser, reply: FastifyReplyWithCode) => Promise<{ id: string } | null>,
+  requireSupabaseUser: (request: FastifyRequest, reply: FastifyReply) => Promise<{ id: string } | null>,
   allowUnauthenticated: boolean = false,
 ): void {
   server.all('/agp', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -37,7 +37,7 @@ export function registerAgpRoute(
     }
 
     if (!allowUnauthenticated) {
-      const user = await requireSupabaseUser(request as unknown as FastifyRequestWithUser, reply)
+      const user = await requireSupabaseUser(request, reply)
       if (!user) return
     }
 
@@ -76,7 +76,20 @@ export function registerAgpRoute(
     const ac = new AbortController()
     const to = setTimeout(() => ac.abort(), 30_000)
     try {
-      const res = await fetch(targetUrl, { method, headers: forwardHeaders, body: body, signal: ac.signal })
+      // Convert headers to fetch-compatible format
+      const fetchHeaders: Record<string, string> = {}
+      for (const [key, value] of Object.entries(forwardHeaders)) {
+        if (value !== undefined) {
+          fetchHeaders[key] = Array.isArray(value) ? value.join(', ') : String(value)
+        }
+      }
+      
+      const res = await fetch(targetUrl, { 
+        method, 
+        headers: fetchHeaders, 
+        body: body as BodyInit, 
+        signal: ac.signal 
+      })
       clearTimeout(to)
       return sendUpstreamResponse(reply, res)
     } catch (e: unknown) {

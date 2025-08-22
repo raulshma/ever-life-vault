@@ -115,7 +115,7 @@ export async function sendUpstreamResponse(reply: { header: (key: string, value:
     return reply.send(text)
   }
   if (res.body) {
-    return reply.send(Readable.fromWeb(res.body))
+    return reply.send(Readable.fromWeb(res.body as any))
   }
   return reply.send()
 }

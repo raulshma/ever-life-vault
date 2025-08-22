@@ -1,13 +1,13 @@
 import * as crypto from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 
 export class SecretsService {
-  private supabase: ReturnType<typeof createClient>;
+  private supabase: SupabaseClient;
   private readonly algorithm = 'aes-256-gcm';
   private readonly keyLength = 32; // 256 bits
 
-  constructor(supabaseClient: ReturnType<typeof createClient>) {
+  constructor(supabaseClient: SupabaseClient) {
     if (!supabaseClient) {
       throw new Error('Authenticated Supabase client is required for SecretsService');
     }

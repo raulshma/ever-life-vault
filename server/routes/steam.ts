@@ -297,17 +297,20 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     const { data, error, count } = await query.range(from, to)
     if (error) return reply.code(400).send({ error: error.message })
 
-    const items = (data || []).map((row) => ({
-      appid: row.appid,
-      name: row.steam_games?.name || String(row.appid),
-      header_image: row.steam_games?.header_image || null,
-      genres: row.steam_games?.genres || null,
-      metascore: row.steam_games?.metascore ?? null,
-      is_free: row.steam_games?.is_free ?? null,
-      playtime_forever_minutes: row.playtime_forever_minutes || 0,
-      playtime_2weeks_minutes: row.playtime_2weeks_minutes || 0,
-      last_played_at: row.last_played_at || null,
-    }))
+    const items = (data || []).map((row) => {
+      const gameInfo = Array.isArray(row.steam_games) ? row.steam_games[0] : row.steam_games
+      return {
+        appid: row.appid,
+        name: gameInfo?.name || String(row.appid),
+        header_image: gameInfo?.header_image || null,
+        genres: gameInfo?.genres || null,
+        metascore: gameInfo?.metascore ?? null,
+        is_free: gameInfo?.is_free ?? null,
+        playtime_forever_minutes: row.playtime_forever_minutes || 0,
+        playtime_2weeks_minutes: row.playtime_2weeks_minutes || 0,
+        last_played_at: row.last_played_at || null,
+      }
+    })
 
 
     return reply.send({ items, page, pageSize, total: count || 0 })
@@ -327,7 +330,15 @@ export function registerSteamRoutes(server: FastifyInstance, cfg: SteamRouteConf
     if (error) return reply.code(400).send({ error: error.message })
     const recent = (data || [])
       .filter((o) => (o.playtime_2weeks_minutes || 0) > 0)
-      .map((o) => ({ appid: o.appid, name: o.steam_games?.name || String(o.appid), playtime_2weeks_minutes: o.playtime_2weeks_minutes, last_played_at: o.last_played_at || null }))
+      .map((o) => {
+        const gameInfo = Array.isArray(o.steam_games) ? o.steam_games[0] : o.steam_games
+        return {
+          appid: o.appid,
+          name: gameInfo?.name || String(o.appid),
+          playtime_2weeks_minutes: o.playtime_2weeks_minutes,
+          last_played_at: o.last_played_at || null
+        }
+      })
 
     return reply.send({ items: recent })
   })

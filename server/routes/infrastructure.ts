@@ -1,11 +1,20 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
-import { z } from 'zod'
+import { z, ZodError } from 'zod'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { DockerService } from '../services/DockerService.js'
 import { FileSystemService } from '../services/FileSystemService.js'
 import { SecretsService } from '../services/SecretsService.js'
 import { BackupService } from '../services/BackupService.js'
 import { createSupabaseClient } from '../auth/supabase.js'
+import type { BackupData } from '../types/infrastructure.js'
+
+// Helper function to handle Zod errors
+function handleZodError(error: unknown, reply: FastifyReply, errorMessage: string) {
+  if (error instanceof ZodError) {
+    return reply.code(400).send({ error: errorMessage, details: error.errors })
+  }
+  throw error // Re-throw if it's not a ZodError
+}
 
 // Validation schemas
 const createConfigSchema = z.object({
@@ -204,8 +213,11 @@ export function registerInfrastructureRoutes(
 
       return reply.code(201).send({ configuration: data })
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+      try {
+        handleZodError(error, reply, 'Invalid request data')
+        return
+      } catch {
+        // Not a ZodError, continue with general error handling
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -296,7 +308,7 @@ export function registerInfrastructureRoutes(
       return reply.send({ configuration: data })
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -389,7 +401,7 @@ export function registerInfrastructureRoutes(
       return reply.send(validation)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -423,7 +435,7 @@ export function registerInfrastructureRoutes(
       return reply.send(result)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid path parameter', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid path parameter', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -450,7 +462,7 @@ export function registerInfrastructureRoutes(
       return reply.send(result)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -477,7 +489,7 @@ export function registerInfrastructureRoutes(
       return reply.send(result)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -496,7 +508,7 @@ export function registerInfrastructureRoutes(
       return reply.send({ permissions })
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid path parameter', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid path parameter', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })
@@ -551,7 +563,7 @@ export function registerInfrastructureRoutes(
       })
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
@@ -647,7 +659,7 @@ export function registerInfrastructureRoutes(
       })
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
@@ -674,7 +686,7 @@ export function registerInfrastructureRoutes(
       return reply.send(validation)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       server.log.error(error)
@@ -725,7 +737,7 @@ export function registerInfrastructureRoutes(
       }
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Failed to create backup', details: error instanceof Error ? error.message : 'Unknown error' })
@@ -756,15 +768,16 @@ export function registerInfrastructureRoutes(
       }
 
       // Validate backup data structure
-      if (!backupData.version || !backupData.configurations || !Array.isArray(backupData.configurations)) {
+      const typedBackupData = backupData as any
+      if (!typedBackupData?.version || !typedBackupData?.configurations || !Array.isArray(typedBackupData.configurations)) {
         return reply.code(400).send({ error: 'Invalid backup data structure' })
       }
 
       // Check version compatibility
-      if (backupData.version !== '1.0.0') {
+      if (typedBackupData.version !== '1.0.0') {
         return reply.code(400).send({ 
           error: 'Unsupported backup version', 
-          details: `Version ${backupData.version} is not supported. Expected version 1.0.0.` 
+          details: `Version ${typedBackupData.version} is not supported. Expected version 1.0.0.` 
         })
       }
 
@@ -773,12 +786,12 @@ export function registerInfrastructureRoutes(
         selective_restore: body.selective_restore || { config_ids: [], secret_keys: [] }
       }
 
-      const result = await backupService.importBackup(user.id, backupData, restoreOptions)
+      const result = await backupService.importBackup(user.id, typedBackupData as BackupData, restoreOptions)
       
       return reply.send(result)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Failed to import backup', details: error instanceof Error ? error.message : 'Unknown error' })
@@ -821,7 +834,7 @@ export function registerInfrastructureRoutes(
       return reply.send(validation)
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'ZodError') {
-        return reply.code(400).send({ error: 'Invalid request data', details: (error as { errors: unknown }).errors })
+        return reply.code(400).send({ error: 'Invalid request data', details: (error instanceof ZodError ? error.errors : "Unknown validation error") })
       }
       server.log.error(error)
       return reply.code(500).send({ error: 'Failed to validate backup', details: error instanceof Error ? error.message : 'Unknown error' })

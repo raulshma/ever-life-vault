@@ -183,7 +183,7 @@ export class BackupService {
       }
     }
 
-    const data = parsedData as { version?: string; configurations?: unknown[]; secrets?: unknown[] }
+    const data = parsedData as Partial<BackupData>
 
     if (!data.version) {
       errors.push('Missing version field')
