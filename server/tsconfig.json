@@ -8,6 +8,10 @@
     "allowJs": true,
     "strict": true,
     "skipLibCheck": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./types"
+    ],
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
@@ -32,8 +36,7 @@
     "node_modules",
     "dist",
     "**/*.test.ts",
-    "**/*.spec.ts",
-    "**/*.d.ts"
+    "**/*.spec.ts"
   ],
   "ts-node": {
     "esm": true,
