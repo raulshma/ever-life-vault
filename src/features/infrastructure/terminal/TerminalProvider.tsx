@@ -25,6 +25,7 @@ export type TerminalSession = {
   term?: XTerm
   fit?: FitAddon
   status: 'connecting' | 'connected' | 'closed' | 'error'
+  errorMessage?: string
   // Root container that owns xterm DOM; we move it between hosts for PiP vs Page
   rootContainer?: HTMLDivElement
 }
@@ -131,7 +132,7 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const attachTerminal = useCallback((id: string) => {
     const token = session?.access_token
     if (!token) {
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error', errorMessage: 'No authentication token available' } : s))
       return
     }
     const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -196,14 +197,17 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Store root container
       setSessions(prev => prev.map(s => s.id === id ? { ...s, rootContainer: root } : s))
     }
-    ws.onerror = () => setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error' } : s))
-    ws.onclose = () => {
+    ws.onerror = (ev) => setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'error', errorMessage: 'WebSocket error while attaching to SSH session' } : s))
+    ws.onclose = (ev) => {
+      const reason = (ev as CloseEvent)?.reason || ''
+      const code = (ev as CloseEvent)?.code
+      const msg = reason || (code === 4401 ? 'Unauthorized: invalid or missing token' : code === 4404 ? 'Session not found or expired' : code === 4403 ? 'Forbidden: not your session' : code === 1011 ? 'Server internal error' : code === 1000 ? 'Connection closed' : 'Connection closed')
       try {
         const handler = (term as any)._cleanupResize
         if (handler) window.removeEventListener('resize', handler)
         term.dispose()
       } catch {}
-      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: 'closed' } : s))
+      setSessions(prev => prev.map(s => s.id === id ? { ...s, status: reason ? 'error' : 'closed', errorMessage: msg } : s))
     }
   }, [session?.access_token, settings.fontSize, settings.theme])
 
@@ -221,7 +225,18 @@ export const TerminalProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         passphrase: req.authMode === 'key' ? req.passphrase : undefined,
       }),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      try {
+        const data = await res.json()
+        const title = `${req.username}@${req.host}`
+        const id = `err-${Date.now()}`
+        setSessions(prev => [...prev, { id, title, status: 'error', errorMessage: data?.message || 'Failed to create SSH session' }])
+        setActiveId(id)
+      } catch {
+        // swallow
+      }
+      return null
+    }
     const { sessionId } = await res.json()
     const title = `${req.username}@${req.host}`
     setSessions(prev => [...prev, { id: sessionId, title, status: 'connecting' }])

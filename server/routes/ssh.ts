@@ -123,6 +123,7 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
         server.log.debug('Using password authentication')
       }
 
+      let connectErr: any = null
       await new Promise<void>((resolve, reject) => {
         ssh
           .on('ready', () => {
@@ -132,10 +133,27 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
           })
           .on('error', (err: any) => {
             server.log.error({ err, sessionId, host: body.host }, 'SSH connection failed')
+            connectErr = err
             reject(err)
           })
           .connect(connectOpts)
       })
+
+      if (connectErr) {
+        // Provide a safe, user-friendly error response
+        const safeMessage =
+          (typeof connectErr?.message === 'string' && connectErr.message.trim())
+            || (typeof connectErr === 'string' && connectErr)
+            || 'Unable to connect to SSH server'
+        const code = (connectErr as any)?.code || (connectErr as any)?.level || 'SSH_ERROR'
+        server.log.warn({ sessionId, code, safeMessage }, 'Returning SSH connect error to client')
+        try { ssh.end() } catch {}
+        return reply.status(502).send({
+          error: 'ssh_connect_failed',
+          code,
+          message: safeMessage,
+        })
+      }
 
       if (!sessions.has(sessionId)) {
         server.log.error({ sessionId }, 'SSH session was not stored after connection')
@@ -145,9 +163,12 @@ export function registerSshRoutes(server: FastifyInstance, cfg: { requireSupabas
       server.log.info({ sessionId, userId: user.id }, 'SSH session created successfully')
       return reply.send({ sessionId, status: 'connected' })
 
-    } catch (error) {
-      server.log.error({ error }, 'SSH session creation error')
-      return reply.status(500).send({ error: 'internal_error', message: 'Failed to create SSH session' })
+    } catch (error: any) {
+      // If we reach here, try to surface a meaningful message
+      const msg = (typeof error?.message === 'string' && error.message) || 'Failed to create SSH session'
+      const code = (error as any)?.code || (error as any)?.level || 'INTERNAL_ERROR'
+      server.log.error({ error, code, msg }, 'SSH session creation error')
+      return reply.status(500).send({ error: 'internal_error', code, message: msg })
     }
   })
 

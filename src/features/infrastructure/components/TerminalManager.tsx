@@ -18,6 +18,8 @@ import { useScreenSize, isMobile } from '../utils/responsive'
 import { TerminalSettings } from './TerminalSettings'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { RecentTerminal } from '../types'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 type AuthMode = 'password' | 'key'
 
@@ -38,6 +40,7 @@ type SessionState = {
   title: string
   containerRef: React.RefObject<HTMLDivElement | null>
   status: 'connecting' | 'connected' | 'closed' | 'error'
+  errorMessage?: string
 }
 
 import { useTerminal } from '../terminal/TerminalProvider'
@@ -70,14 +73,15 @@ export const TerminalManager: React.FC = () => {
     if (form.mode === 'vault' && form.vaultItemId) {
       const item = sshItems.find(i => i.id === form.vaultItemId)
       if (item) {
-        const d = item.data || {}
-        const host = d.host || ''
-        const port = String(d.port || '22')
-        const username = d.username || ''
-        const authModeVal: AuthMode = d.privateKey ? 'key' : 'password'
-        const passwordVal = d.password || ''
-        const privateKeyVal = d.privateKey || ''
-        const passphraseVal = d.passphrase || ''
+  type SshData = { host?: string; port?: number; username?: string; password?: string; privateKey?: string; passphrase?: string }
+  const d = (item.data || {}) as SshData
+  const host = d.host ?? ''
+  const port = String(d.port ?? '22')
+  const username = d.username ?? ''
+  const authModeVal: AuthMode = d.privateKey ? 'key' : 'password'
+  const passwordVal = d.password ?? ''
+  const privateKeyVal = d.privateKey ?? ''
+  const passphraseVal = d.passphrase ?? ''
 
         // Only update form when values actually change to avoid render loops
         const shouldUpdate = host !== form.host
@@ -112,6 +116,7 @@ export const TerminalManager: React.FC = () => {
         id: gs.id,
         title: gs.title,
         status: gs.status as SessionState['status'],
+        errorMessage: (gs as any).errorMessage,
         containerRef: refMap.get(gs.id) ?? React.createRef<HTMLDivElement>(),
       }))
     })
@@ -317,9 +322,14 @@ export const TerminalManager: React.FC = () => {
                   <SelectValue placeholder={sshItems.length ? 'Choose a saved server' : 'No SSH items in vault'} />
                 </SelectTrigger>
                 <SelectContent>
-                  {sshItems.map(item => (
-                    <SelectItem key={item.id} value={item.id}>{item.name} ({item.data?.username}@{item.data?.host})</SelectItem>
-                  ))}
+                  {sshItems.map(item => {
+                    const data = (item.data || {}) as { username?: string; host?: string }
+                    return (
+                      <SelectItem key={item.id} value={item.id}>
+                        {String(item.name)} ({String(data.username || '')}@{String(data.host || '')})
+                      </SelectItem>
+                    )
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -566,6 +576,14 @@ export const TerminalManager: React.FC = () => {
                     </Button>
                   </div>
                 </div>
+        {s.status === 'error' && (
+                  <Alert variant="destructive" className="mb-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+          {s.errorMessage || 'Connection failed. Please verify host, credentials, and network.'}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <div className={`${fullscreenId === s.id ? 'fixed inset-0 z-50 p-2 sm:p-4 bg-background/90 backdrop-blur' : ''}`}>
                   <div
                       ref={s.containerRef}
