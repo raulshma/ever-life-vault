@@ -1,10 +1,22 @@
 import React from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Settings, Pencil, Trash2, RefreshCcw } from "lucide-react";
 import type { DockerComposeConfig } from "../types";
 import { configsApi } from "../services/configsApi";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ConfigurationsListProps {
 	onEdit: (config: DockerComposeConfig) => void;
@@ -12,6 +24,7 @@ interface ConfigurationsListProps {
 
 export const ConfigurationsList: React.FC<ConfigurationsListProps> = ({ onEdit }) => {
 	const queryClient = useQueryClient();
+	const { toast } = useToast();
 	const { data, isLoading, isError, refetch } = useQuery({
 		queryKey: ["docker-configs"],
 		queryFn: () => configsApi.list(),
@@ -19,6 +32,18 @@ export const ConfigurationsList: React.FC<ConfigurationsListProps> = ({ onEdit }
 	});
 
 	const configs = data ?? [];
+
+	const deleteMutation = useMutation({
+		mutationFn: (id: string) => configsApi.remove(id),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: ["docker-configs"] });
+			toast({ title: "Deleted", description: "Configuration deleted." });
+		},
+		onError: (e: unknown) => {
+			const msg = e instanceof Error ? e.message : String(e);
+			toast({ title: "Failed to delete", description: msg, variant: "destructive" });
+		},
+	});
 
 	return (
 		<Card>
@@ -56,10 +81,33 @@ export const ConfigurationsList: React.FC<ConfigurationsListProps> = ({ onEdit }
 										<Button variant="outline" size="sm" onClick={() => onEdit(cfg)} className="h-8 px-2">
 											<Pencil className="h-4 w-4" />
 										</Button>
-										{/* Placeholder for delete (optional) */}
-										<Button variant="outline" size="sm" disabled className="h-8 px-2">
-											<Trash2 className="h-4 w-4" />
-										</Button>
+														<AlertDialog>
+															<AlertDialogTrigger asChild>
+																<Button
+																	variant="outline"
+																	size="sm"
+																	className="h-8 px-2"
+																>
+																	<Trash2 className="h-4 w-4" />
+																</Button>
+															</AlertDialogTrigger>
+															<AlertDialogContent>
+																<AlertDialogHeader>
+																	<AlertDialogTitle>Delete configuration?</AlertDialogTitle>
+																	<AlertDialogDescription>
+																		This will permanently remove "{cfg.name}". This action cannot be undone.
+																	</AlertDialogDescription>
+																</AlertDialogHeader>
+																<AlertDialogFooter>
+																	<AlertDialogCancel>Cancel</AlertDialogCancel>
+																	<AlertDialogAction
+																		onClick={() => deleteMutation.mutate(cfg.id)}
+																	>
+																		Delete
+																	</AlertDialogAction>
+																</AlertDialogFooter>
+															</AlertDialogContent>
+														</AlertDialog>
 									</div>
 								</div>
 								<div className="mt-3 text-xs text-muted-foreground">
