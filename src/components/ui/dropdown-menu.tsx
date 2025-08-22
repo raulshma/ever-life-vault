@@ -4,7 +4,11 @@ import { Check, ChevronRight, Circle } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const DropdownMenu = DropdownMenuPrimitive.Root
+// Default DropdownMenu to non-modal to prevent scroll-locking the body.
+// This avoids layout shift when the scrollbar disappears on open.
+const DropdownMenu = (props: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) => (
+  <DropdownMenuPrimitive.Root modal={false} {...props} />
+)
 
 const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
 

@@ -217,7 +217,13 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  html {}
+  html {
+    /* Reserve space for the vertical scrollbar to prevent layout shift
+       when overlays (DropdownMenu/Select/Dialog) toggle body scrolling. */
+    scrollbar-gutter: stable both-edges;
+    /* Always show vertical scrollbar gutter to avoid width reflow on lock */
+    overflow-y: scroll;
+  }
   
   body,
   #root {
