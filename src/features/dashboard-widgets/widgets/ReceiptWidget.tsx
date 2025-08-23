@@ -43,13 +43,13 @@ export default function ReceiptWidget({ config }: WidgetProps<ReceiptConfig>) {
   const getAnalysisStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <div className="w-2 h-2 bg-green-500 rounded-full" />;
+        return <div className="w-2 h-2 bg-success rounded-full" />;
       case 'failed':
-        return <AlertCircle className="w-3 h-3 text-red-500" />;
+        return <AlertCircle className="w-3 h-3 text-destructive" />;
       case 'processing':
-        return <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />;
+        return <div className="w-2 h-2 bg-info rounded-full animate-pulse" />;
       default:
-        return <div className="w-2 h-2 bg-gray-300 rounded-full" />;
+        return <div className="w-2 h-2 bg-muted rounded-full" />;
     }
   };
 
@@ -57,40 +57,40 @@ export default function ReceiptWidget({ config }: WidgetProps<ReceiptConfig>) {
     return (
       <WidgetShell title="Receipts">
         <div className="space-y-3 animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          <div className="h-4 bg-muted rounded w-3/4"></div>
+          <div className="h-4 bg-muted rounded w-1/2"></div>
+          <div className="h-4 bg-muted rounded w-2/3"></div>
         </div>
       </WidgetShell>
     );
   }
 
   return (
-    <WidgetShell title="Receipts" icon={ReceiptIcon}>
+    <WidgetShell title="Receipts">
       <div className="space-y-4">
         {/* Quick Stats */}
         {showAnalytics && (
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <ReceiptIcon className="w-3 h-3 text-blue-500" />
+                <ReceiptIcon className="w-3 h-3 text-info" />
                 <span className="text-xs text-muted-foreground">Total:</span>
                 <span className="font-medium">{stats.receiptCount}</span>
               </div>
               <div className="flex items-center gap-2">
-                <DollarSign className="w-3 h-3 text-green-500" />
+                <DollarSign className="w-3 h-3 text-success" />
                 <span className="text-xs text-muted-foreground">Amount:</span>
                 <span className="font-medium">{formatCurrency(stats.totalAmount)}</span>
               </div>
             </div>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <TrendingUp className="w-3 h-3 text-purple-500" />
+                <TrendingUp className="w-3 h-3 text-info" />
                 <span className="text-xs text-muted-foreground">Business:</span>
                 <span className="font-medium">{formatCurrency(stats.businessExpenses)}</span>
               </div>
               <div className="flex items-center gap-2">
-                <Calendar className="w-3 h-3 text-orange-500" />
+                <Calendar className="w-3 h-3 text-warning" />
                 <span className="text-xs text-muted-foreground">This Month:</span>
                 <span className="font-medium">
                   {Object.entries(stats.monthlyTotals)
@@ -112,7 +112,7 @@ export default function ReceiptWidget({ config }: WidgetProps<ReceiptConfig>) {
           
           {recent.length === 0 ? (
             <div className="text-center py-4">
-              <ReceiptIcon className="w-8 h-8 mx-auto text-gray-300 mb-2" />
+              <ReceiptIcon className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground">No receipts yet</p>
               <Button variant="ghost" size="sm" asChild className="mt-2">
                 <Link to="/receipts">Add Your First Receipt</Link>
@@ -137,7 +137,7 @@ export default function ReceiptWidget({ config }: WidgetProps<ReceiptConfig>) {
                     </div>
                   </div>
                   <div className="text-right ml-2">
-                    <div className="font-medium text-green-600">
+                    <div className="font-medium text-success">
                       {formatCurrency(receipt.total_amount, receipt.currency)}
                     </div>
                     <div className="flex gap-1">

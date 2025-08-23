@@ -193,13 +193,13 @@ export default function Receipts() {
   const getAnalysisStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-success" />;
       case 'failed':
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
+        return <AlertCircle className="w-4 h-4 text-destructive" />;
       case 'processing':
-        return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
+        return <Loader2 className="w-4 h-4 animate-spin text-info" />;
       default:
-        return <Brain className="w-4 h-4 text-gray-400" />;
+        return <Brain className="w-4 h-4 text-muted-foreground" />;
     }
   };
 
@@ -209,7 +209,7 @@ export default function Receipts() {
         <div className="flex justify-between items-start mb-3">
           <div className="flex-1">
             <h3 className="font-semibold text-lg mb-1">{receipt.name}</h3>
-            <p className="text-sm text-gray-600 mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
               {receipt.merchant_name || 'Unknown Merchant'}
             </p>
             <div className="flex items-center gap-2 mb-2">
@@ -223,10 +223,10 @@ export default function Receipts() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-xl font-bold text-green-600">
+            <div className="text-xl font-bold text-success">
               {formatCurrency(receipt.total_amount, receipt.currency)}
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               {new Date(receipt.receipt_date).toLocaleDateString()}
             </div>
           </div>
@@ -235,11 +235,11 @@ export default function Receipts() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             {getAnalysisStatusIcon(receipt.analysis_status)}
-            <span className="text-xs text-gray-500 capitalize">
+            <span className="text-xs text-muted-foreground capitalize">
               {receipt.analysis_status}
             </span>
             {receipt.ai_confidence_score && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 ({Math.round(receipt.ai_confidence_score * 100)}%)
               </span>
             )}
@@ -271,7 +271,7 @@ export default function Receipts() {
         </div>
         
         {receipt.description && (
-          <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
             {receipt.description}
           </p>
         )}
@@ -292,10 +292,10 @@ export default function Receipts() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Receipts</p>
+                <p className="text-sm text-muted-foreground">Total Receipts</p>
                 <p className="text-2xl font-bold">{stats.receiptCount}</p>
               </div>
-              <ReceiptIcon className="w-8 h-8 text-blue-500" />
+              <ReceiptIcon className="w-8 h-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -304,10 +304,10 @@ export default function Receipts() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Amount</p>
+                <p className="text-sm text-muted-foreground">Total Amount</p>
                 <p className="text-2xl font-bold">{formatCurrency(stats.totalAmount)}</p>
               </div>
-              <DollarSign className="w-8 h-8 text-green-500" />
+              <DollarSign className="w-8 h-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -316,10 +316,10 @@ export default function Receipts() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Business Expenses</p>
+                <p className="text-sm text-muted-foreground">Business Expenses</p>
                 <p className="text-2xl font-bold">{formatCurrency(stats.businessExpenses)}</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-purple-500" />
+              <TrendingUp className="w-8 h-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -328,10 +328,10 @@ export default function Receipts() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Reimbursable</p>
+                <p className="text-sm text-muted-foreground">Reimbursable</p>
                 <p className="text-2xl font-bold">{formatCurrency(stats.reimbursableAmount)}</p>
               </div>
-              <FileText className="w-8 h-8 text-orange-500" />
+              <FileText className="w-8 h-8 text-warning" />
             </div>
           </CardContent>
         </Card>
@@ -348,7 +348,7 @@ export default function Receipts() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search receipts..."
                 value={filters.search}
@@ -422,7 +422,7 @@ export default function Receipts() {
               {loading ? (
                 <div className="text-center py-8">
                   <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-                  <p className="text-gray-500">Loading receipts...</p>
+                  <p className="text-muted-foreground">Loading receipts...</p>
                 </div>
               ) : currentReceipts.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -432,9 +432,9 @@ export default function Receipts() {
                 </div>
               ) : (
                 <div className="text-center py-12">
-                  <ReceiptIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No receipts found</h3>
-                  <p className="text-gray-500 mb-4">
+                  <ReceiptIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No receipts found</h3>
+                  <p className="text-muted-foreground mb-4">
                     {filters.search || filters.category ? 
                       'Try adjusting your filters to see more results.' :
                       'Get started by adding your first receipt.'

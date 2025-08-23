@@ -115,15 +115,15 @@ export function CategorySuggestions({
   return (
     <div className={`space-y-3 ${className}`}>
       <div className="flex items-center gap-2">
-        <Brain className="w-4 h-4 text-blue-500" />
-        <span className="text-sm font-medium text-gray-700">Smart Category Suggestions</span>
-        {loading && <Sparkles className="w-4 h-4 text-yellow-500 animate-pulse" />}
+        <Brain className="w-4 h-4 text-info" />
+        <span className="text-sm font-medium text-foreground">Smart Category Suggestions</span>
+        {loading && <Sparkles className="w-4 h-4 text-warning animate-pulse" />}
       </div>
 
       {loading ? (
         <Card>
           <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-sm text-gray-500">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Brain className="w-4 h-4 animate-pulse" />
               <span>Analyzing receipt patterns...</span>
             </div>
@@ -136,8 +136,8 @@ export function CategorySuggestions({
               key={suggestion.category}
               className={`cursor-pointer transition-all hover:shadow-md ${
                 suggestion.category === currentCategory 
-                  ? 'ring-2 ring-blue-500 bg-blue-50' 
-                  : 'hover:bg-gray-50'
+                  ? 'ring-2 ring-primary bg-primary/10' 
+                  : 'hover:bg-muted/50'
               }`}
               onClick={() => handleSuggestionClick(suggestion)}
             >
@@ -168,11 +168,11 @@ export function CategorySuggestions({
                     >
                       {Math.round(suggestion.confidence * 100)}%
                     </Badge>
-                    <ArrowRight className="w-3 h-3 text-gray-400" />
+                    <ArrowRight className="w-3 h-3 text-muted-foreground" />
                   </div>
                 </div>
                 
-                <div className="mt-1 text-xs text-gray-500">
+                <div className="mt-1 text-xs text-muted-foreground">
                   {suggestion.reason}
                 </div>
               </CardContent>
@@ -192,7 +192,7 @@ export function CategorySuggestions({
       ) : receiptData.merchant_name ? (
         <Card>
           <CardContent className="p-3">
-            <div className="text-sm text-gray-500 text-center">
+            <div className="text-sm text-muted-foreground text-center">
               No automatic suggestions available for this merchant.
               <br />
               <span className="text-xs">Your categorization will help improve future suggestions.</span>

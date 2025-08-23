@@ -364,7 +364,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
             {!isReadOnly && (
               <div className="space-y-2">
                 <Label>Receipt Image</Label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                <div className="border-2 border-dashed border-border rounded-lg p-4">
                   {previewUrl ? (
                     <div className="text-center">
                       <img 
@@ -387,8 +387,8 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                     </div>
                   ) : (
                     <div className="text-center">
-                      <Camera className="w-8 h-8 mx-auto text-gray-400 mb-2" />
-                      <div className="text-sm text-gray-600 mb-2">
+                      <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                      <div className="text-sm text-muted-foreground mb-2">
                         Upload receipt image for AI analysis
                       </div>
                       <Input
@@ -558,7 +558,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                 </div>
               </div>
             ) : (
-              <div className="text-center text-gray-500 py-8">
+              <div className="text-center text-muted-foreground py-8">
                 Save receipt to enable AI analysis
               </div>
             )}

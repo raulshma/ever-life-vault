@@ -258,13 +258,13 @@ export function ExpenseAnalyticsDashboard({ className }: ExpenseAnalyticsDashboa
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Receipts</p>
+                <p className="text-sm text-muted-foreground">Total Receipts</p>
                 <p className="text-2xl font-bold">{filteredReceipts.length}</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Avg: {formatCurrency(filteredReceipts.length > 0 ? filteredReceipts.reduce((sum, r) => sum + r.total_amount, 0) / filteredReceipts.length : 0)}
                 </p>
               </div>
-              <ReceiptIcon className="w-8 h-8 text-blue-500" />
+              <ReceiptIcon className="w-8 h-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -273,15 +273,15 @@ export function ExpenseAnalyticsDashboard({ className }: ExpenseAnalyticsDashboa
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Business Expenses</p>
+                <p className="text-sm text-muted-foreground">Business Expenses</p>
                 <p className="text-2xl font-bold">
                   {formatCurrency(filteredReceipts.filter(r => r.is_business_expense).reduce((sum, r) => sum + r.total_amount, 0))}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   {filteredReceipts.filter(r => r.is_business_expense).length} receipts
                 </p>
               </div>
-              <Target className="w-8 h-8 text-purple-500" />
+              <Target className="w-8 h-8 text-info" />
             </div>
           </CardContent>
         </Card>
@@ -290,15 +290,15 @@ export function ExpenseAnalyticsDashboard({ className }: ExpenseAnalyticsDashboa
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Tax Deductible</p>
+                <p className="text-sm text-muted-foreground">Tax Deductible</p>
                 <p className="text-2xl font-bold">
                   {formatCurrency(filteredReceipts.filter(r => r.is_tax_deductible).reduce((sum, r) => sum + r.total_amount, 0))}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Est. savings: {formatCurrency(filteredReceipts.filter(r => r.is_tax_deductible).reduce((sum, r) => sum + r.total_amount, 0) * 0.25)}
                 </p>
               </div>
-              <CheckCircle className="w-8 h-8 text-orange-500" />
+              <CheckCircle className="w-8 h-8 text-warning" />
             </div>
           </CardContent>
         </Card>
@@ -504,7 +504,7 @@ export function ExpenseAnalyticsDashboard({ className }: ExpenseAnalyticsDashboa
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Avg Receipt Value</p>
+                  <p className="text-sm text-muted-foreground">Avg Receipt Value</p>
                   <p className="text-xl font-bold">
                     {formatCurrency(
                       filteredReceipts.length > 0 
@@ -519,7 +519,7 @@ export function ExpenseAnalyticsDashboard({ className }: ExpenseAnalyticsDashboa
             <Card>
               <CardContent className="p-4">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600">Largest Receipt</p>
+                  <p className="text-sm text-muted-foreground">Largest Receipt</p>
                   <p className="text-xl font-bold">
                     {formatCurrency(
                       filteredReceipts.length > 0 

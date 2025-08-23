@@ -377,7 +377,7 @@ export function BulkImportExport({ className }: BulkImportExportProps) {
             
             <div className="space-y-2">
               <Label>Total Receipts</Label>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Database className="w-4 h-4" />
                 <span>{receipts.length} receipts available</span>
               </div>

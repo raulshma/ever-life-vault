@@ -175,16 +175,16 @@ export function BulkCategorization({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="w-5 h-5 text-blue-500" />
+            <Brain className="w-5 h-5 text-info" />
             Bulk Receipt Categorization
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-muted-foreground">
               {uncategorizedReceipts.length} uncategorized receipts found
               {suggestions.size > 0 && (
-                <span className="ml-2 text-green-600">
+                <span className="ml-2 text-success">
                   • {suggestions.size} with suggestions
                   {highConfidenceCount > 0 && (
                     <span className="ml-1">
@@ -265,7 +265,7 @@ export function BulkCategorization({
               <Card 
                 key={receipt.id}
                 className={`transition-all ${
-                  isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'
+                  isSelected ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-muted/50'
                 }`}
               >
                 <CardContent className="p-4">
@@ -284,7 +284,7 @@ export function BulkCategorization({
                         </Badge>
                       </div>
                       
-                      <div className="text-sm text-gray-600 truncate">
+                      <div className="text-sm text-muted-foreground truncate">
                         {receipt.merchant_name && (
                           <span>{receipt.merchant_name} • </span>
                         )}
