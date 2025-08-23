@@ -159,6 +159,9 @@ export class ReceiptAnalysisService {
   private supabase: SupabaseClient
   private googleApiKey: string
   private googleProvider: any
+  private readonly maxRetries: number = 3
+  private readonly retryDelay: number = 1000 // Base delay in ms
+  private readonly timeoutMs: number = 60000 // 60 second timeout
 
   constructor(supabase: SupabaseClient, googleApiKey: string) {
     this.supabase = supabase
@@ -169,25 +172,168 @@ export class ReceiptAnalysisService {
   }
 
   /**
-   * Quick analysis for immediate form population (doesn't save to database)
+   * Enhanced error handling and retry logic
+   */
+  private async executeWithRetry<T>(
+    operation: () => Promise<T>,
+    context: string,
+    maxRetries: number = this.maxRetries
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`[${context}] Attempt ${attempt}/${maxRetries}`);
+        
+        // Create timeout promise
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Operation timeout')), this.timeoutMs);
+        });
+        
+        // Race between operation and timeout
+        const result = await Promise.race([
+          operation(),
+          timeoutPromise
+        ]);
+        
+        console.log(`[${context}] Success on attempt ${attempt}`);
+        return result;
+        
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+        console.error(`[${context}] Attempt ${attempt} failed:`, lastError.message);
+        
+        // Don't retry on certain error types
+        if (this.isNonRetryableError(lastError)) {
+          console.log(`[${context}] Non-retryable error, aborting`);
+          break;
+        }
+        
+        // Wait before retry (exponential backoff)
+        if (attempt < maxRetries) {
+          const delay = this.retryDelay * Math.pow(2, attempt - 1);
+          console.log(`[${context}] Waiting ${delay}ms before retry`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    throw new Error(`${context} failed after ${maxRetries} attempts: ${lastError?.message}`);
+  }
+  
+  /**
+   * Check if error should not be retried
+   */
+  private isNonRetryableError(error: Error): boolean {
+    const message = error.message.toLowerCase();
+    return (
+      message.includes('invalid api key') ||
+      message.includes('unauthorized') ||
+      message.includes('forbidden') ||
+      message.includes('bad request') ||
+      message.includes('unsupported file type') ||
+      message.includes('file too large')
+    );
+  }
+  
+  /**
+   * Enhanced image/file validation
+   */
+  private async validateFileForAnalysis(fileUrl: string): Promise<{
+    isValid: boolean;
+    fileType: string;
+    fileSize?: number;
+    error?: string;
+  }> {
+    try {
+      const response = await fetch(fileUrl, { method: 'HEAD' });
+      
+      if (!response.ok) {
+        return {
+          isValid: false,
+          fileType: 'unknown',
+          error: `Failed to access file: ${response.statusText}`
+        };
+      }
+      
+      const contentType = response.headers.get('content-type') || '';
+      const contentLength = response.headers.get('content-length');
+      const fileSize = contentLength ? parseInt(contentLength, 10) : undefined;
+      
+      // Check file size (max 50MB)
+      const maxSize = 50 * 1024 * 1024;
+      if (fileSize && fileSize > maxSize) {
+        return {
+          isValid: false,
+          fileType: contentType,
+          fileSize,
+          error: `File too large: ${(fileSize / 1024 / 1024).toFixed(2)}MB (max 50MB)`
+        };
+      }
+      
+      // Check supported file types
+      const supportedTypes = [
+        'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+        'application/pdf'
+      ];
+      
+      if (!supportedTypes.some(type => contentType.includes(type))) {
+        return {
+          isValid: false,
+          fileType: contentType,
+          fileSize,
+          error: `Unsupported file type: ${contentType}`
+        };
+      }
+      
+      return {
+        isValid: true,
+        fileType: contentType,
+        fileSize
+      };
+      
+    } catch (error) {
+      return {
+        isValid: false,
+        fileType: 'unknown',
+        error: `File validation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
+    }
+  }
+
+  /**
+   * Quick analysis for immediate form population with enhanced error handling
    */
   async quickAnalyzeForForm(
     imageUrl: string,
     options: {
       model?: string
+      progressCallback?: (stage: string, progress: number) => void
     } = {}
   ): Promise<ReceiptFormData> {
-    const { model = 'gemini-2.5-flash' } = options
+    const { model = 'gemini-2.5-flash', progressCallback } = options
     
-    try {
-      // Fetch the image
-      const imageResponse = await fetch(imageUrl)
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
+    return this.executeWithRetry(async () => {
+      progressCallback?.('Validating file', 10);
+      
+      // Validate file first
+      const validation = await this.validateFileForAnalysis(imageUrl);
+      if (!validation.isValid) {
+        throw new Error(validation.error || 'File validation failed');
       }
       
-      const imageBuffer = await imageResponse.arrayBuffer()
-      const imageData = new Uint8Array(imageBuffer)
+      progressCallback?.('Downloading image', 30);
+      
+      // Fetch the image with timeout
+      const imageResponse = await fetch(imageUrl);
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+      }
+      
+      progressCallback?.('Processing image', 50);
+      
+      const imageBuffer = await imageResponse.arrayBuffer();
+      const imageData = new Uint8Array(imageBuffer);
 
       // Create a focused prompt for form filling
       const prompt = `
@@ -205,6 +351,8 @@ Provide:
 
 Be precise with amounts and dates. If information is unclear, provide reasonable defaults.
 `
+
+      progressCallback?.('Analyzing with AI', 80);
 
       // Use Vercel AI SDK with Google Gemini to analyze the receipt
       const result = await generateObject({
@@ -226,17 +374,20 @@ Be precise with amounts and dates. If information is unclear, provide reasonable
         ],
         schema: ReceiptAnalysisSchema,
         maxRetries: 2,
-      })
+      });
 
-      const analysisResult = result.object
+      const analysisResult = result.object;
+      
+      progressCallback?.('Converting to form data', 95);
 
       // Convert to form data
-      return this.convertAnalysisToFormData(analysisResult)
+      const formData = this.convertAnalysisToFormData(analysisResult);
+      
+      progressCallback?.('Complete', 100);
+      
+      return formData;
 
-    } catch (error) {
-      console.error('Quick receipt analysis failed:', error)
-      throw error
-    }
+    }, 'Quick Receipt Analysis');
   }
 
   /**
@@ -358,40 +509,44 @@ Be precise with amounts and dates. If information is unclear, provide reasonable
   }
 
   /**
-   * Analyze a document file to extract structured information
+   * Analyze a document file with enhanced error handling and progress tracking
    */
   async analyzeDocument(
     fileUrl: string,
     documentType: 'warranty' | 'manual' | 'invoice' | 'guarantee' | 'certificate' | 'other' = 'other',
     options: {
       model?: string
+      progressCallback?: (stage: string, progress: number) => void
     } = {}
   ): Promise<DocumentAnalysisResult> {
-    const { model = 'gemini-2.5-flash' } = options
+    const { model = 'gemini-2.5-flash', progressCallback } = options
     
-    try {
+    return this.executeWithRetry(async () => {
+      progressCallback?.('Validating document', 10);
+      
+      // Validate file first
+      const validation = await this.validateFileForAnalysis(fileUrl);
+      if (!validation.isValid) {
+        throw new Error(validation.error || 'Document validation failed');
+      }
+      
+      progressCallback?.('Downloading document', 30);
+      
       // Fetch the file
-      const fileResponse = await fetch(fileUrl)
+      const fileResponse = await fetch(fileUrl);
       if (!fileResponse.ok) {
-        throw new Error(`Failed to fetch file: ${fileResponse.statusText}`)
+        throw new Error(`Failed to fetch file: ${fileResponse.statusText}`);
       }
       
-      const fileBuffer = await fileResponse.arrayBuffer()
-      const fileData = new Uint8Array(fileBuffer)
+      const fileBuffer = await fileResponse.arrayBuffer();
+      const fileData = new Uint8Array(fileBuffer);
       
-      // Determine the file type from the URL or content type
-      const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream'
-      const isImage = contentType.startsWith('image/')
-      const isPDF = contentType === 'application/pdf'
-      
-      if (!isImage && !isPDF) {
-        // For non-image, non-PDF files, we might need to convert or extract text differently
-        // For now, we'll treat them as text documents
-        console.warn(`Unsupported file type for AI analysis: ${contentType}. Attempting text extraction.`)
-      }
+      progressCallback?.('Preparing analysis', 50);
       
       // Create analysis prompt based on document type
-      const prompt = this.createDocumentAnalysisPrompt(documentType)
+      const prompt = this.createDocumentAnalysisPrompt(documentType);
+      
+      progressCallback?.('Analyzing with AI', 80);
       
       // Use Vercel AI SDK with Google Gemini to analyze the document
       const result = await generateObject({
@@ -413,14 +568,13 @@ Be precise with amounts and dates. If information is unclear, provide reasonable
         ],
         schema: DocumentAnalysisSchema,
         maxRetries: 2,
-      })
+      });
       
-      return result.object
+      progressCallback?.('Complete', 100);
       
-    } catch (error) {
-      console.error('Document analysis failed:', error)
-      throw error
-    }
+      return result.object;
+      
+    }, `Document Analysis (${documentType})`);
   }
   
   /**
@@ -596,7 +750,7 @@ Analyze this document comprehensively and identify:
   }
 
   /**
-   * Analyzes a receipt image using Google Gemini Vision
+   * Analyzes a receipt image with enhanced error handling and progress tracking
    */
   async analyzeReceiptImage(
     imageUrl: string, 
@@ -604,76 +758,106 @@ Analyze this document comprehensively and identify:
     options: {
       jobType?: 'ocr_only' | 'structure_analysis' | 'full_analysis'
       model?: string
+      progressCallback?: (stage: string, progress: number) => void
     } = {}
   ): Promise<ReceiptAnalysisResult> {
-    const { jobType = 'full_analysis', model = 'gemini-2.5-flash' } = options
+    const { jobType = 'full_analysis', model = 'gemini-2.5-flash', progressCallback } = options
+    const startTime = Date.now();
     
     try {
       // Update job status to processing
-      await this.updateJobStatus(jobId, 'processing', { started_at: new Date().toISOString() })
-
-      // Fetch the image
-      const imageResponse = await fetch(imageUrl)
-      if (!imageResponse.ok) {
-        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
-      }
+      await this.updateJobStatus(jobId, 'processing', { 
+        started_at: new Date().toISOString(),
+        ai_model_used: model 
+      });
       
-      const imageBuffer = await imageResponse.arrayBuffer()
-      const imageData = new Uint8Array(imageBuffer)
+      const result = await this.executeWithRetry(async () => {
+        progressCallback?.('Validating image', 10);
+        
+        // Validate image first
+        const validation = await this.validateFileForAnalysis(imageUrl);
+        if (!validation.isValid) {
+          throw new Error(validation.error || 'Image validation failed');
+        }
+        
+        progressCallback?.('Downloading image', 30);
+        
+        // Fetch the image
+        const imageResponse = await fetch(imageUrl);
+        if (!imageResponse.ok) {
+          throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+        }
+        
+        const imageBuffer = await imageResponse.arrayBuffer();
+        const imageData = new Uint8Array(imageBuffer);
 
-      // Create the analysis prompt based on job type
-      const prompt = this.createAnalysisPrompt(jobType)
+        progressCallback?.('Preparing analysis', 50);
+        
+        // Create the analysis prompt based on job type
+        const prompt = this.createAnalysisPrompt(jobType);
 
-      // Use Vercel AI SDK with Google Gemini to analyze the receipt
-      const result = await generateObject({
-        model: this.googleProvider(model),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              },
-              {
-                type: 'image',
-                image: imageData
-              }
-            ]
-          }
-        ],
-        schema: ReceiptAnalysisSchema,
-        maxRetries: 2,
-      })
+        progressCallback?.('Analyzing with AI', 80);
 
-      const analysisResult = result.object
+        // Use Vercel AI SDK with Google Gemini to analyze the receipt
+        const aiResult = await generateObject({
+          model: this.googleProvider(model),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt
+                },
+                {
+                  type: 'image',
+                  image: imageData
+                }
+              ]
+            }
+          ],
+          schema: ReceiptAnalysisSchema,
+          maxRetries: 2,
+        });
+
+        return aiResult.object;
+      }, 'Receipt Image Analysis');
+      
+      progressCallback?.('Saving results', 95);
+      
+      const processingDuration = Date.now() - startTime;
 
       // Update job with results
       await this.updateJobStatus(jobId, 'completed', {
         completed_at: new Date().toISOString(),
-        analysis_result: analysisResult,
+        analysis_result: result,
         confidence_scores: {
-          overall: analysisResult.classification.confidence_score,
-          merchant: this.calculateMerchantConfidence(analysisResult.merchant),
-          transaction: this.calculateTransactionConfidence(analysisResult.transaction),
-          items: this.calculateItemsConfidence(analysisResult.items)
+          overall: result.classification.confidence_score,
+          merchant: this.calculateMerchantConfidence(result.merchant),
+          transaction: this.calculateTransactionConfidence(result.transaction),
+          items: this.calculateItemsConfidence(result.items)
         },
         ai_model_used: model,
-        processing_duration_ms: Date.now() - new Date().getTime()
-      })
+        processing_duration_ms: processingDuration
+      });
+      
+      progressCallback?.('Complete', 100);
 
-      return analysisResult
+      return result;
 
     } catch (error) {
-      console.error('Receipt analysis failed:', error)
+      console.error('Receipt analysis failed:', error);
+      
+      const processingDuration = Date.now() - startTime;
       
       // Update job with error
       await this.updateJobStatus(jobId, 'failed', {
         completed_at: new Date().toISOString(),
-        error_message: error instanceof Error ? error.message : 'Unknown error occurred'
-      })
+        error_message: error instanceof Error ? error.message : 'Unknown error occurred',
+        processing_duration_ms: processingDuration
+      });
 
-      throw error
+      throw error;
     }
   }
 
@@ -721,25 +905,32 @@ to make informed classifications.`
   }
 
   /**
-   * Updates analysis job status in database
+   * Updates analysis job status with enhanced error handling
    */
   private async updateJobStatus(
     jobId: string, 
     status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled',
     updates: Record<string, any> = {}
   ): Promise<void> {
-    const { error } = await this.supabase
-      .from('receipt_analysis_jobs')
-      .update({
-        status,
-        ...updates,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', jobId)
+    try {
+      const { error } = await this.supabase
+        .from('receipt_analysis_jobs')
+        .update({
+          status,
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId)
 
-    if (error) {
-      console.error('Failed to update job status:', error)
-      throw new Error(`Failed to update job status: ${error.message}`)
+      if (error) {
+        console.error('Failed to update job status:', error)
+        throw new Error(`Failed to update job status: ${error.message}`)
+      }
+      
+      console.log(`Job ${jobId} status updated to: ${status}`);
+    } catch (error) {
+      // Don't throw here as it might interrupt the main analysis
+      console.error('Job status update failed:', error);
     }
   }
 
@@ -874,40 +1065,49 @@ to make informed classifications.`
   }
 
   /**
-   * Process analysis job queue
+   * Process analysis job queue with enhanced error handling
    */
   async processAnalysisJob(jobId: string): Promise<void> {
-    // Get job details
-    const { data: job, error: jobError } = await this.supabase
-      .from('receipt_analysis_jobs')
-      .select(`
-        *,
-        receipts(id, image_url, user_id)
-      `)
-      .eq('id', jobId)
-      .single()
+    return this.executeWithRetry(async () => {
+      // Get job details
+      const { data: job, error: jobError } = await this.supabase
+        .from('receipt_analysis_jobs')
+        .select(`
+          *,
+          receipts(id, image_url, user_id)
+        `)
+        .eq('id', jobId)
+        .single();
 
-    if (jobError || !job) {
-      throw new Error(`Job not found: ${jobId}`)
-    }
+      if (jobError || !job) {
+        throw new Error(`Job not found: ${jobId}`);
+      }
 
-    if (job.status !== 'queued') {
-      throw new Error(`Job is not in queued status: ${job.status}`)
-    }
+      if (job.status !== 'queued') {
+        throw new Error(`Job is not in queued status: ${job.status}`);
+      }
 
-    const receipt = job.receipts as any
-    if (!receipt?.image_url) {
-      throw new Error('Receipt has no image to analyze')
-    }
+      const receipt = job.receipts as any;
+      if (!receipt?.image_url) {
+        throw new Error('Receipt has no image to analyze');
+      }
 
-    // Perform analysis
-    const analysisResult = await this.analyzeReceiptImage(
-      receipt.image_url,
-      jobId,
-      { jobType: job.job_type }
-    )
+      // Perform analysis with progress tracking
+      const analysisResult = await this.analyzeReceiptImage(
+        receipt.image_url,
+        jobId,
+        { 
+          jobType: job.job_type,
+          progressCallback: (stage, progress) => {
+            console.log(`Job ${jobId} - ${stage}: ${progress}%`);
+          }
+        }
+      );
 
-    // Update receipt with results
-    await this.updateReceiptWithAnalysis(receipt.id, analysisResult)
+      // Update receipt with results
+      await this.updateReceiptWithAnalysis(receipt.id, analysisResult);
+      
+      console.log(`Job ${jobId} completed successfully`);
+    }, `Analysis Job Processing (${jobId})`);
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 
@@ -181,6 +181,8 @@ export function useReceipts() {
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());
   const [quickAnalyzing, setQuickAnalyzing] = useState(false);
+  const [pagination, setPagination] = useState({ page: 0, limit: 50, hasMore: true });
+  const [searchCache, setSearchCache] = useState<Map<string, Receipt[]>>(new Map());
   
   const { user, getToken } = useAuth();
   const { toast } = useToast();
@@ -209,22 +211,59 @@ export function useReceipts() {
     return response.json();
   }, [getToken]);
 
-  // Fetch receipts with optional filters
-  const fetchReceipts = useCallback(async (filters: ReceiptFilters = {}, pagination = { limit: 50, offset: 0 }) => {
+  // Fetch receipts with optional filters and enhanced caching
+  const fetchReceipts = useCallback(async (
+    filters: ReceiptFilters = {},
+    paginationOptions = { limit: 50, offset: 0, append: false }
+  ) => {
     if (!user) return;
+
+    // Create cache key for this query
+    const cacheKey = JSON.stringify({ filters, ...paginationOptions });
+    
+    // Check cache for exact match (only for non-append operations)
+    if (!paginationOptions.append && searchCache.has(cacheKey)) {
+      const cachedData = searchCache.get(cacheKey)!;
+      setReceipts(cachedData);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
-        limit: pagination.limit.toString(),
-        offset: pagination.offset.toString(),
+        limit: paginationOptions.limit.toString(),
+        offset: paginationOptions.offset.toString(),
         ...Object.fromEntries(
           Object.entries(filters).filter(([_, value]) => value !== undefined && value !== '')
         ),
       });
 
       const data = await makeRequest(`/api/receipts?${queryParams}`);
-      setReceipts(data.receipts || []);
+      const newReceipts = data.receipts || [];
+      
+      if (paginationOptions.append) {
+        // Append to existing receipts for pagination
+        setReceipts(prev => {
+          const combined = [...prev, ...newReceipts];
+          // Cache the combined result
+          setSearchCache(cache => new Map(cache.set(cacheKey, combined)));
+          return combined;
+        });
+      } else {
+        // Replace receipts for new search
+        setReceipts(newReceipts);
+        // Cache the result
+        setSearchCache(cache => new Map(cache.set(cacheKey, newReceipts)));
+      }
+      
+      // Update pagination state
+      setPagination(prev => ({
+        ...prev,
+        hasMore: newReceipts.length === paginationOptions.limit,
+        page: paginationOptions.append ? prev.page + 1 : 0
+      }));
+      
     } catch (error) {
       console.error('Error fetching receipts:', error);
       toast({
@@ -235,7 +274,7 @@ export function useReceipts() {
     } finally {
       setLoading(false);
     }
-  }, [user, makeRequest, toast]);
+  }, [user, makeRequest, toast, searchCache]);
 
   // Fetch expense categories
   const fetchCategories = useCallback(async () => {
@@ -456,8 +495,8 @@ export function useReceipts() {
     }
   }, [makeRequest]);
 
-  // Calculate expense totals and statistics
-  const getExpenseStats = useCallback(() => {
+  // Calculate expense totals and statistics with memoization
+  const getExpenseStats = useMemo(() => {
     const stats = {
       totalAmount: 0,
       totalTax: 0,
@@ -494,16 +533,20 @@ export function useReceipts() {
     return stats;
   }, [receipts]);
 
-  // Initial load
+  // Initial load with dependency optimization
   useEffect(() => {
     if (user) {
+      // Clear cache on user change
+      setSearchCache(new Map());
+      setPagination({ page: 0, limit: 50, hasMore: true });
+      
       Promise.all([
         fetchReceipts(),
         fetchCategories(),
         fetchMerchants(),
       ]);
     }
-  }, [user, fetchReceipts, fetchCategories, fetchMerchants]);
+  }, [user]); // Removed other dependencies to prevent unnecessary re-renders
 
   // Quick analysis for form auto-fill
   const quickAnalyzeReceipt = useCallback(async (imageUrl: string): Promise<ReceiptFormData | null> => {
@@ -767,6 +810,23 @@ export function useReceipts() {
     }
   }, [user, makeRequest, toast]);
 
+  // Load more receipts for infinite scroll
+  const loadMoreReceipts = useCallback(async (filters: ReceiptFilters = {}) => {
+    if (!pagination.hasMore || loading) return;
+    
+    await fetchReceipts(filters, {
+      limit: pagination.limit,
+      offset: (pagination.page + 1) * pagination.limit,
+      append: true
+    });
+  }, [fetchReceipts, pagination, loading]);
+  
+  // Clear cache when filters change significantly
+  const clearCache = useCallback(() => {
+    setSearchCache(new Map());
+    setPagination({ page: 0, limit: 50, hasMore: true });
+  }, []);
+
   return {
     // Data
     receipts,
@@ -778,6 +838,11 @@ export function useReceipts() {
     uploading,
     analyzing,
     quickAnalyzing,
+    
+    // Pagination
+    pagination,
+    loadMoreReceipts,
+    clearCache,
     
     // Actions
     fetchReceipts,

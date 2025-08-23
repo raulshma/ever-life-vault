@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,9 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
+import { useValidation } from '@/hooks/useValidation';
 import { useReceipts, type Receipt, type ReceiptDocument } from '@/hooks/useReceipts';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -60,10 +62,13 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [aiProgress, setAiProgress] = useState({ stage: '', progress: 0 });
   const [categorizationService, setCategorizationService] = useState<SmartCategorizationService | null>(null);
   const [documents, setDocuments] = useState<ReceiptDocument[]>([]);
   const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
   const [isUsingAI, setIsUsingAI] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -174,6 +179,8 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
       // Auto-fill form with AI analysis if adding a new receipt
       if (mode === 'add' && user) {
         setIsUsingAI(true);
+        setAiProgress({ stage: 'Starting analysis...', progress: 0 });
+        
         try {
           // Upload file first to get a URL for analysis
           const uploadedUrl = await uploadFile(file);
@@ -185,6 +192,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
             
             if (data.publicUrl) {
               const aiFormData = await quickAnalyzeReceipt(data.publicUrl);
+              
               if (aiFormData) {
                 setFormData(prev => ({
                   ...prev,
@@ -211,9 +219,14 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
           }
         } catch (error) {
           console.error('AI analysis failed:', error);
-          // Don't show error toast as this is optional functionality
+          toast({
+            title: "AI Analysis Failed",
+            description: "Unable to analyze receipt automatically. Please fill the form manually.",
+            variant: "destructive"
+          });
         } finally {
           setIsUsingAI(false);
+          setAiProgress({ stage: '', progress: 0 });
         }
       }
     }
@@ -404,20 +417,36 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
     return data.publicUrl;
   };
 
-  const handleSubmit = async () => {
+  // Real-time form validation
+  const validateForm = useCallback(() => {
+    const errors: Record<string, string> = {};
+    
     if (!formData.name.trim()) {
-      toast({
-        title: "Error",
-        description: "Receipt name is required",
-        variant: "destructive",
-      });
-      return;
+      errors.name = 'Receipt name is required';
     }
-
+    
     if (!formData.total_amount || parseFloat(formData.total_amount) <= 0) {
+      errors.total_amount = 'Valid total amount is required';
+    }
+    
+    if (formData.tax_amount && parseFloat(formData.tax_amount) < 0) {
+      errors.tax_amount = 'Tax amount cannot be negative';
+    }
+    
+    if (formData.tax_amount && formData.total_amount && 
+        parseFloat(formData.tax_amount) > parseFloat(formData.total_amount)) {
+      errors.tax_amount = 'Tax amount cannot exceed total amount';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }, [formData]);
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
       toast({
-        title: "Error",
-        description: "Valid total amount is required",
+        title: "Validation Error",
+        description: "Please fix the errors before saving",
         variant: "destructive",
       });
       return;
@@ -534,8 +563,11 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   disabled={isReadOnly}
                   placeholder="Enter receipt name"
-                  className="w-full"
+                  className={`w-full ${validationErrors.name ? 'border-destructive' : ''}`}
                 />
+                {validationErrors.name && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.name}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -563,9 +595,12 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                     onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
                     disabled={isReadOnly}
                     placeholder="0.00"
-                    className="flex-1"
+                    className={`flex-1 ${validationErrors.total_amount ? 'border-destructive' : ''}`}
                   />
                 </div>
+                {validationErrors.total_amount && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.total_amount}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -633,12 +668,22 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Receipt Image</Label>
-                  {(isUsingAI || quickAnalyzing) && (
-                    <div className="flex items-center gap-1 text-xs text-blue-600">
-                      <Brain className="w-3 h-3 animate-pulse" />
-                      AI Analyzing...
-                    </div>
-                  )}
+                {(isUsingAI || quickAnalyzing) && (
+                  <Alert className="mt-2">
+                    <Brain className="w-4 h-4 animate-pulse" />
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">{aiProgress.stage || 'AI Analyzing...'}</span>
+                          <span className="text-xs text-muted-foreground">{aiProgress.progress}%</span>
+                        </div>
+                        {aiProgress.progress > 0 && (
+                          <Progress value={aiProgress.progress} className="h-1" />
+                        )}
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
                 </div>
                 <div className="border-2 border-dashed border-border rounded-lg p-3 sm:p-4">
                   {previewUrl ? (
@@ -718,8 +763,11 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                   onChange={(e) => setFormData(prev => ({ ...prev, tax_amount: e.target.value }))}
                   disabled={isReadOnly}
                   placeholder="0.00"
-                  className="w-full"
+                  className={`w-full ${validationErrors.tax_amount ? 'border-destructive' : ''}`}
                 />
+                {validationErrors.tax_amount && (
+                  <p className="text-xs text-destructive mt-1">{validationErrors.tax_amount}</p>
+                )}
               </div>
 
               <div className="space-y-2">
