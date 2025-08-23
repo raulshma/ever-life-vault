@@ -370,13 +370,31 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
             def changedCount = 0
             def changedPreview = 'N/A'
             try {
-              // Git info (force path to workspace to avoid CWD issues)
-              commitShort = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --short HEAD || true").trim()
-              commitFull = sh(returnStdout: true, script: "git -C '${ws}' rev-parse HEAD || true").trim()
-              branch = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --abbrev-ref HEAD || true").trim()
-              author = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:'%an <%ae>' || true").trim()
-              commitMsg = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:%s || true").trim()
-              remoteUrl = sh(returnStdout: true, script: "git -C '${ws}' config --get remote.origin.url || true").trim()
+              // Git info - use WORKSPACE directory or find the git root
+              def gitDir = ws
+              // Check if current workspace is a git repo, if not try to find the git root
+              def gitRootCheck = sh(returnStdout: true, script: "cd '${ws}' && git rev-parse --show-toplevel 2>/dev/null || echo 'NOTGIT'").trim()
+              if (gitRootCheck == 'NOTGIT') {
+                // Try to find git repository in the workspace
+                def findGit = sh(returnStdout: true, script: "find '${ws}' -name '.git' -type d 2>/dev/null | head -1 | xargs dirname || echo 'NOTFOUND'").trim()
+                if (findGit != 'NOTFOUND') {
+                  gitDir = findGit
+                  echo "Found git repository at: ${gitDir}"
+                } else {
+                  echo "Warning: No git repository found in workspace ${ws}"
+                  gitDir = '.' // fallback to current directory
+                }
+              } else {
+                gitDir = gitRootCheck
+                echo "Using git repository at: ${gitDir}"
+              }
+              
+              commitShort = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --short HEAD || true").trim()
+              commitFull = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse HEAD || true").trim()
+              branch = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --abbrev-ref HEAD || true").trim()
+              author = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:'%an <%ae>' || true").trim()
+              commitMsg = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:%s || true").trim()
+              remoteUrl = sh(returnStdout: true, script: "git -C '${gitDir}' config --get remote.origin.url || true").trim()
               if (remoteUrl) {
                 // Strip any embedded credentials to avoid leaking tokens in notifications
                 try {
@@ -394,7 +412,7 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
               }
 
               // Changed files in the last commit (full list may be long)
-              changedFiles = sh(returnStdout: true, script: "git -C '${ws}' show --name-only --pretty=\"\" HEAD || true").trim()
+              changedFiles = sh(returnStdout: true, script: "git -C '${gitDir}' show --name-only --pretty=\"\" HEAD || true").trim()
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
               changedCount = changedList.size()
@@ -509,13 +527,31 @@ ${changedPreview}
             def changedCount = 0
             def changedPreview = 'N/A'
             try {
-              // Git info (force path to workspace to avoid CWD issues)
-              commitShort = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --short HEAD || true").trim()
-              commitFull = sh(returnStdout: true, script: "git -C '${ws}' rev-parse HEAD || true").trim()
-              branch = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --abbrev-ref HEAD || true").trim()
-              author = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:'%an <%ae>' || true").trim()
-              commitMsg = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:%s || true").trim()
-              remoteUrl = sh(returnStdout: true, script: "git -C '${ws}' config --get remote.origin.url || true").trim()
+              // Git info - use WORKSPACE directory or find the git root
+              def gitDir = ws
+              // Check if current workspace is a git repo, if not try to find the git root
+              def gitRootCheck = sh(returnStdout: true, script: "cd '${ws}' && git rev-parse --show-toplevel 2>/dev/null || echo 'NOTGIT'").trim()
+              if (gitRootCheck == 'NOTGIT') {
+                // Try to find git repository in the workspace
+                def findGit = sh(returnStdout: true, script: "find '${ws}' -name '.git' -type d 2>/dev/null | head -1 | xargs dirname || echo 'NOTFOUND'").trim()
+                if (findGit != 'NOTFOUND') {
+                  gitDir = findGit
+                  echo "Found git repository at: ${gitDir}"
+                } else {
+                  echo "Warning: No git repository found in workspace ${ws}"
+                  gitDir = '.' // fallback to current directory
+                }
+              } else {
+                gitDir = gitRootCheck
+                echo "Using git repository at: ${gitDir}"
+              }
+              
+              commitShort = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --short HEAD || true").trim()
+              commitFull = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse HEAD || true").trim()
+              branch = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --abbrev-ref HEAD || true").trim()
+              author = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:'%an <%ae>' || true").trim()
+              commitMsg = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:%s || true").trim()
+              remoteUrl = sh(returnStdout: true, script: "git -C '${gitDir}' config --get remote.origin.url || true").trim()
               if (remoteUrl) {
                 // Strip any embedded credentials to avoid leaking tokens in notifications
                 try {
@@ -533,7 +569,7 @@ ${changedPreview}
               }
 
               // Changed files in the last commit (full list may be long)
-              changedFiles = sh(returnStdout: true, script: "git -C '${ws}' show --name-only --pretty=\"\" HEAD || true").trim()
+              changedFiles = sh(returnStdout: true, script: "git -C '${gitDir}' show --name-only --pretty=\"\" HEAD || true").trim()
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
               changedCount = changedList.size()
