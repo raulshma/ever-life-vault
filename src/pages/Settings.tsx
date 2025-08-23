@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Helmet } from 'react-helmet-async';
 import { 
   Settings as SettingsIcon, 
   Brain, 
@@ -38,6 +37,11 @@ export default function Settings({ defaultTab = 'receipt_ai' }: SettingsPageProp
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Set page title
+  useEffect(() => {
+    document.title = 'Settings - Ever Life Vault';
+  }, []);
 
   // Track unsaved changes across tabs
   useEffect(() => {
@@ -198,9 +202,6 @@ export default function Settings({ defaultTab = 'receipt_ai' }: SettingsPageProp
   if (!systemSettingsService) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <Helmet>
-          <title>Settings - Ever Life Vault</title>
-        </Helmet>
         
         <PageHeader 
           title="Settings" 
@@ -224,9 +225,6 @@ export default function Settings({ defaultTab = 'receipt_ai' }: SettingsPageProp
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <Helmet>
-        <title>Settings - Ever Life Vault</title>
-      </Helmet>
       
       <PageHeader 
         title="Settings" 
