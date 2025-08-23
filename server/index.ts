@@ -139,8 +139,9 @@ export async function buildServer(): Promise<FastifyInstance> {
       SUPABASE_URL: env.SUPABASE_URL,
       SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
       GOOGLE_API_KEY: env.GOOGLE_API_KEY,
+      OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
     })
-    server.log.info('Receipt management routes registered')
+    server.log.info('Receipt management routes registered with AI provider support')
   } else {
     server.log.warn('Skipping receipt routes: SUPABASE_URL or SUPABASE_ANON_KEY not configured')
   }

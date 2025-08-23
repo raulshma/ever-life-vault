@@ -1532,6 +1532,39 @@ export type Database = {
           },
         ]
       }
+      system_settings: {
+        Row: {
+          created_at: string
+          feature_category: string
+          id: string
+          is_encrypted: boolean | null
+          setting_key: string
+          setting_value: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          feature_category: string
+          id?: string
+          is_encrypted?: boolean | null
+          setting_key: string
+          setting_value: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          feature_category?: string
+          id?: string
+          is_encrypted?: boolean | null
+          setting_key?: string
+          setting_value?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           created_at: string
@@ -1691,6 +1724,14 @@ export type Database = {
           document_type: string | null
           first_analysis_date: string | null
           latest_analysis_date: string | null
+        }
+        Relationships: []
+      }
+      system_settings_by_feature: {
+        Row: {
+          feature_category: string | null
+          settings: Json | null
+          user_id: string | null
         }
         Relationships: []
       }

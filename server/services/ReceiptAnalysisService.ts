@@ -3,6 +3,235 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Local type definitions for Supabase tables
+interface Receipt {
+  id: string;
+  user_id: string;
+  name: string;
+  description?: string | null;
+  total_amount: number;
+  currency: string;
+  receipt_date: string;
+  merchant_name?: string | null;
+  merchant_address?: string | null;
+  merchant_phone?: string | null;
+  merchant_tax_id?: string | null;
+  image_url?: string | null;
+  image_path?: string | null;
+  file_size?: number | null;
+  mime_type?: string | null;
+  ocr_raw_text?: string | null;
+  ai_analysis_data?: any;
+  ai_confidence_score?: number | null;
+  analysis_status?: string | null;
+  category: string;
+  subcategory?: string | null;
+  tags?: string[] | null;
+  tax_amount?: number | null;
+  tax_rate?: number | null;
+  pre_tax_amount?: number | null;
+  tip_amount?: number | null;
+  payment_method?: string | null;
+  is_business_expense?: boolean | null;
+  is_reimbursable?: boolean | null;
+  is_tax_deductible?: boolean | null;
+  reimbursement_status?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ReceiptDocument {
+  id: string;
+  receipt_id: string;
+  user_id: string;
+  name: string;
+  description?: string | null;
+  document_type?: string | null;
+  file_path: string;
+  file_size?: number | null;
+  mime_type?: string | null;
+  original_filename?: string | null;
+  expiry_date?: string | null;
+  issue_date?: string | null;
+  document_number?: string | null;
+  issuer?: string | null;
+  tags?: string[] | null;
+  notes?: string | null;
+  is_primary?: boolean | null;
+  ai_analysis_data?: any;
+  ai_confidence_score?: number | null;
+  analysis_duration_ms?: number | null;
+  analysis_error_message?: string | null;
+  analysis_model_used?: string | null;
+  analysis_status?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ReceiptItem {
+  id: string;
+  receipt_id: string;
+  name: string;
+  description?: string | null;
+  quantity?: number | null;
+  unit_price: number;
+  total_price: number;
+  sku?: string | null;
+  barcode?: string | null;
+  product_category?: string | null;
+  tax_amount?: number | null;
+  is_taxable?: boolean | null;
+  line_number?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Analysis result types for AI SDK operations
+interface MerchantInfo {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  tax_id?: string | null;
+}
+
+interface TransactionInfo {
+  date: string;
+  time?: string | null;
+  total_amount: number;
+  currency: string;
+  tax_amount?: number | null;
+  tax_rate?: number | null;
+  tip_amount?: number | null;
+  subtotal?: number | null;
+  payment_method?: string | null;
+}
+
+interface ItemInfo {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  category?: string | null;
+  sku?: string | null;
+  tax_amount?: number | null;
+  line_number: number;
+}
+
+interface ClassificationInfo {
+  category: string;
+  subcategory?: string | null;
+  is_business_expense: boolean;
+  is_tax_deductible: boolean;
+  confidence_score: number;
+}
+
+interface MetadataInfo {
+  receipt_number?: string | null;
+  cashier?: string | null;
+  register?: string | null;
+  discounts?: number | null;
+  loyalty_program?: string | null;
+  special_offers: string[];
+}
+
+interface ReceiptAnalysisResult {
+  merchant: MerchantInfo;
+  transaction: TransactionInfo;
+  items: ItemInfo[];
+  classification: ClassificationInfo;
+  metadata: MetadataInfo;
+}
+
+interface DocumentInfo {
+  type: 'warranty' | 'manual' | 'invoice' | 'guarantee' | 'certificate' | 'other';
+  title?: string | null;
+  language?: string | null;
+  page_count?: number | null;
+  format?: string | null;
+}
+
+interface ProductInfo {
+  name?: string | null;
+  brand?: string | null;
+  model_number?: string | null;
+  serial_number?: string | null;
+  category?: string | null;
+  description?: string | null;
+}
+
+interface WarrantyInfo {
+  duration?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  coverage_type?: string | null;
+  terms: string[];
+  exclusions: string[];
+  claim_process?: string | null;
+}
+
+interface DatesInfo {
+  purchase_date?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  registration_deadline?: string | null;
+}
+
+interface SupportInfo {
+  company_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  address?: string | null;
+}
+
+interface ReferencesInfo {
+  document_number?: string | null;
+  certificate_number?: string | null;
+  policy_number?: string | null;
+  order_number?: string | null;
+}
+
+interface KeyInformation {
+  category: string;
+  content: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+interface AnalysisMetadata {
+  confidence_score: number;
+  extracted_text_length: number;
+  processing_notes: string[];
+  suggested_actions: string[];
+}
+
+interface DocumentAnalysisResult {
+  document_info: DocumentInfo;
+  product: ProductInfo;
+  warranty: WarrantyInfo;
+  dates: DatesInfo;
+  support: SupportInfo;
+  references: ReferencesInfo;
+  key_information: KeyInformation[];
+  analysis_metadata: AnalysisMetadata;
+}
+
+interface ReceiptFormData {
+  name: string;
+  description: string;
+  total_amount: number;
+  currency: string;
+  receipt_date: string;
+  merchant_name: string;
+  category: string;
+  tax_amount?: number;
+  payment_method?: string;
+  is_business_expense: boolean;
+  is_tax_deductible: boolean;
+  notes: string;
+}
+
 // Schema for receipt analysis results
 const ReceiptAnalysisSchema = z.object({
   // Basic receipt information
@@ -136,29 +365,12 @@ const DocumentAnalysisSchema = z.object({
   })
 })
 
-export type ReceiptAnalysisResult = z.infer<typeof ReceiptAnalysisSchema>
-export type DocumentAnalysisResult = z.infer<typeof DocumentAnalysisSchema>
-
-// Schema for form auto-fill data
-export interface ReceiptFormData {
-  name: string;
-  description: string;
-  total_amount: number;
-  currency: string;
-  receipt_date: string;
-  merchant_name: string;
-  category: string;
-  tax_amount?: number;
-  payment_method?: string;
-  is_business_expense: boolean;
-  is_tax_deductible: boolean;
-  notes: string;
-}
+// Types are now imported from centralized location
 
 export class ReceiptAnalysisService {
   private supabase: SupabaseClient
   private googleApiKey: string
-  private googleProvider: any
+  private googleProvider: (model: string) => any
   private readonly maxRetries: number = 3
   private readonly retryDelay: number = 1000 // Base delay in ms
   private readonly timeoutMs: number = 60000 // 60 second timeout

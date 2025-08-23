@@ -16,6 +16,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^2.0.19",
     "@ai-sdk/google": "^2.0.8",
+    "@openrouter/ai-sdk-provider": "^1.1.2",
     "@fastify/caching": "^9.0.3",
     "@fastify/compress": "^8.1.0",
     "@fastify/cors": "^10.0.1",

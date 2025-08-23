@@ -12,7 +12,25 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/hooks/use-toast';
 import { useValidation } from '@/hooks/useValidation';
-import { useReceipts, type Receipt, type ReceiptDocument } from '@/hooks/useReceipts';
+import { useReceipts } from '@/hooks/useReceipts';
+import type { Tables } from '@/integrations/supabase/types';
+
+// Use Supabase generated types
+type ReceiptBase = Tables<'receipts'>;
+type ReceiptDocument = Tables<'receipt_documents'>;
+
+// Extended receipt type with documents
+type Receipt = ReceiptBase & {
+  receipt_documents?: ReceiptDocument[];
+  merchants?: Tables<'merchants'>;
+};
+
+// Custom types for analysis results
+interface KeyInformation {
+  category: string;
+  content: string;
+  priority: 'high' | 'medium' | 'low';
+}
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -304,20 +322,25 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
     // Add document record
     const documentRecord: Omit<ReceiptDocument, 'id' | 'receipt_id' | 'user_id' | 'created_at' | 'updated_at'> = {
       name: documentData.name || file.name.replace(/\.[^/.]+$/, ''),
-      description: documentData.description,
-      document_type: documentData.document_type || 'warranty' as const,
+      description: documentData.description || null,
+      document_type: documentData.document_type || 'warranty',
       file_path: fileName,
       file_size: file.size,
       mime_type: file.type,
       original_filename: file.name,
-      expiry_date: documentData.expiry_date,
-      issue_date: documentData.issue_date,
-      document_number: documentData.document_number,
-      issuer: documentData.issuer,
-      tags: documentData.tags || [],
-      notes: documentData.notes,
+      expiry_date: documentData.expiry_date || null,
+      issue_date: documentData.issue_date || null,
+      document_number: documentData.document_number || null,
+      issuer: documentData.issuer || null,
+      tags: documentData.tags || null,
+      notes: documentData.notes || null,
       is_primary: documentData.is_primary || false,
-      analysis_status: 'pending' as const,
+      analysis_status: 'pending',
+      ai_analysis_data: null,
+      ai_confidence_score: null,
+      analysis_duration_ms: null,
+      analysis_error_message: null,
+      analysis_model_used: null,
     };
 
     return await addReceiptDocument(receiptId, documentRecord);
@@ -333,7 +356,13 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
   const renderDocumentAnalysis = (doc: ReceiptDocument) => {
     if (!doc.ai_analysis_data) return null;
 
-    const analysis = doc.ai_analysis_data;
+    const analysis = doc.ai_analysis_data as {
+      product?: { name?: string | null; brand?: string | null; model_number?: string | null; description?: string | null };
+      warranty?: { duration?: string | null; end_date?: string | null };
+      dates?: { expiry_date?: string | null; registration_deadline?: string | null };
+      support?: { phone?: string | null; email?: string | null };
+      key_information?: Array<{ category: string; content: string; priority: string }>;
+    };
     const confidence = doc.ai_confidence_score ? Math.round(doc.ai_confidence_score * 100) : 0;
 
     return (
@@ -415,7 +444,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
               <div>
                 <span className="font-medium">Key Info: </span>
                 <div className="mt-1 space-y-1">
-                  {analysis.key_information.slice(0, 3).map((info: any, index: number) => (
+                  {analysis.key_information.slice(0, 3).map((info: KeyInformation, index: number) => (
                     <div key={index} className={`text-xs p-1 rounded ${
                       info.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200' :
                       info.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200' :

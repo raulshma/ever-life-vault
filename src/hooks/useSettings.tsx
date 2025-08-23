@@ -1,5 +1,9 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getConfigValue, setConfigValue, batchConfigOperations } from '@/integrations/supabase/configStore'
+import { useAuth } from '@/hooks/useAuth'
+import { createSystemSettingsService, SystemSettingsService } from '@/services/systemSettingsService'
+import { supabase } from '@/integrations/supabase/client'
+import { ReceiptAIConfig, DEFAULT_RECEIPT_AI_CONFIG } from '@/types/systemSettings'
 
 type ThemeMode = 'light' | 'dark' | 'amoled' | 'system';
 
@@ -17,11 +21,21 @@ interface SettingsContextType {
   // Sidebar behavior
   autoCategorizeSidebar: boolean;
   setAutoCategorizeSidebar: (enabled: boolean) => void;
+  // System settings
+  systemSettingsService: SystemSettingsService | null;
+  // Receipt AI settings
+  receiptAIConfig: ReceiptAIConfig;
+  setReceiptAIConfig: (config: Partial<ReceiptAIConfig>) => Promise<boolean>;
+  refreshReceiptAIConfig: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const [systemSettingsService, setSystemSettingsService] = useState<SystemSettingsService | null>(null);
+  const [receiptAIConfig, setReceiptAIConfigState] = useState<ReceiptAIConfig>(DEFAULT_RECEIPT_AI_CONFIG);
+
   const [viewTransitionsEnabled, setViewTransitionsEnabledState] = useState<boolean>(() => {
     const stored = localStorage.getItem('viewTransitionsEnabled');
     return stored !== null ? JSON.parse(stored) : true;
@@ -136,6 +150,54 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try { localStorage.setItem('viewTransitionsEnabled', JSON.stringify(viewTransitionsEnabled)); } catch {}
   }, [viewTransitionsEnabled]);
 
+  // Initialize system settings service when user is available
+  useEffect(() => {
+    if (user && supabase) {
+      const service = createSystemSettingsService(supabase);
+      setSystemSettingsService(service);
+    } else {
+      setSystemSettingsService(null);
+    }
+  }, [user]);
+
+  // Load receipt AI config from system settings
+  const refreshReceiptAIConfig = async () => {
+    if (!systemSettingsService) return;
+    
+    try {
+      const config = await systemSettingsService.getReceiptAIConfig();
+      setReceiptAIConfigState(config);
+    } catch (error) {
+      console.error('Failed to load receipt AI config:', error);
+    }
+  };
+
+  // Set receipt AI config
+  const setReceiptAIConfig = async (config: Partial<ReceiptAIConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    
+    try {
+      const result = await systemSettingsService.setReceiptAIConfig(config);
+      if (result.success) {
+        await refreshReceiptAIConfig();
+        return true;
+      } else {
+        console.error('Failed to update receipt AI config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating receipt AI config:', error);
+      return false;
+    }
+  };
+
+  // Load receipt AI config when service is available
+  useEffect(() => {
+    if (systemSettingsService) {
+      refreshReceiptAIConfig();
+    }
+  }, [systemSettingsService]);
+
   // Load settings from DB on mount
   useEffect(() => {
     let mounted = true;
@@ -203,6 +265,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       resetSidebarOrder,
       autoCategorizeSidebar,
       setAutoCategorizeSidebar,
+      systemSettingsService,
+      receiptAIConfig,
+      setReceiptAIConfig,
+      refreshReceiptAIConfig,
     }}>
       {children}
     </SettingsContext.Provider>

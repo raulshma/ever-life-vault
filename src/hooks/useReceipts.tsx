@@ -1,150 +1,23 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
+import type { Tables } from '@/integrations/supabase/types';
 
-// Types for receipt management
-export interface ReceiptDocument {
-  id: string;
-  receipt_id: string;
-  user_id: string;
-  name: string;
-  description?: string;
-  document_type: 'warranty' | 'manual' | 'invoice' | 'guarantee' | 'certificate' | 'other';
-  file_path: string;
-  file_size?: number;
-  mime_type?: string;
-  original_filename?: string;
-  expiry_date?: string;
-  issue_date?: string;
-  document_number?: string;
-  issuer?: string;
-  tags: string[];
-  notes?: string;
-  is_primary: boolean;
-  ai_analysis_data?: any;
-  ai_confidence_score?: number;
-  analysis_status: 'pending' | 'processing' | 'completed' | 'failed';
-  created_at: string;
-  updated_at: string;
-}
+// Use Supabase generated types
+type ReceiptBase = Tables<'receipts'>;
+type ReceiptDocument = Tables<'receipt_documents'>;
+type ReceiptItem = Tables<'receipt_items'>;
+type Merchant = Tables<'merchants'>;
+type ExpenseCategory = Tables<'expense_categories'>;
+type AnalysisJob = Tables<'receipt_analysis_jobs'>;
 
-export interface Receipt {
-  id: string;
-  user_id: string;
-  name: string;
-  description?: string;
-  total_amount: number;
-  currency: string;
-  receipt_date: string;
-  merchant_name?: string;
-  merchant_address?: string;
-  merchant_phone?: string;
-  merchant_tax_id?: string;
-  image_url?: string;
-  image_path?: string;
-  file_size?: number;
-  mime_type?: string;
-  ocr_raw_text?: string;
-  ai_analysis_data?: any;
-  ai_confidence_score?: number;
-  analysis_status: 'pending' | 'processing' | 'completed' | 'failed';
-  category: string;
-  subcategory?: string;
-  tags: string[];
-  tax_amount?: number;
-  tax_rate?: number;
-  pre_tax_amount?: number;
-  tip_amount?: number;
-  payment_method?: string;
-  is_business_expense: boolean;
-  is_reimbursable: boolean;
-  is_tax_deductible: boolean;
-  reimbursement_status: 'not_applicable' | 'pending' | 'submitted' | 'approved' | 'paid' | 'rejected';
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  receipt_items?: ReceiptItem[];
+// Extended receipt type with documents
+type Receipt = ReceiptBase & {
   receipt_documents?: ReceiptDocument[];
   merchants?: Merchant;
-}
+};
 
-export interface ReceiptItem {
-  id: string;
-  receipt_id: string;
-  name: string;
-  description?: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  sku?: string;
-  barcode?: string;
-  product_category?: string;
-  tax_amount?: number;
-  is_taxable: boolean;
-  line_number?: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Merchant {
-  id: string;
-  user_id: string;
-  name: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip_code?: string;
-  country: string;
-  phone?: string;
-  email?: string;
-  website?: string;
-  tax_id?: string;
-  business_type?: string;
-  category?: string;
-  logo_url?: string;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ExpenseCategory {
-  id: string;
-  user_id: string;
-  name: string;
-  description?: string;
-  parent_category_id?: string;
-  is_tax_deductible: boolean;
-  is_business_category: boolean;
-  default_payment_method?: string;
-  monthly_budget_limit?: number;
-  yearly_budget_limit?: number;
-  color?: string;
-  icon?: string;
-  sort_order: number;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AnalysisJob {
-  id: string;
-  receipt_id: string;
-  user_id: string;
-  status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  job_type: 'ocr_only' | 'structure_analysis' | 'full_analysis';
-  started_at?: string;
-  completed_at?: string;
-  error_message?: string;
-  retry_count: number;
-  ocr_result?: any;
-  analysis_result?: any;
-  confidence_scores?: any;
-  ai_model_used?: string;
-  processing_duration_ms?: number;
-  created_at: string;
-  updated_at: string;
-}
-
+// Custom types for API operations
 interface ReceiptFilters {
   category?: string;
   date_from?: string;
@@ -169,6 +42,136 @@ interface ReceiptFormData {
   is_business_expense: boolean;
   is_tax_deductible: boolean;
   notes: string;
+}
+
+// Analysis result types
+interface MerchantInfo {
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  website?: string | null;
+  tax_id?: string | null;
+}
+
+interface TransactionInfo {
+  date: string;
+  time?: string | null;
+  total_amount: number;
+  currency: string;
+  tax_amount?: number | null;
+  tax_rate?: number | null;
+  tip_amount?: number | null;
+  subtotal?: number | null;
+  payment_method?: string | null;
+}
+
+interface ItemInfo {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  category?: string | null;
+  sku?: string | null;
+  tax_amount?: number | null;
+  line_number: number;
+}
+
+interface ClassificationInfo {
+  category: string;
+  subcategory?: string | null;
+  is_business_expense: boolean;
+  is_tax_deductible: boolean;
+  confidence_score: number;
+}
+
+interface MetadataInfo {
+  receipt_number?: string | null;
+  cashier?: string | null;
+  register?: string | null;
+  discounts?: number | null;
+  loyalty_program?: string | null;
+  special_offers: string[];
+}
+
+interface ReceiptAnalysisResult {
+  merchant: MerchantInfo;
+  transaction: TransactionInfo;
+  items: ItemInfo[];
+  classification: ClassificationInfo;
+  metadata: MetadataInfo;
+}
+
+interface DocumentInfo {
+  type: 'warranty' | 'manual' | 'invoice' | 'guarantee' | 'certificate' | 'other';
+  title?: string | null;
+  language?: string | null;
+  page_count?: number | null;
+  format?: string | null;
+}
+
+interface ProductInfo {
+  name?: string | null;
+  brand?: string | null;
+  model_number?: string | null;
+  serial_number?: string | null;
+  category?: string | null;
+  description?: string | null;
+}
+
+interface WarrantyInfo {
+  duration?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  coverage_type?: string | null;
+  terms: string[];
+  exclusions: string[];
+  claim_process?: string | null;
+}
+
+interface DatesInfo {
+  purchase_date?: string | null;
+  issue_date?: string | null;
+  expiry_date?: string | null;
+  registration_deadline?: string | null;
+}
+
+interface SupportInfo {
+  company_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  address?: string | null;
+}
+
+interface ReferencesInfo {
+  document_number?: string | null;
+  certificate_number?: string | null;
+  policy_number?: string | null;
+  order_number?: string | null;
+}
+
+interface KeyInformation {
+  category: string;
+  content: string;
+  priority: 'high' | 'medium' | 'low';
+}
+
+interface AnalysisMetadata {
+  confidence_score: number;
+  extracted_text_length: number;
+  processing_notes: string[];
+  suggested_actions: string[];
+}
+
+interface DocumentAnalysisResult {
+  document_info: DocumentInfo;
+  product: ProductInfo;
+  warranty: WarrantyInfo;
+  dates: DatesInfo;
+  support: SupportInfo;
+  references: ReferencesInfo;
+  key_information: KeyInformation[];
+  analysis_metadata: AnalysisMetadata;
 }
 
 const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8787';
@@ -704,7 +707,7 @@ export function useReceipts() {
   }, [user, makeRequest, toast]);
 
   // Document analysis functions
-  const analyzeDocument = useCallback(async (receiptId: string, documentId: string): Promise<any | null> => {
+  const analyzeDocument = useCallback(async (receiptId: string, documentId: string): Promise<DocumentAnalysisResult | null> => {
     if (!user) return null;
 
     try {
@@ -761,7 +764,7 @@ export function useReceipts() {
     }
   }, [user, makeRequest, toast]);
 
-  const analyzeAllDocuments = useCallback(async (receiptId: string): Promise<any[] | null> => {
+  const analyzeAllDocuments = useCallback(async (receiptId: string): Promise<DocumentAnalysisResult[] | null> => {
     if (!user) return null;
 
     try {
@@ -773,7 +776,7 @@ export function useReceipts() {
       setReceipts(prev => prev.map(receipt => {
         if (receipt.id === receiptId) {
           const updatedDocuments = (receipt.receipt_documents || []).map(doc => {
-            const analysisResult = data.results?.find((r: any) => r.documentId === doc.id);
+            const analysisResult = data.results?.find((r: { documentId: string; analysis: DocumentAnalysisResult }) => r.documentId === doc.id);
             if (analysisResult) {
               return {
                 ...doc,
@@ -784,7 +787,7 @@ export function useReceipts() {
             }
             return doc;
           });
-          
+
           return {
             ...receipt,
             receipt_documents: updatedDocuments

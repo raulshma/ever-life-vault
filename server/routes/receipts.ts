@@ -3,6 +3,96 @@ import { z, ZodError } from 'zod'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createSupabaseClient } from '../auth/supabase.js'
 import { ReceiptAnalysisService } from '../services/ReceiptAnalysisService.js'
+import { EnhancedReceiptAnalysisService, AIProviderConfig } from '../services/EnhancedReceiptAnalysisService.js'
+
+// Helper function to get user's AI configuration from system settings
+async function getUserAIConfig(
+  supabase: SupabaseClient,
+  userId: string,
+  fallbackConfig: { googleApiKey?: string; openRouterApiKey?: string }
+): Promise<AIProviderConfig | null> {
+  try {
+    // Get user's AI configuration from system_settings table
+    const { data: settings, error } = await supabase
+      .from('system_settings')
+      .select('setting_value')
+      .eq('user_id', userId)
+      .eq('feature_category', 'receipt_ai')
+      .eq('setting_key', 'provider_config')
+      .single()
+
+    if (error || !settings) {
+      // Fall back to default Google configuration if no user settings
+      if (fallbackConfig.googleApiKey) {
+        return {
+          provider: 'google',
+          model: 'gemini-2.5-flash',
+          apiKey: fallbackConfig.googleApiKey,
+          temperature: 0.1,
+          retryAttempts: 3,
+          timeout: 60000
+        }
+      }
+      return null
+    }
+
+    const config = settings.setting_value as any
+    
+    // Determine API key based on user's configuration
+    let apiKey: string | undefined
+    
+    if (config.api_key_source === 'system') {
+      // Use system-provided API key
+      if (config.provider === 'google' && fallbackConfig.googleApiKey) {
+        apiKey = fallbackConfig.googleApiKey
+      } else if (config.provider === 'openrouter' && fallbackConfig.openRouterApiKey) {
+        apiKey = fallbackConfig.openRouterApiKey
+      }
+    } else if (config.api_key_source === 'user' && config.custom_api_key) {
+      // Use user-provided API key (should be decrypted here in production)
+      apiKey = config.custom_api_key
+    }
+
+    if (!apiKey) {
+      console.warn(`No API key available for provider ${config.provider}`)
+      return null
+    }
+
+    return {
+      provider: config.provider,
+      model: config.model,
+      apiKey,
+      baseUrl: config.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : undefined,
+      temperature: config.temperature || 0.1,
+      maxTokens: config.max_tokens,
+      timeout: (config.timeout_seconds || 60) * 1000,
+      retryAttempts: config.retry_attempts || 3
+    }
+  } catch (error) {
+    console.error('Error getting user AI config:', error)
+    return null
+  }
+}
+
+// Helper function to create analysis service based on user configuration
+async function createAnalysisService(
+  supabase: SupabaseClient,
+  userId: string,
+  fallbackConfig: { googleApiKey?: string; openRouterApiKey?: string }
+): Promise<ReceiptAnalysisService | EnhancedReceiptAnalysisService | null> {
+  const userConfig = await getUserAIConfig(supabase, userId, fallbackConfig)
+  
+  if (!userConfig) {
+    // Fall back to legacy service if no configuration available
+    if (fallbackConfig.googleApiKey) {
+      return new ReceiptAnalysisService(supabase, fallbackConfig.googleApiKey)
+    }
+    return null
+  }
+
+  // Use enhanced service with user's configuration
+  return new EnhancedReceiptAnalysisService(supabase, userConfig)
+}
 
 // Helper function to handle Zod errors
 function handleZodError(error: unknown, reply: FastifyReply, errorMessage: string) {
@@ -144,9 +234,10 @@ export function registerReceiptRoutes(
     SUPABASE_URL: string
     SUPABASE_ANON_KEY: string
     GOOGLE_API_KEY?: string
+    OPENROUTER_API_KEY?: string
   }
 ): void {
-  const { requireSupabaseUser, SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_API_KEY } = options
+  const { requireSupabaseUser, SUPABASE_URL, SUPABASE_ANON_KEY, GOOGLE_API_KEY, OPENROUTER_API_KEY } = options
 
   // GET /api/receipts - List all user receipts
   server.get('/api/receipts', async (request, reply) => {
@@ -521,10 +612,6 @@ export function registerReceiptRoutes(
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
 
-    if (!GOOGLE_API_KEY) {
-      return reply.code(503).send({ error: 'AI analysis service not configured' })
-    }
-
     const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
     if (!authenticatedSupabase) {
       return reply.code(500).send({ error: 'Failed to create authenticated client' })
@@ -533,15 +620,28 @@ export function registerReceiptRoutes(
     try {
       const body = quickAnalysisSchema.parse(request.body)
       
-      // Initialize analysis service
-      const analysisService = new ReceiptAnalysisService(authenticatedSupabase, GOOGLE_API_KEY)
+      // Create analysis service based on user's configuration
+      const analysisService = await createAnalysisService(
+        authenticatedSupabase,
+        user.id,
+        { googleApiKey: GOOGLE_API_KEY, openRouterApiKey: OPENROUTER_API_KEY }
+      )
+      
+      if (!analysisService) {
+        return reply.code(503).send({ error: 'AI analysis service not configured or available' })
+      }
       
       // Perform quick analysis for form filling
       const formData = await analysisService.quickAnalyzeForForm(body.image_url, {
         model: body.model
       })
 
-      return reply.send({ formData })
+      return reply.send({ 
+        formData,
+        provider: analysisService instanceof EnhancedReceiptAnalysisService 
+          ? analysisService.getConfig().provider 
+          : 'google'
+      })
     } catch (error: unknown) {
       if (error instanceof ZodError) {
         return handleZodError(error, reply, 'Invalid quick analysis request')
@@ -645,7 +745,7 @@ export function registerReceiptRoutes(
       }
 
       // Trigger AI analysis if enabled and document is an image or PDF
-      if (GOOGLE_API_KEY && data && (data.mime_type?.startsWith('image/') || data.mime_type === 'application/pdf')) {
+      if ((GOOGLE_API_KEY || OPENROUTER_API_KEY) && data && (data.mime_type?.startsWith('image/') || data.mime_type === 'application/pdf')) {
         try {
           // Get public URL for analysis
           const { data: urlData } = authenticatedSupabase.storage
@@ -653,37 +753,45 @@ export function registerReceiptRoutes(
             .getPublicUrl(data.file_path)
           
           if (urlData.publicUrl) {
-            // Initialize analysis service and analyze document
-            const analysisService = new ReceiptAnalysisService(authenticatedSupabase, GOOGLE_API_KEY)
+            // Create analysis service based on user's configuration
+            const analysisService = await createAnalysisService(
+              authenticatedSupabase,
+              user.id,
+              { googleApiKey: GOOGLE_API_KEY, openRouterApiKey: OPENROUTER_API_KEY }
+            )
             
-            // Start analysis in background (don't wait for completion)
-            analysisService.analyzeDocument(
-              urlData.publicUrl,
-              data.document_type as any
-            ).then(async (analysisResult) => {
-              // Update document with analysis results
-              await analysisService.updateDocumentWithAnalysis(data.id, analysisResult)
+            if (analysisService) {
+              // Start analysis in background (don't wait for completion)
+              analysisService.analyzeDocument(
+                urlData.publicUrl,
+                data.document_type as any
+              ).then(async (analysisResult) => {
+                // Update document with analysis results
+                if ('updateDocumentWithAnalysis' in analysisService) {
+                  await (analysisService as ReceiptAnalysisService).updateDocumentWithAnalysis(data.id, analysisResult)
+                }
+                
+                // Update status to completed
+                await authenticatedSupabase
+                  .from('receipt_documents')
+                  .update({ analysis_status: 'completed' })
+                  .eq('id', data.id)
+              }).catch(async (error) => {
+                console.error('Document analysis failed:', error)
+                
+                // Update status to failed
+                await authenticatedSupabase
+                  .from('receipt_documents')
+                  .update({ analysis_status: 'failed' })
+                  .eq('id', data.id)
+              })
               
-              // Update status to completed
+              // Update status to processing
               await authenticatedSupabase
                 .from('receipt_documents')
-                .update({ analysis_status: 'completed' })
+                .update({ analysis_status: 'processing' })
                 .eq('id', data.id)
-            }).catch(async (error) => {
-              console.error('Document analysis failed:', error)
-              
-              // Update status to failed
-              await authenticatedSupabase
-                .from('receipt_documents')
-                .update({ analysis_status: 'failed' })
-                .eq('id', data.id)
-            })
-            
-            // Update status to processing
-            await authenticatedSupabase
-              .from('receipt_documents')
-              .update({ analysis_status: 'processing' })
-              .eq('id', data.id)
+            }
           }
         } catch (analysisError) {
           console.error('Failed to initiate document analysis:', analysisError)

@@ -47,6 +47,7 @@ const Integrations = lazy(() => import("./pages/Integrations"));
 const LLMModels = lazy(() => import("./pages/LLMModels"));
 const Receipts = lazy(() => import("./pages/Receipts"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -243,6 +244,15 @@ function AppRoutes() {
           }
         />
         <Route
+          path="settings"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Settings />{" "}
+            </Suspense>
+          }
+        />
+        <Route
           path="vault"
           element={
             <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
@@ -356,9 +366,9 @@ const App = () => (
           v7_relativeSplatPath: true,
         }}
       >
-        <SettingsProvider>
-          <Sonner />
-          <AuthProvider>
+        <AuthProvider>
+          <SettingsProvider>
+            <Sonner />
             <VaultSessionProvider>
               <FocusTimerProvider>
                 <TerminalProvider>
@@ -373,8 +383,8 @@ const App = () => (
                 </TerminalProvider>
               </FocusTimerProvider>
             </VaultSessionProvider>
-          </AuthProvider>
-        </SettingsProvider>
+          </SettingsProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

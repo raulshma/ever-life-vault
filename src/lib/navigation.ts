@@ -22,6 +22,7 @@ import {
   Brain,
   Receipt,
   BarChart3,
+  Settings,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -68,6 +69,7 @@ export const moduleCategories: NavGroups = {
   ],
   account: [
     { name: "Profile", path: "/profile", icon: User },
+    { name: "Settings", path: "/settings", icon: Settings },
   ],
 };
 
