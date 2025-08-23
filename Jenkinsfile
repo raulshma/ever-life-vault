@@ -355,13 +355,16 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
             def publicUrl = env.PUBLIC_BASE_URL ?: 'N/A'
             def triggeredBy = 'N/A'
 
+            // Ensure these exist even if git info collection fails
+            def changedCount = 0
+            def changedPreview = 'N/A'
             try {
-              // Git info
-              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>'").trim()
-              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s").trim()
+              // Git info (make commands tolerant when workspace isn't a git repo)
+              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD || true').trim()
+              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD || true').trim()
+              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD || true').trim()
+              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>' || true").trim()
+              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s || true").trim()
               remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url || true').trim()
               if (remoteUrl) {
                 if (remoteUrl.startsWith('git@')) {
@@ -379,9 +382,9 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
               changedFiles = sh(returnStdout: true, script: "git show --name-only --pretty=\"\" HEAD || true").trim()
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
-              def changedCount = changedList.size()
+              changedCount = changedList.size()
               def maxPreview = 10
-              def changedPreview = 'N/A'
+              // changedPreview already initialized above
               if (changedCount > 0) {
                 def previewList = changedList.take(maxPreview)
                 changedPreview = previewList.join('\n')
@@ -506,13 +509,16 @@ ${changedPreview}
             def publicUrl = env.PUBLIC_BASE_URL ?: 'N/A'
             def triggeredBy = 'N/A'
 
+            // Ensure these exist even if git info collection fails
+            def changedCount = 0
+            def changedPreview = 'N/A'
             try {
-              // Git info
-              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
-              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD').trim()
-              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD').trim()
-              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>'").trim()
-              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s").trim()
+              // Git info (make commands tolerant when workspace isn't a git repo)
+              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD || true').trim()
+              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD || true').trim()
+              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD || true').trim()
+              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>' || true").trim()
+              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s || true").trim()
               remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url || true').trim()
               if (remoteUrl) {
                 if (remoteUrl.startsWith('git@')) {
@@ -530,9 +536,9 @@ ${changedPreview}
               changedFiles = sh(returnStdout: true, script: "git show --name-only --pretty=\"\" HEAD || true").trim()
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
-              def changedCount = changedList.size()
+              changedCount = changedList.size()
               def maxPreview = 10
-              def changedPreview = 'N/A'
+              // changedPreview already initialized above
               if (changedCount > 0) {
                 def previewList = changedList.take(maxPreview)
                 changedPreview = previewList.join('\n')
