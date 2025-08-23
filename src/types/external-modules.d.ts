@@ -53,6 +53,8 @@ declare module "qrcode" {
   
   export default QRCode;
   export const toDataURL: (text: string, options?: QRCodeOptions) => Promise<string>;
+}
+
 declare module 'xterm' {
   export class Terminal {
     constructor(options?: any)
