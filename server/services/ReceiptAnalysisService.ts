@@ -65,6 +65,22 @@ const ReceiptAnalysisSchema = z.object({
 
 export type ReceiptAnalysisResult = z.infer<typeof ReceiptAnalysisSchema>
 
+// Schema for form auto-fill data
+export interface ReceiptFormData {
+  name: string;
+  description: string;
+  total_amount: number;
+  currency: string;
+  receipt_date: string;
+  merchant_name: string;
+  category: string;
+  tax_amount?: number;
+  payment_method?: string;
+  is_business_expense: boolean;
+  is_tax_deductible: boolean;
+  notes: string;
+}
+
 export class ReceiptAnalysisService {
   private supabase: SupabaseClient
   private googleApiKey: string
@@ -76,6 +92,195 @@ export class ReceiptAnalysisService {
     this.googleProvider = createGoogleGenerativeAI({
       apiKey: googleApiKey,
     })
+  }
+
+  /**
+   * Quick analysis for immediate form population (doesn't save to database)
+   */
+  async quickAnalyzeForForm(
+    imageUrl: string,
+    options: {
+      model?: string
+    } = {}
+  ): Promise<ReceiptFormData> {
+    const { model = 'gemini-2.5-flash' } = options
+    
+    try {
+      // Fetch the image
+      const imageResponse = await fetch(imageUrl)
+      if (!imageResponse.ok) {
+        throw new Error(`Failed to fetch image: ${imageResponse.statusText}`)
+      }
+      
+      const imageBuffer = await imageResponse.arrayBuffer()
+      const imageData = new Uint8Array(imageBuffer)
+
+      // Create a focused prompt for form filling
+      const prompt = `
+Analyze this receipt image and extract the key information needed for form filling.
+Focus on accuracy and provide the most relevant data for expense tracking.
+
+Provide:
+- A clear, descriptive name for this receipt
+- Transaction details (amount, date, merchant)
+- Appropriate expense category
+- Tax information if visible
+- Payment method if identifiable
+- Whether this appears to be a business expense
+- Whether this might be tax deductible
+
+Be precise with amounts and dates. If information is unclear, provide reasonable defaults.
+`
+
+      // Use Vercel AI SDK with Google Gemini to analyze the receipt
+      const result = await generateObject({
+        model: this.googleProvider(model),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt
+              },
+              {
+                type: 'image',
+                image: imageData
+              }
+            ]
+          }
+        ],
+        schema: ReceiptAnalysisSchema,
+        maxRetries: 2,
+      })
+
+      const analysisResult = result.object
+
+      // Convert to form data
+      return this.convertAnalysisToFormData(analysisResult)
+
+    } catch (error) {
+      console.error('Quick receipt analysis failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Convert analysis result to form-ready data
+   */
+  convertAnalysisToFormData(analysis: ReceiptAnalysisResult): ReceiptFormData {
+    // Generate a descriptive receipt name
+    const receiptName = this.generateReceiptName(analysis)
+    
+    // Create description from items or merchant
+    const description = this.generateReceiptDescription(analysis)
+    
+    // Map category to form category
+    const category = this.mapCategoryToForm(analysis.classification.category)
+    
+    // Generate notes from metadata
+    const notes = this.generateNotesFromMetadata(analysis)
+
+    return {
+      name: receiptName,
+      description: description,
+      total_amount: analysis.transaction.total_amount,
+      currency: analysis.transaction.currency,
+      receipt_date: analysis.transaction.date,
+      merchant_name: analysis.merchant.name,
+      category: category,
+      tax_amount: analysis.transaction.tax_amount || undefined,
+      payment_method: analysis.transaction.payment_method || undefined,
+      is_business_expense: analysis.classification.is_business_expense,
+      is_tax_deductible: analysis.classification.is_tax_deductible,
+      notes: notes
+    }
+  }
+
+  /**
+   * Generate a descriptive receipt name
+   */
+  private generateReceiptName(analysis: ReceiptAnalysisResult): string {
+    const merchant = analysis.merchant.name
+    const date = new Date(analysis.transaction.date).toLocaleDateString()
+    const amount = `$${analysis.transaction.total_amount.toFixed(2)}`
+    
+    if (merchant) {
+      return `${merchant} - ${date}`
+    }
+    
+    return `Receipt ${date} - ${amount}`
+  }
+
+  /**
+   * Generate receipt description from items or context
+   */
+  private generateReceiptDescription(analysis: ReceiptAnalysisResult): string {
+    if (analysis.items && analysis.items.length > 0) {
+      if (analysis.items.length === 1) {
+        return analysis.items[0].name
+      } else if (analysis.items.length <= 3) {
+        return analysis.items.map(item => item.name).join(', ')
+      } else {
+        return `${analysis.items.slice(0, 2).map(item => item.name).join(', ')} and ${analysis.items.length - 2} more items`
+      }
+    }
+    
+    if (analysis.classification.subcategory) {
+      return analysis.classification.subcategory
+    }
+    
+    return `Purchase from ${analysis.merchant.name || 'merchant'}`
+  }
+
+  /**
+   * Map AI category to form category
+   */
+  private mapCategoryToForm(aiCategory: string): string {
+    const categoryMap: Record<string, string> = {
+      'food_dining': 'food_dining',
+      'transportation': 'transportation',
+      'shopping': 'shopping',
+      'healthcare': 'healthcare',
+      'entertainment': 'entertainment',
+      'business': 'business',
+      'travel': 'travel',
+      'utilities': 'utilities',
+      'home_garden': 'home_garden',
+      'education': 'education',
+      'other': 'other'
+    }
+    
+    return categoryMap[aiCategory] || 'other'
+  }
+
+  /**
+   * Generate notes from metadata
+   */
+  private generateNotesFromMetadata(analysis: ReceiptAnalysisResult): string {
+    const notes: string[] = []
+    
+    if (analysis.metadata.receipt_number) {
+      notes.push(`Receipt #: ${analysis.metadata.receipt_number}`)
+    }
+    
+    if (analysis.metadata.cashier) {
+      notes.push(`Cashier: ${analysis.metadata.cashier}`)
+    }
+    
+    if (analysis.metadata.loyalty_program) {
+      notes.push(`Loyalty: ${analysis.metadata.loyalty_program}`)
+    }
+    
+    if (analysis.metadata.special_offers && analysis.metadata.special_offers.length > 0) {
+      notes.push(`Offers: ${analysis.metadata.special_offers.join(', ')}`)
+    }
+    
+    if (analysis.classification.confidence_score < 0.8) {
+      notes.push(`AI Confidence: ${Math.round(analysis.classification.confidence_score * 100)}%`)
+    }
+    
+    return notes.join(' | ')
   }
 
   /**

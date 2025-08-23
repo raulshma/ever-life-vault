@@ -3,6 +3,28 @@ import { useAuth } from './useAuth';
 import { useToast } from './use-toast';
 
 // Types for receipt management
+export interface ReceiptDocument {
+  id: string;
+  receipt_id: string;
+  user_id: string;
+  name: string;
+  description?: string;
+  document_type: 'warranty' | 'manual' | 'invoice' | 'guarantee' | 'certificate' | 'other';
+  file_path: string;
+  file_size?: number;
+  mime_type?: string;
+  original_filename?: string;
+  expiry_date?: string;
+  issue_date?: string;
+  document_number?: string;
+  issuer?: string;
+  tags: string[];
+  notes?: string;
+  is_primary: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Receipt {
   id: string;
   user_id: string;
@@ -39,6 +61,7 @@ export interface Receipt {
   created_at: string;
   updated_at: string;
   receipt_items?: ReceiptItem[];
+  receipt_documents?: ReceiptDocument[];
   merchants?: Merchant;
 }
 
@@ -130,6 +153,21 @@ interface ReceiptFilters {
   analysis_status?: string;
 }
 
+interface ReceiptFormData {
+  name: string;
+  description: string;
+  total_amount: number;
+  currency: string;
+  receipt_date: string;
+  merchant_name: string;
+  category: string;
+  tax_amount?: number;
+  payment_method?: string;
+  is_business_expense: boolean;
+  is_tax_deductible: boolean;
+  notes: string;
+}
+
 const API_BASE = process.env.NODE_ENV === 'production' ? '' : 'http://localhost:8787';
 
 export function useReceipts() {
@@ -139,6 +177,7 @@ export function useReceipts() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState<Set<string>>(new Set());
+  const [quickAnalyzing, setQuickAnalyzing] = useState(false);
   
   const { user, getToken } = useAuth();
   const { toast } = useToast();
@@ -463,6 +502,161 @@ export function useReceipts() {
     }
   }, [user, fetchReceipts, fetchCategories, fetchMerchants]);
 
+  // Quick analysis for form auto-fill
+  const quickAnalyzeReceipt = useCallback(async (imageUrl: string): Promise<ReceiptFormData | null> => {
+    if (!user) return null;
+
+    setQuickAnalyzing(true);
+    try {
+      const data = await makeRequest('/api/receipts/quick-analyze', {
+        method: 'POST',
+        body: JSON.stringify({ image_url: imageUrl }),
+      });
+
+      return data.formData;
+    } catch (error) {
+      console.error('Error analyzing receipt for form:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to analyze receipt for auto-fill",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setQuickAnalyzing(false);
+    }
+  }, [user, makeRequest, toast]);
+
+  // Receipt document management
+  const getReceiptDocuments = useCallback(async (receiptId: string): Promise<ReceiptDocument[]> => {
+    if (!user) return [];
+
+    try {
+      const data = await makeRequest(`/api/receipts/${receiptId}/documents`);
+      return data.documents || [];
+    } catch (error) {
+      console.error('Error fetching receipt documents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch receipt documents",
+        variant: "destructive",
+      });
+      return [];
+    }
+  }, [user, makeRequest, toast]);
+
+  const addReceiptDocument = useCallback(async (receiptId: string, documentData: Omit<ReceiptDocument, 'id' | 'receipt_id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<ReceiptDocument | null> => {
+    if (!user) return null;
+
+    try {
+      const data = await makeRequest(`/api/receipts/${receiptId}/documents`, {
+        method: 'POST',
+        body: JSON.stringify(documentData),
+      });
+
+      // Update the local state
+      setReceipts(prev => prev.map(receipt => {
+        if (receipt.id === receiptId) {
+          return {
+            ...receipt,
+            receipt_documents: [...(receipt.receipt_documents || []), data.document]
+          };
+        }
+        return receipt;
+      }));
+
+      toast({
+        title: "Success",
+        description: "Document attached to receipt",
+      });
+
+      return data.document;
+    } catch (error) {
+      console.error('Error adding receipt document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to attach document to receipt",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [user, makeRequest, toast]);
+
+  const updateReceiptDocument = useCallback(async (receiptId: string, documentId: string, updates: Partial<ReceiptDocument>): Promise<ReceiptDocument | null> => {
+    if (!user) return null;
+
+    try {
+      const data = await makeRequest(`/api/receipts/${receiptId}/documents/${documentId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates),
+      });
+
+      // Update the local state
+      setReceipts(prev => prev.map(receipt => {
+        if (receipt.id === receiptId) {
+          return {
+            ...receipt,
+            receipt_documents: (receipt.receipt_documents || []).map(doc => 
+              doc.id === documentId ? { ...doc, ...data.document } : doc
+            )
+          };
+        }
+        return receipt;
+      }));
+
+      toast({
+        title: "Success",
+        description: "Document updated successfully",
+      });
+
+      return data.document;
+    } catch (error) {
+      console.error('Error updating receipt document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update document",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [user, makeRequest, toast]);
+
+  const deleteReceiptDocument = useCallback(async (receiptId: string, documentId: string): Promise<boolean> => {
+    if (!user) return false;
+
+    try {
+      await makeRequest(`/api/receipts/${receiptId}/documents/${documentId}`, {
+        method: 'DELETE',
+      });
+
+      // Update the local state
+      setReceipts(prev => prev.map(receipt => {
+        if (receipt.id === receiptId) {
+          return {
+            ...receipt,
+            receipt_documents: (receipt.receipt_documents || []).filter(doc => doc.id !== documentId)
+          };
+        }
+        return receipt;
+      }));
+
+      toast({
+        title: "Success",
+        description: "Document removed from receipt",
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting receipt document:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove document",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [user, makeRequest, toast]);
+
   return {
     // Data
     receipts,
@@ -473,6 +667,7 @@ export function useReceipts() {
     loading,
     uploading,
     analyzing,
+    quickAnalyzing,
     
     // Actions
     fetchReceipts,
@@ -483,6 +678,13 @@ export function useReceipts() {
     uploadReceiptImage,
     analyzeReceipt,
     getAnalysisStatus,
+    quickAnalyzeReceipt,
+    
+    // Document management
+    getReceiptDocuments,
+    addReceiptDocument,
+    updateReceiptDocument,
+    deleteReceiptDocument,
     
     // Helper functions
     getExpenseStats,

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { z, ZodError } from 'zod'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createSupabaseClient } from '../auth/supabase.js'
+import { ReceiptAnalysisService } from '../services/ReceiptAnalysisService.js'
 
 // Helper function to handle Zod errors
 function handleZodError(error: unknown, reply: FastifyReply, errorMessage: string) {
@@ -51,6 +52,30 @@ const analysisJobSchema = z.object({
   job_type: z.enum(['ocr_only', 'structure_analysis', 'full_analysis']).default('full_analysis'),
 })
 
+const receiptDocumentSchema = z.object({
+  name: z.string().min(1).max(255),
+  description: z.string().optional(),
+  document_type: z.enum(['warranty', 'manual', 'invoice', 'guarantee', 'certificate', 'other']).default('warranty'),
+  file_path: z.string().min(1),
+  file_size: z.number().optional(),
+  mime_type: z.string().optional(),
+  original_filename: z.string().optional(),
+  expiry_date: z.string().optional(),
+  issue_date: z.string().optional(),
+  document_number: z.string().optional(),
+  issuer: z.string().optional(),
+  tags: z.array(z.string()).default([]),
+  notes: z.string().optional(),
+  is_primary: z.boolean().default(false),
+})
+
+const updateReceiptDocumentSchema = receiptDocumentSchema.partial()
+
+const quickAnalysisSchema = z.object({
+  image_url: z.string().url(),
+  model: z.string().optional().default('gemini-2.5-flash'),
+})
+
 // Helper function to create authenticated Supabase client
 function makeSupabaseForRequest(options: { SUPABASE_URL: string; SUPABASE_ANON_KEY: string }, request: FastifyRequest): SupabaseClient | null {
   if (!options.SUPABASE_URL || !options.SUPABASE_ANON_KEY) return null
@@ -94,7 +119,8 @@ export function registerReceiptRoutes(
         .from('receipts')
         .select(`
           *,
-          receipt_items(*)
+          receipt_items(*),
+          receipt_documents(*)
         `)
         .eq('user_id', user.id)
         .order('receipt_date', { ascending: false })
@@ -143,7 +169,8 @@ export function registerReceiptRoutes(
         .from('receipts')
         .select(`
           *,
-          receipt_items(*)
+          receipt_items(*),
+          receipt_documents(*)
         `)
         .eq('id', id)
         .eq('user_id', user.id)
@@ -437,6 +464,215 @@ export function registerReceiptRoutes(
       }
 
       return reply.send({ merchants: data || [] })
+    } catch (error: unknown) {
+      server.log.error(error)
+      return reply.code(500).send({ error: 'Internal server error' })
+    }
+  })
+
+  // POST /api/receipts/quick-analyze - Quick analysis for form auto-fill
+  server.post('/api/receipts/quick-analyze', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    if (!GOOGLE_API_KEY) {
+      return reply.code(503).send({ error: 'AI analysis service not configured' })
+    }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      const body = quickAnalysisSchema.parse(request.body)
+      
+      // Initialize analysis service
+      const analysisService = new ReceiptAnalysisService(authenticatedSupabase, GOOGLE_API_KEY)
+      
+      // Perform quick analysis for form filling
+      const formData = await analysisService.quickAnalyzeForForm(body.image_url, {
+        model: body.model
+      })
+
+      return reply.send({ formData })
+    } catch (error: unknown) {
+      if (error instanceof ZodError) {
+        return handleZodError(error, reply, 'Invalid quick analysis request')
+      }
+      server.log.error(error)
+      return reply.code(500).send({ error: 'AI analysis failed', details: error instanceof Error ? error.message : 'Unknown error' })
+    }
+  })
+
+  // GET /api/receipts/:id/documents - List receipt documents
+  server.get('/api/receipts/:id/documents', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    const { id } = request.params as { id: string }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      // Verify receipt ownership
+      const { data: receipt, error: receiptError } = await authenticatedSupabase
+        .from('receipts')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (receiptError) {
+        if (receiptError.code === 'PGRST116') {
+          return reply.code(404).send({ error: 'Receipt not found' })
+        }
+        return reply.code(500).send({ error: 'Failed to verify receipt', details: receiptError.message })
+      }
+
+      // Get receipt documents
+      const { data, error } = await authenticatedSupabase
+        .from('receipt_documents')
+        .select('*')
+        .eq('receipt_id', id)
+        .eq('user_id', user.id)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        return reply.code(500).send({ error: 'Failed to fetch receipt documents', details: error.message })
+      }
+
+      return reply.send({ documents: data || [] })
+    } catch (error: unknown) {
+      server.log.error(error)
+      return reply.code(500).send({ error: 'Internal server error' })
+    }
+  })
+
+  // POST /api/receipts/:id/documents - Add receipt document
+  server.post('/api/receipts/:id/documents', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    const { id } = request.params as { id: string }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      // Verify receipt ownership
+      const { data: receipt, error: receiptError } = await authenticatedSupabase
+        .from('receipts')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (receiptError) {
+        if (receiptError.code === 'PGRST116') {
+          return reply.code(404).send({ error: 'Receipt not found' })
+        }
+        return reply.code(500).send({ error: 'Failed to verify receipt', details: receiptError.message })
+      }
+
+      const body = receiptDocumentSchema.parse(request.body)
+      
+      const { data, error } = await authenticatedSupabase
+        .from('receipt_documents')
+        .insert({
+          ...body,
+          receipt_id: id,
+          user_id: user.id,
+        })
+        .select()
+        .single()
+
+      if (error) {
+        return reply.code(500).send({ error: 'Failed to create receipt document', details: error.message })
+      }
+
+      return reply.code(201).send({ document: data })
+    } catch (error: unknown) {
+      if (error instanceof ZodError) {
+        return handleZodError(error, reply, 'Invalid receipt document data')
+      }
+      server.log.error(error)
+      return reply.code(500).send({ error: 'Internal server error' })
+    }
+  })
+
+  // PUT /api/receipts/:id/documents/:docId - Update receipt document
+  server.put('/api/receipts/:id/documents/:docId', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    const { id, docId } = request.params as { id: string; docId: string }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      const body = updateReceiptDocumentSchema.parse(request.body)
+      
+      const { data, error } = await authenticatedSupabase
+        .from('receipt_documents')
+        .update(body)
+        .eq('id', docId)
+        .eq('receipt_id', id)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return reply.code(404).send({ error: 'Receipt document not found' })
+        }
+        return reply.code(500).send({ error: 'Failed to update receipt document', details: error.message })
+      }
+
+      return reply.send({ document: data })
+    } catch (error: unknown) {
+      if (error instanceof ZodError) {
+        return handleZodError(error, reply, 'Invalid receipt document data')
+      }
+      server.log.error(error)
+      return reply.code(500).send({ error: 'Internal server error' })
+    }
+  })
+
+  // DELETE /api/receipts/:id/documents/:docId - Delete receipt document
+  server.delete('/api/receipts/:id/documents/:docId', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    const { id, docId } = request.params as { id: string; docId: string }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      const { error } = await authenticatedSupabase
+        .from('receipt_documents')
+        .delete()
+        .eq('id', docId)
+        .eq('receipt_id', id)
+        .eq('user_id', user.id)
+
+      if (error) {
+        return reply.code(500).send({ error: 'Failed to delete receipt document', details: error.message })
+      }
+
+      return reply.code(204).send()
     } catch (error: unknown) {
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })

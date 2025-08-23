@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { useReceipts, type Receipt } from '@/hooks/useReceipts';
+import { useReceipts, type Receipt, type ReceiptDocument } from '@/hooks/useReceipts';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,7 +25,15 @@ import {
   CheckCircle,
   AlertCircle,
   X,
-  Save
+  Save,
+  FileText,
+  Paperclip,
+  Plus,
+  Download,
+  Trash2,
+  Calendar,
+  Building,
+  Hash
 } from 'lucide-react';
 
 interface ReceiptDialogProps {
@@ -44,6 +52,9 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [categorizationService, setCategorizationService] = useState<SmartCategorizationService | null>(null);
+  const [documents, setDocuments] = useState<ReceiptDocument[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<File[]>([]);
+  const [isUsingAI, setIsUsingAI] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -66,7 +77,13 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
     createReceipt, 
     updateReceipt, 
     analyzeReceipt,
-    analyzing 
+    analyzing,
+    quickAnalyzeReceipt,
+    quickAnalyzing,
+    getReceiptDocuments,
+    addReceiptDocument,
+    updateReceiptDocument,
+    deleteReceiptDocument
   } = useReceipts();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -96,6 +113,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
         notes: receipt.notes || '',
       });
       setPreviewUrl(receipt.image_url || null);
+      setDocuments(receipt.receipt_documents || []);
     }
   }, [receipt, mode]);
 
@@ -125,9 +143,12 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
     setSelectedFile(null);
     setPreviewUrl(null);
     setUploadProgress(0);
+    setDocuments([]);
+    setSelectedDocuments([]);
+    setIsUsingAI(false);
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setSelectedFile(file);
@@ -138,7 +159,98 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
         const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
         setFormData(prev => ({ ...prev, name: nameWithoutExt }));
       }
+
+      // Auto-fill form with AI analysis if adding a new receipt
+      if (mode === 'add' && user) {
+        setIsUsingAI(true);
+        try {
+          // Upload file first to get a URL for analysis
+          const uploadedUrl = await uploadFile(file);
+          if (uploadedUrl) {
+            // Get public URL for analysis
+            const { data } = supabase.storage
+              .from('receipts')
+              .getPublicUrl(uploadedUrl.replace('https://your-supabase-url.supabase.co/storage/v1/object/public/receipts/', ''));
+            
+            if (data.publicUrl) {
+              const aiFormData = await quickAnalyzeReceipt(data.publicUrl);
+              if (aiFormData) {
+                setFormData(prev => ({
+                  ...prev,
+                  name: aiFormData.name || prev.name,
+                  description: aiFormData.description || prev.description,
+                  total_amount: aiFormData.total_amount?.toString() || prev.total_amount,
+                  currency: aiFormData.currency || prev.currency,
+                  receipt_date: aiFormData.receipt_date || prev.receipt_date,
+                  merchant_name: aiFormData.merchant_name || prev.merchant_name,
+                  category: aiFormData.category || prev.category,
+                  tax_amount: aiFormData.tax_amount?.toString() || prev.tax_amount,
+                  payment_method: aiFormData.payment_method || prev.payment_method,
+                  is_business_expense: aiFormData.is_business_expense,
+                  is_tax_deductible: aiFormData.is_tax_deductible,
+                  notes: aiFormData.notes || prev.notes,
+                }));
+                
+                toast({
+                  title: "AI Analysis Complete",
+                  description: "Form has been auto-filled with receipt data",
+                });
+              }
+            }
+          }
+        } catch (error) {
+          console.error('AI analysis failed:', error);
+          // Don't show error toast as this is optional functionality
+        } finally {
+          setIsUsingAI(false);
+        }
+      }
     }
+  };
+
+  const handleDocumentFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    setSelectedDocuments(prev => [...prev, ...files]);
+  };
+
+  const removeSelectedDocument = (index: number) => {
+    setSelectedDocuments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadDocument = async (file: File, receiptId: string, documentData: Partial<ReceiptDocument>) => {
+    if (!user) return null;
+
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${user.id}/${receiptId}/${Date.now()}.${fileExt}`;
+
+    const { error } = await supabase.storage
+      .from('receipt-documents')
+      .upload(fileName, file);
+
+    if (error) {
+      console.error('Document upload error:', error);
+      throw error;
+    }
+
+    // Add document record
+    const documentRecord = {
+      name: documentData.name || file.name.replace(/\.[^/.]+$/, ''),
+      description: documentData.description,
+      document_type: documentData.document_type || 'warranty' as const,
+      file_path: fileName,
+      file_size: file.size,
+      mime_type: file.type,
+      original_filename: file.name,
+      expiry_date: documentData.expiry_date,
+      issue_date: documentData.issue_date,
+      document_number: documentData.document_number,
+      issuer: documentData.issuer,
+      tags: documentData.tags || [],
+      notes: documentData.notes,
+      is_primary: documentData.is_primary || false,
+    };
+
+    return await addReceiptDocument(receiptId, documentRecord);
   };
 
   const handleLearnFromCorrection = (suggestedCategory: string, actualCategory: string) => {
@@ -224,6 +336,30 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
         await analyzeReceipt(savedReceipt.id);
       }
 
+      // Upload and attach documents if any
+      if (savedReceipt && selectedDocuments.length > 0) {
+        try {
+          for (const docFile of selectedDocuments) {
+            await uploadDocument(docFile, savedReceipt.id, {
+              document_type: 'warranty', // Default type, could be made configurable
+              is_primary: selectedDocuments.indexOf(docFile) === 0 // First document is primary
+            });
+          }
+          
+          toast({
+            title: "Success",
+            description: `${selectedDocuments.length} document(s) attached to receipt`,
+          });
+        } catch (error) {
+          console.error('Error uploading documents:', error);
+          toast({
+            title: "Warning",
+            description: "Receipt saved but some documents failed to upload",
+            variant: "destructive",
+          });
+        }
+      }
+
       handleOpenChange(false);
     } catch (error) {
       console.error('Error saving receipt:', error);
@@ -256,12 +392,15 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
 
         <div className="flex-1 overflow-y-auto min-h-0">
           <Tabs defaultValue="basic" className="w-full h-full">
-            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-3'} flex-shrink-0`}>
+            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-4 h-auto' : 'grid-cols-4'} flex-shrink-0`}>
             <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 py-2">
               {isMobile ? 'Basic' : 'Basic Info'}
             </TabsTrigger>
             <TabsTrigger value="details" className="text-xs sm:text-sm px-2 py-2">
               Details
+            </TabsTrigger>
+            <TabsTrigger value="documents" className="text-xs sm:text-sm px-2 py-2">
+              {isMobile ? 'Docs' : 'Documents'}
             </TabsTrigger>
             <TabsTrigger value="analysis" className="text-xs sm:text-sm px-2 py-2">
               {isMobile ? 'AI' : 'AI Analysis'}
@@ -375,7 +514,15 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
 
             {!isReadOnly && (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Receipt Image</Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Receipt Image</Label>
+                  {(isUsingAI || quickAnalyzing) && (
+                    <div className="flex items-center gap-1 text-xs text-blue-600">
+                      <Brain className="w-3 h-3 animate-pulse" />
+                      AI Analyzing...
+                    </div>
+                  )}
+                </div>
                 <div className="border-2 border-dashed border-border rounded-lg p-3 sm:p-4">
                   {previewUrl ? (
                     <div className="text-center space-y-2">
@@ -531,6 +678,113 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                 rows={isMobile ? 2 : 3}
                 className="w-full resize-none"
               />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="documents" className="space-y-3 sm:space-y-4 mt-3 sm:mt-6 overflow-y-auto max-h-full px-1">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Attached Documents</Label>
+                <div className="text-xs text-muted-foreground">
+                  Warranties, manuals, guarantees, etc.
+                </div>
+              </div>
+
+              {/* Existing Documents */}
+              {documents.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Current Documents</Label>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {documents.map((doc, index) => (
+                      <div key={doc.id} className="flex items-center justify-between p-2 border rounded-lg bg-muted/50">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{doc.name}</div>
+                            <div className="text-xs text-muted-foreground capitalize">
+                              {doc.document_type} {doc.is_primary && '(Primary)'}
+                            </div>
+                          </div>
+                        </div>
+                        {mode !== 'view' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteReceiptDocument(receipt?.id || '', doc.id)}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Selected Documents for Upload */}
+              {selectedDocuments.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Documents to Attach</Label>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {selectedDocuments.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 border rounded-lg">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <FileText className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-medium truncate">{file.name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </div>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSelectedDocument(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Add Documents */}
+              {mode !== 'view' && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Add Documents</Label>
+                  <div className="border-2 border-dashed border-border rounded-lg p-3 sm:p-4">
+                    <div className="text-center">
+                      <Paperclip className="w-6 h-6 sm:w-8 sm:h-8 mx-auto text-muted-foreground mb-2" />
+                      <div className="text-xs sm:text-sm text-muted-foreground mb-2">
+                        Upload warranty documents, manuals, or guarantees
+                      </div>
+                      <Input
+                        type="file"
+                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.webp"
+                        multiple
+                        onChange={handleDocumentFileSelect}
+                        className="hidden"
+                        id="document-upload"
+                      />
+                      <Label htmlFor="document-upload" className="cursor-pointer">
+                        <Button variant="outline" asChild size={isMobile ? "sm" : "default"}>
+                          <span>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Documents
+                          </span>
+                        </Button>
+                      </Label>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Supported formats: PDF, Word documents, images (max 50MB each)
+                  </div>
+                </div>
+              )}
             </div>
           </TabsContent>
 
