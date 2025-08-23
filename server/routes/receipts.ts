@@ -1075,8 +1075,8 @@ export function registerReceiptRoutes(
     try {
       const body = bulkCategorizeSchema.parse(request.body)
       
-      const results = []
-      const errors = []
+      const results: any[] = []
+      const errors: any[] = []
       
       // Process categorizations in batches for better performance
       const batchSize = 10
@@ -1336,7 +1336,7 @@ export function registerReceiptRoutes(
           
           const csvRows = receipts.map(receipt => {
             return csvHeaders.map(header => {
-              const value = receipt[header]
+              const value = (receipt as any)[header]
               if (value === null || value === undefined) return ''
               if (typeof value === 'string' && value.includes(',')) {
                 return `"${value.replace(/"/g, '""')}"`
@@ -1355,7 +1355,7 @@ export function registerReceiptRoutes(
           exportData = JSON.stringify({ 
             receipts: receipts.map(receipt => {
               // Flatten the receipt data for Excel
-              const flattened: any = { ...receipt }
+              const flattened: any = receipt && typeof receipt === 'object' ? { ...receipt } : {}
               delete flattened.receipt_items
               delete flattened.receipt_documents
               return flattened
