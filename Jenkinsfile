@@ -733,14 +733,14 @@ ${changedPreview}
         } catch (err) {
           echo "Discord notification failed: ${err}"
         }
+        
+        // Clean up workspace after notifications
+        cleanWs()
       }
     }
     always {
       // Archive deployment files for potential rollback
       archiveArtifacts artifacts: 'deploy/**/*', fingerprint: true
-      
-      // Clean up workspace
-      cleanWs()
     }
   }
 }
