@@ -270,6 +270,8 @@ pipeline {
             // Load Turnstile credentials
             def turnstileSiteKey = readSecret('turnstile-site-key')
             def turnstileSecretKey = readSecret('turnstile-secret-key')
+            // Load ALLOWED_TARGET_HOSTS from credentials
+            def allowedTargetHosts = readSecret('allowed-target-hosts')
             
             // Auto-fill PUBLIC_BASE_URL and ALLOWED_ORIGINS if not provided
             if (!env.PUBLIC_BASE_URL?.trim()) {
@@ -289,7 +291,7 @@ pipeline {
 BACKEND_PORT=${BACKEND_PORT}
 PUBLIC_BASE_URL=${env.PUBLIC_BASE_URL}
 ALLOWED_ORIGINS=${env.ALLOWED_ORIGINS}
-ALLOWED_TARGET_HOSTS=${env.ALLOWED_TARGET_HOSTS ?: 'backend,localhost,127.0.0.1'}
+ALLOWED_TARGET_HOSTS=${allowedTargetHosts ?: 'backend,localhost,127.0.0.1'}
 OAUTH_REDIRECT_BASE_URL=${env.PUBLIC_BASE_URL}
 SUPABASE_URL=${supabaseUrl}
 SUPABASE_ANON_KEY=${supabaseAnonKey}
