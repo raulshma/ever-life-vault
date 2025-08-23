@@ -12,6 +12,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useReceipts, type Receipt } from '@/hooks/useReceipts';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { CategorySuggestions } from '@/components/CategorySuggestions';
 import { SmartCategorizationService } from '@/services/SmartCategorizationService';
@@ -36,6 +37,7 @@ interface ReceiptDialogProps {
 }
 
 export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: ReceiptDialogProps) {
+  const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -242,9 +244,9 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
     <Dialog open={open !== undefined ? open : isOpen} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      <DialogContent className="max-w-3xl max-h-[95vh] sm:max-h-[90vh] w-[95vw] sm:w-full mx-2 sm:mx-0 flex flex-col">
+        <DialogHeader className="pb-2 sm:pb-4 flex-shrink-0">
+          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <ReceiptIcon className="w-5 h-5" />
             {mode === 'add' ? 'Add New Receipt' : 
              mode === 'edit' ? 'Edit Receipt' : 
@@ -252,29 +254,37 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="analysis">AI Analysis</TabsTrigger>
+        <div className="flex-1 overflow-y-auto min-h-0">
+          <Tabs defaultValue="basic" className="w-full h-full">
+            <TabsList className={`grid w-full ${isMobile ? 'grid-cols-3 h-auto' : 'grid-cols-3'} flex-shrink-0`}>
+            <TabsTrigger value="basic" className="text-xs sm:text-sm px-2 py-2">
+              {isMobile ? 'Basic' : 'Basic Info'}
+            </TabsTrigger>
+            <TabsTrigger value="details" className="text-xs sm:text-sm px-2 py-2">
+              Details
+            </TabsTrigger>
+            <TabsTrigger value="analysis" className="text-xs sm:text-sm px-2 py-2">
+              {isMobile ? 'AI' : 'AI Analysis'}
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="basic" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <TabsContent value="basic" className="space-y-3 sm:space-y-4 mt-3 sm:mt-6 overflow-y-auto max-h-full px-1">
+            <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-2 gap-4'}`}>
               <div className="space-y-2">
-                <Label htmlFor="name">Receipt Name *</Label>
+                <Label htmlFor="name" className="text-sm font-medium">Receipt Name *</Label>
                 <Input
                   id="name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   disabled={isReadOnly}
                   placeholder="Enter receipt name"
+                  className="w-full"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="total_amount">Total Amount *</Label>
-                <div className="flex">
+                <Label htmlFor="total_amount" className="text-sm font-medium">Total Amount *</Label>
+                <div className="flex gap-2">
                   <Select 
                     value={formData.currency} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, currency: value }))}
@@ -297,30 +307,31 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                     onChange={(e) => setFormData(prev => ({ ...prev, total_amount: e.target.value }))}
                     disabled={isReadOnly}
                     placeholder="0.00"
-                    className="flex-1 ml-2"
+                    className="flex-1"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="receipt_date">Receipt Date</Label>
+                <Label htmlFor="receipt_date" className="text-sm font-medium">Receipt Date</Label>
                 <Input
                   id="receipt_date"
                   type="date"
                   value={formData.receipt_date}
                   onChange={(e) => setFormData(prev => ({ ...prev, receipt_date: e.target.value }))}
                   disabled={isReadOnly}
+                  className="w-full"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
+                <Label htmlFor="category" className="text-sm font-medium">Category</Label>
                 <Select 
                   value={formData.category} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                   disabled={isReadOnly}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -351,26 +362,27 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="merchant_name">Merchant Name</Label>
+              <Label htmlFor="merchant_name" className="text-sm font-medium">Merchant Name</Label>
               <Input
                 id="merchant_name"
                 value={formData.merchant_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, merchant_name: e.target.value }))}
                 disabled={isReadOnly}
                 placeholder="Store or business name"
+                className="w-full"
               />
             </div>
 
             {!isReadOnly && (
               <div className="space-y-2">
-                <Label>Receipt Image</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-4">
+                <Label className="text-sm font-medium">Receipt Image</Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-3 sm:p-4">
                   {previewUrl ? (
-                    <div className="text-center">
+                    <div className="text-center space-y-2">
                       <img 
                         src={previewUrl} 
                         alt="Receipt preview" 
-                        className="max-w-full max-h-48 mx-auto rounded"
+                        className="max-w-full max-h-32 sm:max-h-48 mx-auto rounded object-contain"
                       />
                       <Button
                         variant="outline"
@@ -387,8 +399,8 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                     </div>
                   ) : (
                     <div className="text-center">
-                      <Camera className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                      <div className="text-sm text-muted-foreground mb-2">
+                      <Camera className="w-6 h-6 sm:w-8 sm:h-8 mx-auto text-muted-foreground mb-2" />
+                      <div className="text-xs sm:text-sm text-muted-foreground mb-2">
                         Upload receipt image for AI analysis
                       </div>
                       <Input
@@ -399,7 +411,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                         id="file-upload"
                       />
                       <Label htmlFor="file-upload" className="cursor-pointer">
-                        <Button variant="outline" asChild>
+                        <Button variant="outline" asChild size={isMobile ? "sm" : "default"}>
                           <span>
                             <Upload className="w-4 h-4 mr-2" />
                             Choose Image
@@ -420,20 +432,20 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
 
             {isReadOnly && receipt?.image_url && (
               <div className="space-y-2">
-                <Label>Receipt Image</Label>
+                <Label className="text-sm font-medium">Receipt Image</Label>
                 <img 
                   src={receipt.image_url} 
                   alt="Receipt" 
-                  className="max-w-full max-h-48 rounded border"
+                  className="max-w-full max-h-32 sm:max-h-48 rounded border object-contain"
                 />
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="details" className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+          <TabsContent value="details" className="space-y-3 sm:space-y-4 mt-3 sm:mt-6 overflow-y-auto max-h-full px-1">
+            <div className={`${isMobile ? 'space-y-4' : 'grid grid-cols-2 gap-4'}`}>
               <div className="space-y-2">
-                <Label htmlFor="tax_amount">Tax Amount</Label>
+                <Label htmlFor="tax_amount" className="text-sm font-medium">Tax Amount</Label>
                 <Input
                   id="tax_amount"
                   type="number"
@@ -442,17 +454,18 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                   onChange={(e) => setFormData(prev => ({ ...prev, tax_amount: e.target.value }))}
                   disabled={isReadOnly}
                   placeholder="0.00"
+                  className="w-full"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="payment_method">Payment Method</Label>
+                <Label htmlFor="payment_method" className="text-sm font-medium">Payment Method</Label>
                 <Select 
                   value={formData.payment_method} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, payment_method: value }))}
                   disabled={isReadOnly}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select payment method" />
                   </SelectTrigger>
                   <SelectContent>
@@ -466,80 +479,87 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
             </div>
 
             <div className="space-y-3">
-              <Label>Classification</Label>
+              <Label className="text-sm font-medium">Classification</Label>
               <div className="space-y-3">
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <Switch
                     id="is_business_expense"
                     checked={formData.is_business_expense}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_business_expense: checked }))}
                     disabled={isReadOnly}
                   />
-                  <Label htmlFor="is_business_expense">Business Expense</Label>
+                  <Label htmlFor="is_business_expense" className="text-sm font-medium cursor-pointer">
+                    Business Expense
+                  </Label>
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 sm:space-x-3">
                   <Switch
                     id="is_tax_deductible"
                     checked={formData.is_tax_deductible}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_tax_deductible: checked }))}
                     disabled={isReadOnly}
                   />
-                  <Label htmlFor="is_tax_deductible">Tax Deductible</Label>
+                  <Label htmlFor="is_tax_deductible" className="text-sm font-medium cursor-pointer">
+                    Tax Deductible
+                  </Label>
                 </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="description" className="text-sm font-medium">Description</Label>
               <Textarea
                 id="description"
                 value={formData.description}
                 onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 disabled={isReadOnly}
                 placeholder="Enter description..."
-                rows={3}
+                rows={isMobile ? 2 : 3}
+                className="w-full resize-none"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes" className="text-sm font-medium">Notes</Label>
               <Textarea
                 id="notes"
                 value={formData.notes}
                 onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                 disabled={isReadOnly}
                 placeholder="Additional notes..."
-                rows={3}
+                rows={isMobile ? 2 : 3}
+                className="w-full resize-none"
               />
             </div>
           </TabsContent>
 
-          <TabsContent value="analysis" className="space-y-4">
+          <TabsContent value="analysis" className="space-y-3 sm:space-y-4 mt-3 sm:mt-6 overflow-y-auto max-h-full px-1">
             {receipt ? (
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label>AI Analysis</Label>
+                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                  <Label className="text-sm font-medium">AI Analysis</Label>
                   {mode !== 'view' && receipt.image_url && (
                     <Button
                       variant="outline"
-                      size="sm"
+                      size={isMobile ? "sm" : "default"}
                       onClick={() => analyzeReceipt(receipt.id)}
                       disabled={isAnalyzing}
+                      className="w-full sm:w-auto"
                     >
                       {isAnalyzing ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       ) : (
                         <Brain className="w-4 h-4 mr-2" />
                       )}
-                      {isAnalyzing ? 'Analyzing...' : 'Analyze Receipt'}
+                      {isAnalyzing ? 'Analyzing...' : (isMobile ? 'Analyze' : 'Analyze Receipt')}
                     </Button>
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Status:</span>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-3 rounded-lg bg-muted">
+                    <span className="text-sm font-medium">Status:</span>
                     <Badge variant={
                       receipt.analysis_status === 'completed' ? 'default' :
                       receipt.analysis_status === 'failed' ? 'destructive' :
@@ -550,30 +570,37 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                   </div>
                   
                   {receipt.ai_confidence_score && (
-                    <div className="flex justify-between">
-                      <span>Confidence:</span>
-                      <span>{Math.round(receipt.ai_confidence_score * 100)}%</span>
+                    <div className="flex justify-between items-center p-3 rounded-lg bg-muted">
+                      <span className="text-sm font-medium">Confidence:</span>
+                      <span className="text-sm font-semibold">{Math.round(receipt.ai_confidence_score * 100)}%</span>
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="text-center text-muted-foreground py-8">
-                Save receipt to enable AI analysis
+              <div className="text-center text-muted-foreground py-6 sm:py-8">
+                <Brain className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                <p className="text-sm">Save receipt to enable AI analysis</p>
               </div>
             )}
           </TabsContent>
         </Tabs>
+        </div>
 
-        <DialogFooter>
+        <DialogFooter className="pt-4 sm:pt-6 flex-shrink-0">
           {mode !== 'view' && (
-            <Button onClick={handleSubmit} disabled={loading}>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={loading}
+              className="w-full sm:w-auto"
+              size={isMobile ? "default" : "default"}
+            >
               {loading ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              {mode === 'add' ? 'Create Receipt' : 'Update Receipt'}
+              {mode === 'add' ? (isMobile ? 'Create' : 'Create Receipt') : (isMobile ? 'Update' : 'Update Receipt')}
             </Button>
           )}
         </DialogFooter>

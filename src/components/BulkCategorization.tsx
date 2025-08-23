@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useReceipts, type Receipt } from '@/hooks/useReceipts';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { SmartCategorizationService, type CategorySuggestion } from '@/services/SmartCategorizationService';
 import {
   Brain,
@@ -32,6 +33,7 @@ export function BulkCategorization({
   onClose,
   className
 }: BulkCategorizationProps) {
+  const isMobile = useIsMobile();
   const [suggestions, setSuggestions] = useState<Map<string, CategorySuggestion[]>>(new Map());
   const [selectedReceipts, setSelectedReceipts] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
@@ -171,20 +173,20 @@ export function BulkCategorization({
   ).length;
 
   return (
-    <div className={`space-y-6 ${className}`}>
+    <div className={`space-y-4 sm:space-y-6 ${className}`}>
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
             <Brain className="w-5 h-5 text-info" />
-            Bulk Receipt Categorization
+            {isMobile ? 'Bulk Categorization' : 'Bulk Receipt Categorization'}
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
+        <CardContent className="space-y-3 sm:space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               {uncategorizedReceipts.length} uncategorized receipts found
               {suggestions.size > 0 && (
-                <span className="ml-2 text-success">
+                <span className="block sm:inline ml-0 sm:ml-2 text-success">
                   • {suggestions.size} with suggestions
                   {highConfidenceCount > 0 && (
                     <span className="ml-1">
@@ -196,41 +198,56 @@ export function BulkCategorization({
             </div>
             
             {suggestions.size === 0 ? (
-              <Button onClick={handleGenerateSuggestions} disabled={processing}>
+              <Button 
+                onClick={handleGenerateSuggestions} 
+                disabled={processing}
+                className="w-full sm:w-auto"
+                size={isMobile ? "default" : "default"}
+              >
                 {processing ? (
                   <>
                     <Brain className="w-4 h-4 mr-2 animate-pulse" />
-                    Analyzing...
+                    {isMobile ? 'Analyzing...' : 'Analyzing...'}
                   </>
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4 mr-2" />
-                    Generate Suggestions
+                    {isMobile ? 'Generate' : 'Generate Suggestions'}
                   </>
                 )}
               </Button>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Button 
                   variant="outline" 
                   onClick={toggleSelectAll}
                   disabled={applying}
+                  className="w-full sm:w-auto"
+                  size={isMobile ? "sm" : "default"}
                 >
-                  {selectedReceipts.size === suggestions.size ? 'Deselect All' : 'Select All'}
+                  {selectedReceipts.size === suggestions.size ? 
+                    (isMobile ? 'Deselect' : 'Deselect All') : 
+                    (isMobile ? 'Select' : 'Select All')
+                  }
                 </Button>
                 <Button 
                   onClick={handleApplySelected}
                   disabled={selectedReceipts.size === 0 || applying}
+                  className="w-full sm:w-auto"
+                  size={isMobile ? "default" : "default"}
                 >
                   {applying ? (
                     <>
                       <Zap className="w-4 h-4 mr-2 animate-pulse" />
-                      Applying...
+                      {isMobile ? 'Applying...' : 'Applying...'}
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4 mr-2" />
-                      Apply Selected ({selectedReceipts.size})
+                      {isMobile ? 
+                        `Apply (${selectedReceipts.size})` : 
+                        `Apply Selected (${selectedReceipts.size})`
+                      }
                     </>
                   )}
                 </Button>
@@ -240,7 +257,7 @@ export function BulkCategorization({
 
           {(processing || applying) && (
             <div className="space-y-2">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span>{processing ? 'Generating suggestions...' : 'Applying categorizations...'}</span>
                 <span>{Math.round(progress)}%</span>
               </div>
@@ -252,7 +269,7 @@ export function BulkCategorization({
 
       {suggestions.size > 0 && (
         <div className="space-y-3">
-          <h3 className="text-lg font-semibold">Suggested Categorizations</h3>
+          <h3 className="text-base sm:text-lg font-semibold">Suggested Categorizations</h3>
           
           {uncategorizedReceipts.map(receipt => {
             const receiptSuggestions = suggestions.get(receipt.id);
@@ -268,51 +285,107 @@ export function BulkCategorization({
                   isSelected ? 'ring-2 ring-primary bg-primary/10' : 'hover:bg-muted/50'
                 }`}
               >
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      checked={isSelected}
-                      onCheckedChange={() => toggleReceiptSelection(receipt.id)}
-                      disabled={applying}
-                    />
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium truncate">{receipt.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          ${receipt.total_amount.toFixed(2)}
-                        </Badge>
+                <CardContent className="p-3 sm:p-4">
+                  {isMobile ? (
+                    // Mobile: Vertical layout
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleReceiptSelection(receipt.id)}
+                          disabled={applying}
+                          className="mt-1 flex-shrink-0"
+                        />
+                        
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-sm truncate">{receipt.name}</span>
+                            <Badge variant="outline" className="text-xs flex-shrink-0">
+                              ${receipt.total_amount.toFixed(2)}
+                            </Badge>
+                          </div>
+                          
+                          <div className="text-xs text-muted-foreground">
+                            {receipt.merchant_name && (
+                              <span className="block truncate">{receipt.merchant_name}</span>
+                            )}
+                            <span>{new Date(receipt.receipt_date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pl-8">
+                        <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                        
+                        <div className="flex items-center gap-2">
+                          {getConfidenceIcon(topSuggestion.confidence)}
+                          <span className="font-medium text-sm">
+                            {formatCategoryName(topSuggestion.category)}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <div 
+                              className={`w-2 h-2 rounded-full ${getConfidenceColor(topSuggestion.confidence)}`}
+                            />
+                            <span className="text-xs text-muted-foreground">
+                              {Math.round(topSuggestion.confidence * 100)}%
+                            </span>
+                          </div>
+                        </div>
                       </div>
                       
-                      <div className="text-sm text-muted-foreground truncate">
-                        {receipt.merchant_name && (
-                          <span>{receipt.merchant_name} • </span>
-                        )}
-                        <span>{new Date(receipt.receipt_date).toLocaleDateString()}</span>
+                      <div className="text-xs text-muted-foreground pl-8">
+                        {topSuggestion.reason}
                       </div>
                     </div>
-
-                    <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {getConfidenceIcon(topSuggestion.confidence)}
-                      <span className="font-medium">
-                        {formatCategoryName(topSuggestion.category)}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <div 
-                          className={`w-2 h-2 rounded-full ${getConfidenceColor(topSuggestion.confidence)}`}
+                  ) : (
+                    // Desktop: Horizontal layout
+                    <>
+                      <div className="flex items-center gap-3">
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleReceiptSelection(receipt.id)}
+                          disabled={applying}
                         />
-                        <span className="text-xs text-gray-500">
-                          {Math.round(topSuggestion.confidence * 100)}%
-                        </span>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium truncate">{receipt.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              ${receipt.total_amount.toFixed(2)}
+                            </Badge>
+                          </div>
+                          
+                          <div className="text-sm text-muted-foreground truncate">
+                            {receipt.merchant_name && (
+                              <span>{receipt.merchant_name} • </span>
+                            )}
+                            <span>{new Date(receipt.receipt_date).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+
+                        <ArrowRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {getConfidenceIcon(topSuggestion.confidence)}
+                          <span className="font-medium">
+                            {formatCategoryName(topSuggestion.category)}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <div 
+                              className={`w-2 h-2 rounded-full ${getConfidenceColor(topSuggestion.confidence)}`}
+                            />
+                            <span className="text-xs text-gray-500">
+                              {Math.round(topSuggestion.confidence * 100)}%
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-2 ml-6 text-xs text-gray-500">
-                    {topSuggestion.reason}
-                  </div>
+                      
+                      <div className="mt-2 ml-6 text-xs text-gray-500">
+                        {topSuggestion.reason}
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
             );
@@ -322,7 +395,13 @@ export function BulkCategorization({
 
       {suggestions.size > 0 && (
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={applying}>
+          <Button 
+            variant="outline" 
+            onClick={onClose} 
+            disabled={applying}
+            className="w-full sm:w-auto"
+            size={isMobile ? "default" : "default"}
+          >
             <X className="w-4 h-4 mr-2" />
             Cancel
           </Button>
