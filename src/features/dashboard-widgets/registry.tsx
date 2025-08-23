@@ -134,6 +134,16 @@ export function registerBuiltInWidgets() {
   } catch {}
   try {
     widgetRegistry.register(createWidgetDefinition({
+      id: 'receipts',
+      title: 'Receipts',
+      category: 'helpers',
+      version: '1.0.0',
+      defaultConfig: { max: 5, showBusinessOnly: false, showAnalytics: true },
+      component: React.lazy(() => import('./widgets/ReceiptWidget')),
+    }))
+  } catch {}
+  try {
+    widgetRegistry.register(createWidgetDefinition({
       id: 'vault',
       title: 'Vault',
       category: 'helpers',

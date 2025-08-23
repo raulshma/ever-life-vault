@@ -45,6 +45,8 @@ const Feeds = lazy(() => import("./pages/Feeds"));
 const RepoFlatten = lazy(() => import("./pages/RepoFlatten"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 const LLMModels = lazy(() => import("./pages/LLMModels"));
+const Receipts = lazy(() => import("./pages/Receipts"));
+const Analytics = lazy(() => import("./pages/Analytics"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -264,6 +266,24 @@ function AppRoutes() {
             <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
               {" "}
               <Inventory />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="receipts"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Receipts />{" "}
+            </Suspense>
+          }
+        />
+        <Route
+          path="analytics"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              {" "}
+              <Analytics />{" "}
             </Suspense>
           }
         />

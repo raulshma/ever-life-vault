@@ -21,6 +21,7 @@ import cron from 'node-cron'
 import { getLLMDataService } from './routes/llm.js'
 import authRoutes from './routes/auth.js'
 import { registerSshRoutes } from './routes/ssh.js'
+import { registerReceiptRoutes } from './routes/receipts.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -130,6 +131,19 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // SSH/WebTerminal routes (authenticated over Supabase JWT)
   registerSshRoutes(server, { requireSupabaseUser })
+
+  // Receipt management routes with AI analysis
+  if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
+    registerReceiptRoutes(server, {
+      requireSupabaseUser,
+      SUPABASE_URL: env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+      GOOGLE_API_KEY: env.GOOGLE_API_KEY,
+    })
+    server.log.info('Receipt management routes registered')
+  } else {
+    server.log.warn('Skipping receipt routes: SUPABASE_URL or SUPABASE_ANON_KEY not configured')
+  }
 
   // RSS proxy route to avoid CORS issues (always available)
   server.get('/rss-proxy', async (request, reply) => {

@@ -194,6 +194,71 @@ export type Database = {
         }
         Relationships: []
       }
+      expense_categories: {
+        Row: {
+          color: string | null
+          created_at: string
+          default_payment_method: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          is_business_category: boolean | null
+          is_tax_deductible: boolean | null
+          monthly_budget_limit: number | null
+          name: string
+          parent_category_id: string | null
+          sort_order: number | null
+          updated_at: string
+          user_id: string
+          yearly_budget_limit: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          default_payment_method?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_business_category?: boolean | null
+          is_tax_deductible?: boolean | null
+          monthly_budget_limit?: number | null
+          name: string
+          parent_category_id?: string | null
+          sort_order?: number | null
+          updated_at?: string
+          user_id: string
+          yearly_budget_limit?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          default_payment_method?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_business_category?: boolean | null
+          is_tax_deductible?: boolean | null
+          monthly_budget_limit?: number | null
+          name?: string
+          parent_category_id?: string | null
+          sort_order?: number | null
+          updated_at?: string
+          user_id?: string
+          yearly_budget_limit?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       focus_sessions: {
         Row: {
           accent_every: number
@@ -835,6 +900,69 @@ export type Database = {
         }
         Relationships: []
       }
+      merchants: {
+        Row: {
+          address: string | null
+          business_type: string | null
+          category: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          state: string | null
+          tax_id: string | null
+          updated_at: string
+          user_id: string
+          website: string | null
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          business_type?: string | null
+          category?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          state?: string | null
+          tax_id?: string | null
+          updated_at?: string
+          user_id: string
+          website?: string | null
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          business_type?: string | null
+          category?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          state?: string | null
+          tax_id?: string | null
+          updated_at?: string
+          user_id?: string
+          website?: string | null
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       monthly_status_sheets: {
         Row: {
           created_at: string
@@ -925,6 +1053,244 @@ export type Database = {
           display_name?: string | null
           id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      receipt_analysis_jobs: {
+        Row: {
+          ai_model_used: string | null
+          analysis_result: Json | null
+          completed_at: string | null
+          confidence_scores: Json | null
+          created_at: string
+          error_message: string | null
+          id: string
+          job_type: string | null
+          ocr_result: Json | null
+          processing_duration_ms: number | null
+          receipt_id: string
+          retry_count: number | null
+          started_at: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_model_used?: string | null
+          analysis_result?: Json | null
+          completed_at?: string | null
+          confidence_scores?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type?: string | null
+          ocr_result?: Json | null
+          processing_duration_ms?: number | null
+          receipt_id: string
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_model_used?: string | null
+          analysis_result?: Json | null
+          completed_at?: string | null
+          confidence_scores?: Json | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_type?: string | null
+          ocr_result?: Json | null
+          processing_duration_ms?: number | null
+          receipt_id?: string
+          retry_count?: number | null
+          started_at?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_analysis_jobs_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipt_items: {
+        Row: {
+          barcode: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_taxable: boolean | null
+          line_number: number | null
+          name: string
+          product_category: string | null
+          quantity: number | null
+          receipt_id: string
+          sku: string | null
+          tax_amount: number | null
+          total_price: number
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          barcode?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_taxable?: boolean | null
+          line_number?: number | null
+          name: string
+          product_category?: string | null
+          quantity?: number | null
+          receipt_id: string
+          sku?: string | null
+          tax_amount?: number | null
+          total_price: number
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          barcode?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_taxable?: boolean | null
+          line_number?: number | null
+          name?: string
+          product_category?: string | null
+          quantity?: number | null
+          receipt_id?: string
+          sku?: string | null
+          tax_amount?: number | null
+          total_price?: number
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_items_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          ai_analysis_data: Json | null
+          ai_confidence_score: number | null
+          analysis_status: string | null
+          category: string
+          created_at: string
+          currency: string
+          description: string | null
+          file_size: number | null
+          id: string
+          image_path: string | null
+          image_url: string | null
+          is_business_expense: boolean | null
+          is_reimbursable: boolean | null
+          is_tax_deductible: boolean | null
+          merchant_address: string | null
+          merchant_name: string | null
+          merchant_phone: string | null
+          merchant_tax_id: string | null
+          mime_type: string | null
+          name: string
+          notes: string | null
+          ocr_raw_text: string | null
+          payment_method: string | null
+          pre_tax_amount: number | null
+          receipt_date: string
+          reimbursement_status: string | null
+          subcategory: string | null
+          tags: string[] | null
+          tax_amount: number | null
+          tax_rate: number | null
+          tip_amount: number | null
+          total_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis_data?: Json | null
+          ai_confidence_score?: number | null
+          analysis_status?: string | null
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          file_size?: number | null
+          id?: string
+          image_path?: string | null
+          image_url?: string | null
+          is_business_expense?: boolean | null
+          is_reimbursable?: boolean | null
+          is_tax_deductible?: boolean | null
+          merchant_address?: string | null
+          merchant_name?: string | null
+          merchant_phone?: string | null
+          merchant_tax_id?: string | null
+          mime_type?: string | null
+          name: string
+          notes?: string | null
+          ocr_raw_text?: string | null
+          payment_method?: string | null
+          pre_tax_amount?: number | null
+          receipt_date: string
+          reimbursement_status?: string | null
+          subcategory?: string | null
+          tags?: string[] | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          tip_amount?: number | null
+          total_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis_data?: Json | null
+          ai_confidence_score?: number | null
+          analysis_status?: string | null
+          category?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          file_size?: number | null
+          id?: string
+          image_path?: string | null
+          image_url?: string | null
+          is_business_expense?: boolean | null
+          is_reimbursable?: boolean | null
+          is_tax_deductible?: boolean | null
+          merchant_address?: string | null
+          merchant_name?: string | null
+          merchant_phone?: string | null
+          merchant_tax_id?: string | null
+          mime_type?: string | null
+          name?: string
+          notes?: string | null
+          ocr_raw_text?: string | null
+          payment_method?: string | null
+          pre_tax_amount?: number | null
+          receipt_date?: string
+          reimbursement_status?: string | null
+          subcategory?: string | null
+          tags?: string[] | null
+          tax_amount?: number | null
+          tax_rate?: number | null
+          tip_amount?: number | null
+          total_amount?: number
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

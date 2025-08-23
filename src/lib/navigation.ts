@@ -20,6 +20,8 @@ import {
   GitBranch,
   TerminalSquare,
   Brain,
+  Receipt,
+  BarChart3,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -43,6 +45,8 @@ export const moduleCategories: NavGroups = {
     { name: "Knowledge Base", path: "/knowledge", icon: BookOpen },
     { name: "Documents", path: "/documents", icon: FileText },
     { name: "Inventory", path: "/inventory", icon: Package2 },
+    { name: "Receipts", path: "/receipts", icon: Receipt },
+    { name: "Analytics", path: "/analytics", icon: BarChart3 },
   ],
   media: [
     { name: "Feeds", path: "/feeds", icon: Bookmark },
