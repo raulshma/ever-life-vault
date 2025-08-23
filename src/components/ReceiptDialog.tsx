@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
 import { CategorySuggestions } from '@/components/CategorySuggestions';
+import { CameraCapture } from '@/components/CameraCapture';
 import { SmartCategorizationService } from '@/services/SmartCategorizationService';
 import { 
   Receipt as ReceiptIcon, 
@@ -69,6 +70,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
   const [isUsingAI, setIsUsingAI] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -157,77 +159,120 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
       notes: '',
     });
     setSelectedFile(null);
+    if (previewUrl && previewUrl !== 'pdf-placeholder') {
+      URL.revokeObjectURL(previewUrl);
+    }
     setPreviewUrl(null);
     setUploadProgress(0);
     setDocuments([]);
     setSelectedDocuments([]);
     setIsUsingAI(false);
+    setShowCameraCapture(false);
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
+      await processSelectedFile(file);
+    }
+  };
+
+  // Handle camera capture
+  const handleCameraCapture = async (file: File) => {
+    await processSelectedFile(file);
+  };
+
+  // Common file processing logic for both upload and camera capture
+  const processSelectedFile = async (file: File) => {
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please select an image file (JPG, PNG, WebP) or PDF document.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (max 50MB)
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (file.size > maxSize) {
+      toast({
+        title: "File Too Large",
+        description: `File size must be less than 50MB. Current file is ${(file.size / 1024 / 1024).toFixed(2)}MB.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Create preview URL for display
+    if (file.type.startsWith('image/')) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      
-      if (!formData.name) {
-        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-        setFormData(prev => ({ ...prev, name: nameWithoutExt }));
-      }
+    } else if (file.type === 'application/pdf') {
+      // For PDF files, we'll show a placeholder or PDF icon
+      setPreviewUrl('pdf-placeholder');
+    }
+    
+    if (!formData.name) {
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+      setFormData(prev => ({ ...prev, name: nameWithoutExt }));
+    }
 
-      // Auto-fill form with AI analysis if adding a new receipt
-      if (mode === 'add' && user) {
-        setIsUsingAI(true);
-        setAiProgress({ stage: 'Starting analysis...', progress: 0 });
-        
-        try {
-          // Upload file first to get a URL for analysis
-          const uploadedUrl = await uploadFile(file);
-          if (uploadedUrl) {
-            // Get public URL for analysis
-            const { data } = supabase.storage
-              .from('receipts')
-              .getPublicUrl(uploadedUrl.replace('https://your-supabase-url.supabase.co/storage/v1/object/public/receipts/', ''));
+    // Auto-fill form with AI analysis if adding a new receipt and file is analyzable
+    if (mode === 'add' && user && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      setIsUsingAI(true);
+      setAiProgress({ stage: 'Starting analysis...', progress: 0 });
+      
+      try {
+        // Upload file first to get a URL for analysis
+        const uploadedUrl = await uploadFile(file);
+        if (uploadedUrl) {
+          // Get public URL for analysis
+          const { data } = supabase.storage
+            .from('receipts')
+            .getPublicUrl(uploadedUrl.replace('https://your-supabase-url.supabase.co/storage/v1/object/public/receipts/', ''));
+          
+          if (data.publicUrl) {
+            const aiFormData = await quickAnalyzeReceipt(data.publicUrl);
             
-            if (data.publicUrl) {
-              const aiFormData = await quickAnalyzeReceipt(data.publicUrl);
+            if (aiFormData) {
+              setFormData(prev => ({
+                ...prev,
+                name: aiFormData.name || prev.name,
+                description: aiFormData.description || prev.description,
+                total_amount: aiFormData.total_amount?.toString() || prev.total_amount,
+                currency: aiFormData.currency || prev.currency,
+                receipt_date: aiFormData.receipt_date || prev.receipt_date,
+                merchant_name: aiFormData.merchant_name || prev.merchant_name,
+                category: aiFormData.category || prev.category,
+                tax_amount: aiFormData.tax_amount?.toString() || prev.tax_amount,
+                payment_method: aiFormData.payment_method || prev.payment_method,
+                is_business_expense: aiFormData.is_business_expense,
+                is_tax_deductible: aiFormData.is_tax_deductible,
+                notes: aiFormData.notes || prev.notes,
+              }));
               
-              if (aiFormData) {
-                setFormData(prev => ({
-                  ...prev,
-                  name: aiFormData.name || prev.name,
-                  description: aiFormData.description || prev.description,
-                  total_amount: aiFormData.total_amount?.toString() || prev.total_amount,
-                  currency: aiFormData.currency || prev.currency,
-                  receipt_date: aiFormData.receipt_date || prev.receipt_date,
-                  merchant_name: aiFormData.merchant_name || prev.merchant_name,
-                  category: aiFormData.category || prev.category,
-                  tax_amount: aiFormData.tax_amount?.toString() || prev.tax_amount,
-                  payment_method: aiFormData.payment_method || prev.payment_method,
-                  is_business_expense: aiFormData.is_business_expense,
-                  is_tax_deductible: aiFormData.is_tax_deductible,
-                  notes: aiFormData.notes || prev.notes,
-                }));
-                
-                toast({
-                  title: "AI Analysis Complete",
-                  description: "Form has been auto-filled with receipt data",
-                });
-              }
+              toast({
+                title: "AI Analysis Complete",
+                description: "Form has been auto-filled with receipt data",
+              });
             }
           }
-        } catch (error) {
-          console.error('AI analysis failed:', error);
-          toast({
-            title: "AI Analysis Failed",
-            description: "Unable to analyze receipt automatically. Please fill the form manually.",
-            variant: "destructive"
-          });
-        } finally {
-          setIsUsingAI(false);
-          setAiProgress({ stage: '', progress: 0 });
         }
+      } catch (error) {
+        console.error('AI analysis failed:', error);
+        toast({
+          title: "AI Analysis Failed",
+          description: "Unable to analyze receipt automatically. Please fill the form manually.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsUsingAI(false);
+        setAiProgress({ stage: '', progress: 0 });
       }
     }
   };
@@ -667,7 +712,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
             {!isReadOnly && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">Receipt Image</Label>
+                  <Label className="text-sm font-medium">Receipt File</Label>
                 {(isUsingAI || quickAnalyzing) && (
                   <Alert className="mt-2">
                     <Brain className="w-4 h-4 animate-pulse" />
@@ -688,45 +733,100 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
                 <div className="border-2 border-dashed border-border rounded-lg p-3 sm:p-4">
                   {previewUrl ? (
                     <div className="text-center space-y-2">
-                      <img 
-                        src={previewUrl} 
-                        alt="Receipt preview" 
-                        className="max-w-full max-h-32 sm:max-h-48 mx-auto rounded object-contain"
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setPreviewUrl(null);
-                          setSelectedFile(null);
-                        }}
-                        className="mt-2"
-                      >
-                        <X className="w-4 h-4 mr-2" />
-                        Remove
-                      </Button>
+                      {previewUrl === 'pdf-placeholder' ? (
+                        // PDF Preview
+                        <div className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-border rounded-lg bg-muted/30">
+                          <FileText className="w-12 h-12 text-red-500 mb-2" />
+                          <div className="text-sm font-medium">{selectedFile?.name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            PDF • {selectedFile && (selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                          </div>
+                        </div>
+                      ) : (
+                        // Image Preview
+                        <img 
+                          src={previewUrl} 
+                          alt="Receipt preview" 
+                          className="max-w-full max-h-32 sm:max-h-48 mx-auto rounded object-contain"
+                        />
+                      )}
+                      <div className="flex gap-2 justify-center">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (previewUrl && previewUrl !== 'pdf-placeholder') {
+                              URL.revokeObjectURL(previewUrl);
+                            }
+                            setPreviewUrl(null);
+                            setSelectedFile(null);
+                          }}
+                        >
+                          <X className="w-4 h-4 mr-2" />
+                          Remove
+                        </Button>
+                        
+                        {/* Replace file button */}
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          id="file-replace"
+                        />
+                        <Label htmlFor="file-replace" className="cursor-pointer">
+                          <Button variant="outline" size="sm" asChild>
+                            <span>
+                              <Upload className="w-4 h-4 mr-2" />
+                              Replace
+                            </span>
+                          </Button>
+                        </Label>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center">
-                      <Camera className="w-6 h-6 sm:w-8 sm:h-8 mx-auto text-muted-foreground mb-2" />
-                      <div className="text-xs sm:text-sm text-muted-foreground mb-2">
-                        Upload receipt image for AI analysis
+                      <div className="flex items-center justify-center gap-4 mb-4">
+                        <Camera className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+                        <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
                       </div>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                        id="file-upload"
-                      />
-                      <Label htmlFor="file-upload" className="cursor-pointer">
-                        <Button variant="outline" asChild size={isMobile ? "sm" : "default"}>
-                          <span>
-                            <Upload className="w-4 h-4 mr-2" />
-                            Choose Image
-                          </span>
+                      <div className="text-xs sm:text-sm text-muted-foreground mb-4">
+                        Upload receipt image or PDF document for AI analysis, or use camera to capture
+                      </div>
+                      
+                      <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                        {/* Camera Capture Button */}
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setShowCameraCapture(true)}
+                          size={isMobile ? "sm" : "default"}
+                          className="flex-1 sm:flex-initial"
+                        >
+                          <Camera className="w-4 h-4 mr-2" />
+                          {isMobile ? 'Camera' : 'Use Camera'}
                         </Button>
-                      </Label>
+                        
+                        {/* File Upload Button */}
+                        <Input
+                          type="file"
+                          accept="image/*,.pdf"
+                          onChange={handleFileSelect}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <Label htmlFor="file-upload" className="cursor-pointer flex-1 sm:flex-initial">
+                          <Button variant="outline" asChild size={isMobile ? "sm" : "default"} className="w-full">
+                            <span>
+                              <Upload className="w-4 h-4 mr-2" />
+                              {isMobile ? 'Upload' : 'Choose File'}
+                            </span>
+                          </Button>
+                        </Label>
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Supported: Images (JPG, PNG, WebP) and PDF documents
+                      </div>
                     </div>
                   )}
                   
@@ -741,7 +841,7 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
 
             {isReadOnly && receipt?.image_url && (
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Receipt Image</Label>
+                <Label className="text-sm font-medium">Receipt File</Label>
                 <img 
                   src={receipt.image_url} 
                   alt="Receipt" 
@@ -1097,6 +1197,15 @@ export function ReceiptDialog({ receipt, mode, trigger, open, onOpenChange }: Re
           )}
         </DialogFooter>
       </DialogContent>
+
+      {/* Camera Capture Dialog */}
+      <CameraCapture
+        isOpen={showCameraCapture}
+        onClose={() => setShowCameraCapture(false)}
+        onCapture={handleCameraCapture}
+        title="Capture Receipt"
+        description="Position the receipt within the camera frame and tap capture"
+      />
     </Dialog>
   );
 }
