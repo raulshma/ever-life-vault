@@ -230,6 +230,15 @@ pipeline {
             def googleClientId = readSecret('google-client-id')
             def googleClientSecret = readSecret('google-client-secret')
             def googleRedirectUri = readSecret('google-redirect-uri')
+            // Load optional Google API key (for e.g. Vision / Maps / Geocoding usage)
+            def googleApiKey = readSecret('google-api-key')
+            // Make the key available in the pipeline environment for later steps
+            env.GOOGLE_API_KEY = googleApiKey
+            if (!googleApiKey?.trim()) {
+              echo "Warning: Google API key not provided (credential id: 'google-api-key'). Features depending on GOOGLE_API_KEY will be disabled."
+            } else {
+              echo "Google API key loaded into pipeline environment (partial): ${googleApiKey.substring(0, Math.min(googleApiKey.length(), 8))}..."
+            }
             def msClientId = readSecret('ms-client-id')
             def msClientSecret = readSecret('ms-client-secret')
             def msRedirectUri = readSecret('ms-redirect-uri')
@@ -288,6 +297,7 @@ SUPABASE_SERVICE_ROLE_KEY=${supabaseServiceRoleKey}
 REDDIT_CLIENT_ID=${redditClientId}
 REDDIT_CLIENT_SECRET=${redditClientSecret}
 REDDIT_REDIRECT_URI=${redditRedirectUri}
+GOOGLE_API_KEY=${googleApiKey}
 GOOGLE_CLIENT_ID=${googleClientId}
 GOOGLE_CLIENT_SECRET=${googleClientSecret}
 GOOGLE_REDIRECT_URI=${googleRedirectUri}
