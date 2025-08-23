@@ -51,7 +51,7 @@ export interface ReceiptAIConfig {
   provider: AIProvider;
   model: string;
   api_key_source: APIKeySource;
-  custom_api_key?: string;
+  custom_endpoint?: string; // For custom providers
   enable_quick_analysis: boolean;
   enable_document_analysis: boolean;
   auto_categorization: boolean;
@@ -252,7 +252,7 @@ export const DEFAULT_RECEIPT_AI_CONFIG: ReceiptAIConfig = {
   provider: 'openrouter',
   model: 'openai/gpt-4o',
   api_key_source: 'system',
-  custom_api_key: undefined,
+  custom_endpoint: undefined,
   enable_quick_analysis: true,
   enable_document_analysis: true,
   auto_categorization: true,
@@ -370,8 +370,9 @@ export function validateReceiptAIConfig(config: Partial<ReceiptAIConfig>): {
     }
   }
 
-  if (config.api_key_source === 'user' && !config.custom_api_key) {
-    errors.push('Custom API key is required when using user-provided key');
+  if (config.api_key_source === 'user') {
+    // Note: API keys are now handled securely on the backend
+    // Frontend no longer validates API key presence
   }
 
   return {
@@ -394,14 +395,7 @@ export function isProviderConfigured(provider: AIProvider, config: ReceiptAIConf
 
   if (!providerInfo.requiresApiKey) return true;
   
-  if (config.api_key_source === 'system') {
-    // System key should be available (will be checked at runtime)
-    return true;
-  }
-  
-  if (config.api_key_source === 'user') {
-    return !!(config.custom_api_key?.trim());
-  }
-
-  return false;
+  // API key validation is now handled by the backend
+  // Frontend considers provider configured if source is selected
+  return config.api_key_source === 'system' || config.api_key_source === 'user';
 }

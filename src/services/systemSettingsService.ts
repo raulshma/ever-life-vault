@@ -257,7 +257,7 @@ export class SystemSettingsService {
         return [{
           feature_category: 'receipt_ai',
           setting_key: 'provider_config',
-          setting_value: DEFAULT_RECEIPT_AI_CONFIG as Record<string, unknown>,
+          setting_value: DEFAULT_RECEIPT_AI_CONFIG as any,
           is_encrypted: false
         }];
       
@@ -293,14 +293,14 @@ export class SystemSettingsService {
   }
 
   /**
-   * Validate and set receipt AI configuration
+   * Validate and set receipt AI configuration (without API keys)
    */
   async setReceiptAIConfig(config: Partial<ReceiptAIConfig>): Promise<{
     success: boolean;
     error?: string;
     validationErrors?: string[];
   }> {
-    // Validate the configuration
+    // Basic frontend validation
     const validation = validateReceiptAIConfig(config);
     if (!validation.isValid) {
       return {
@@ -310,45 +310,94 @@ export class SystemSettingsService {
       };
     }
 
-    // Get current config and merge with updates
-    const currentConfig = await this.getSetting<ReceiptAIConfig>('receipt_ai', 'provider_config');
-    const mergedConfig = {
-      ...DEFAULT_RECEIPT_AI_CONFIG,
-      ...currentConfig,
-      ...config
+    // Remove sensitive fields before sending to backend
+    const sanitizedConfig = {
+      provider: config.provider,
+      model: config.model,
+      use_system_key: config.api_key_source === 'system',
+      endpoint_url: config.custom_endpoint,
+      temperature: config.temperature,
+      max_tokens: config.max_tokens,
+      timeout_seconds: config.timeout_seconds,
+      retry_attempts: config.retry_attempts,
+      confidence_threshold: config.confidence_threshold,
+      enable_quick_analysis: config.enable_quick_analysis,
+      enable_document_analysis: config.enable_document_analysis,
+      auto_categorization: config.auto_categorization
     };
 
-    // Save the configuration
-    const result = await this.setSetting(
-      'receipt_ai',
-      'provider_config',
-      mergedConfig,
-      false // AI config contains sensitive data but we'll handle encryption separately for API keys
-    );
+    try {
+      const response = await fetch('/api/ai-providers/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify(sanitizedConfig)
+      });
 
-    if (!result.success) {
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.error || 'Failed to save configuration',
+          validationErrors: result.validation_errors
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
       return {
         success: false,
-        error: result.error
+        error: error instanceof Error ? error.message : 'Network error'
       };
     }
-
-    return { success: true };
   }
 
   /**
-   * Get receipt AI configuration with defaults
+   * Get receipt AI configuration (without sensitive API keys)
    */
   async getReceiptAIConfig(): Promise<ReceiptAIConfig> {
-    const config = await this.getSetting<ReceiptAIConfig>('receipt_ai', 'provider_config');
-    return {
-      ...DEFAULT_RECEIPT_AI_CONFIG,
-      ...config
-    };
+    try {
+      const response = await fetch('/api/ai-providers/config', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        // Fallback to default if API fails
+        return DEFAULT_RECEIPT_AI_CONFIG;
+      }
+
+      const config = await response.json();
+      
+      // Convert backend format to frontend format
+      return {
+        ...DEFAULT_RECEIPT_AI_CONFIG,
+        provider: config.provider,
+        model: config.model,
+        api_key_source: config.use_system_key ? 'system' : 'user',
+        custom_endpoint: config.endpoint_url,
+        temperature: config.temperature,
+        max_tokens: config.max_tokens,
+        timeout_seconds: config.timeout_seconds,
+        retry_attempts: config.retry_attempts,
+        confidence_threshold: config.confidence_threshold,
+        enable_quick_analysis: config.enable_quick_analysis,
+        enable_document_analysis: config.enable_document_analysis,
+        auto_categorization: config.auto_categorization
+      };
+    } catch (error) {
+      console.error('Failed to load receipt AI config:', error);
+      return DEFAULT_RECEIPT_AI_CONFIG;
+    }
   }
 
   /**
-   * Test AI provider connection with comprehensive validation
+   * Test AI provider connection with comprehensive validation (using backend)
    */
   async testAIProviderConnection(config: ReceiptAIConfig): Promise<{
     success: boolean;
@@ -361,239 +410,144 @@ export class SystemSettingsService {
       modelAvailable: boolean;
     };
   }> {
-    const startTime = Date.now();
-    const details = {
-      configurationValid: false,
-      apiKeyPresent: false,
-      providerReachable: false,
-      modelAvailable: false
-    };
-
     try {
-      // Step 1: Validate configuration
-      const validation = validateReceiptAIConfig(config);
-      if (!validation.isValid) {
-        return {
-          success: false,
-          error: `Configuration invalid: ${validation.errors.join(', ')}`,
-          details
-        };
-      }
-      details.configurationValid = true;
-
-      // Step 2: Check API key availability
-      const hasApiKey = this.checkAPIKeyAvailability(config);
-      if (!hasApiKey.available) {
-        return {
-          success: false,
-          error: hasApiKey.error,
-          details
-        };
-      }
-      details.apiKeyPresent = true;
-
-      // Step 3: Test provider-specific connection
-      const connectionTest = await this.testProviderConnection(config);
-      if (!connectionTest.success) {
-        return {
-          success: false,
-          error: connectionTest.error,
-          latency: Date.now() - startTime,
-          details
-        };
-      }
-      details.providerReachable = true;
-      details.modelAvailable = true;
-
-      const latency = Date.now() - startTime;
-      return {
-        success: true,
-        latency,
-        details
+      const testData = {
+        provider: config.provider,
+        model: config.model,
+        use_system_key: config.api_key_source === 'system',
+        endpoint_url: config.custom_endpoint
       };
+
+      const response = await fetch('/api/ai-providers/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify(testData)
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.error || 'Connection test failed'
+        };
+      }
+
+      return result;
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        latency: Date.now() - startTime,
-        details
+        error: error instanceof Error ? error.message : 'Network error'
       };
     }
   }
 
   /**
-   * Check if API key is available for the configuration
+   * Store user API key securely on backend
    */
-  private checkAPIKeyAvailability(config: ReceiptAIConfig): {
-    available: boolean;
-    error?: string;
-  } {
-    // Check if provider requires API key
-    const providerInfo = AI_PROVIDERS[config.provider];
-    if (!providerInfo?.requiresApiKey) {
-      return { available: true };
-    }
-
-    // Check system API key availability
-    if (config.api_key_source === 'system') {
-      const systemKey = this.getSystemAPIKey(config.provider);
-      if (!systemKey) {
-        return {
-          available: false,
-          error: `No system API key configured for ${providerInfo.name}`
-        };
-      }
-      return { available: true };
-    }
-
-    // Check user API key
-    if (config.api_key_source === 'user') {
-      if (!config.custom_api_key || config.custom_api_key.trim() === '') {
-        return {
-          available: false,
-          error: 'Custom API key is required but not provided'
-        };
-      }
-      return { available: true };
-    }
-
-    return {
-      available: false,
-      error: 'Invalid API key source configuration'
-    };
-  }
-
-  /**
-   * Get system API key for a provider
-   */
-  private getSystemAPIKey(provider: string): string | null {
-    // In a real implementation, this would check environment variables
-    // or secure storage for system-wide API keys
-    switch (provider) {
-      case 'google':
-        return process.env.GOOGLE_API_KEY || null;
-      case 'openrouter':
-        return process.env.OPENROUTER_API_KEY || null;
-      default:
-        return null;
-    }
-  }
-
-  /**
-   * Test connection to specific AI provider
-   */
-  private async testProviderConnection(config: ReceiptAIConfig): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
+  async storeAPIKey(provider: string, apiKey: string, endpointUrl?: string): Promise<{ success: boolean; error?: string }> {
     try {
-      switch (config.provider) {
-        case 'google':
-          return await this.testGoogleConnection(config);
-        case 'openrouter':
-          return await this.testOpenRouterConnection(config);
-        case 'custom':
-          return await this.testCustomConnection(config);
-        default:
-          return {
-            success: false,
-            error: `Unsupported provider: ${config.provider}`
-          };
+      const body: any = { provider, api_key: apiKey };
+      if (endpointUrl) {
+        body.endpoint_url = endpointUrl;
       }
+
+      const response = await fetch('/api/ai-providers/api-keys', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.error || 'Failed to store API key'
+        };
+      }
+
+      return { success: true };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Connection test failed'
+        error: error instanceof Error ? error.message : 'Network error'
       };
     }
   }
 
   /**
-   * Test Google AI connection
+   * Delete user API key from backend
    */
-  private async testGoogleConnection(config: ReceiptAIConfig): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
-    // For Google, we would typically make a simple API call to verify the key
-    // This is a simplified test - in production, you'd make an actual API call
-    const apiKey = config.api_key_source === 'user' 
-      ? config.custom_api_key 
-      : this.getSystemAPIKey('google');
+  async deleteAPIKey(provider: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch(`/api/ai-providers/api-keys/${provider}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
 
-    if (!apiKey) {
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          error: result.error || 'Failed to delete API key'
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
       return {
         success: false,
-        error: 'Google API key not available'
+        error: error instanceof Error ? error.message : 'Network error'
       };
     }
-
-    // Simulate API validation
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    // Basic API key format validation for Google
-    if (!apiKey.startsWith('AIza') || apiKey.length < 35) {
-      return {
-        success: false,
-        error: 'Invalid Google API key format'
-      };
-    }
-
-    return { success: true };
   }
 
   /**
-   * Test OpenRouter connection
+   * Check API key status for a provider
    */
-  private async testOpenRouterConnection(config: ReceiptAIConfig): Promise<{
-    success: boolean;
+  async getAPIKeyStatus(provider: string): Promise<{
+    hasUserKey: boolean;
+    hasSystemKey: boolean;
     error?: string;
   }> {
-    const apiKey = config.api_key_source === 'user' 
-      ? config.custom_api_key 
-      : this.getSystemAPIKey('openrouter');
+    try {
+      const response = await fetch(`/api/ai-providers/api-keys/${provider}/status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
 
-    if (!apiKey) {
+      if (!response.ok) {
+        return {
+          hasUserKey: false,
+          hasSystemKey: false,
+          error: 'Failed to check API key status'
+        };
+      }
+
+      const result = await response.json();
       return {
-        success: false,
-        error: 'OpenRouter API key not available'
+        hasUserKey: result.has_user_key,
+        hasSystemKey: result.has_system_key
+      };
+    } catch (error) {
+      return {
+        hasUserKey: false,
+        hasSystemKey: false,
+        error: error instanceof Error ? error.message : 'Network error'
       };
     }
-
-    // Simulate API validation
-    await new Promise(resolve => setTimeout(resolve, 400));
-    
-    // Basic API key format validation for OpenRouter
-    if (!apiKey.startsWith('sk-or-') || apiKey.length < 20) {
-      return {
-        success: false,
-        error: 'Invalid OpenRouter API key format'
-      };
-    }
-
-    return { success: true };
-  }
-
-  /**
-   * Test custom provider connection
-   */
-  private async testCustomConnection(config: ReceiptAIConfig): Promise<{
-    success: boolean;
-    error?: string;
-  }> {
-    // For custom providers, we would need the endpoint URL and other details
-    // This is a placeholder implementation
-    if (!config.custom_endpoint) {
-      return {
-        success: false,
-        error: 'Custom endpoint URL is required'
-      };
-    }
-
-    // Simulate connection test
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    return { success: true };
   }
 
   /**
@@ -618,12 +572,19 @@ export class SystemSettingsService {
     if (!providerInfo) {
       errors.push(`Unknown provider: ${config.provider}`);
     } else {
-      // Check if provider requires API key
-      if (providerInfo.requiresApiKey) {
-        const keyCheck = this.checkAPIKeyAvailability(config);
-        if (!keyCheck.available) {
-          errors.push(keyCheck.error || 'API key not available');
+      // Check API key availability through backend
+      try {
+        const keyStatus = await this.getAPIKeyStatus(config.provider);
+        
+        if (config.api_key_source === 'system' && !keyStatus.hasSystemKey) {
+          errors.push('System API key not available');
         }
+        
+        if (config.api_key_source === 'user' && !keyStatus.hasUserKey) {
+          errors.push('User API key not configured');
+        }
+      } catch (error) {
+        warnings.push('Could not verify API key availability');
       }
 
       // Model availability check
@@ -639,25 +600,21 @@ export class SystemSettingsService {
     }
 
     // Performance warnings
-    if (config.timeout_seconds < 30) {
+    if (config.timeout_seconds && config.timeout_seconds < 30) {
       warnings.push('Timeout is set quite low - may cause issues with complex receipts');
     }
     
-    if (config.retry_attempts > 5) {
+    if (config.retry_attempts && config.retry_attempts > 5) {
       warnings.push('High retry count may cause slow responses');
     }
 
-    if (config.confidence_threshold < 0.5) {
+    if (config.confidence_threshold && config.confidence_threshold < 0.5) {
       warnings.push('Low confidence threshold may result in inaccurate results');
     }
 
     // Feature recommendations
     if (!config.enable_quick_analysis && !config.enable_document_analysis) {
       warnings.push('Both quick and document analysis are disabled');
-    }
-
-    if (!config.fallback_provider && providerInfo?.reliability !== 'high') {
-      recommendations.push('Consider configuring a fallback provider for better reliability');
     }
 
     return {

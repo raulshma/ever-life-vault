@@ -29,7 +29,7 @@ export function useErrorHandling() {
     const infrastructureError = parseErrorFromResponse(error);
     
     // Log error if requested (default: true in development)
-    if (options.logError !== false && process.env.NODE_ENV === 'development') {
+    if (options.logError !== false && import.meta.env.DEV) {
       console.error('Infrastructure Error:', infrastructureError, error);
     }
     

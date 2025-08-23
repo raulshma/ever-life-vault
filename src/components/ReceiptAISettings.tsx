@@ -51,16 +51,14 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
     getProviderModels,
     isProviderConfigured,
     testConnection,
-    validateCurrentConfig,
-    updateAPIKey,
-    clearAPIKey,
-    hasCustomAPIKey
+    validateCurrentConfig
   } = useAISettings();
   
   const { systemSettingsService } = useSettings();
 
   const [showAPIKey, setShowAPIKey] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [endpointInput, setEndpointInput] = useState('');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<{ 
     success: boolean; 
@@ -80,6 +78,21 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
     warnings: string[];
     recommendations: string[];
   } | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<{
+    hasUserKey: boolean;
+    hasSystemKey: boolean;
+  }>({ hasUserKey: false, hasSystemKey: false });
+
+  // Load API key status when provider changes
+  useEffect(() => {
+    if (systemSettingsService && config.provider) {
+      systemSettingsService.getAPIKeyStatus(config.provider).then(status => {
+        if (!status.error) {
+          setApiKeyStatus(status);
+        }
+      });
+    }
+  }, [config.provider, systemSettingsService]);
 
   // Notify parent about unsaved changes
   useEffect(() => {
@@ -98,19 +111,46 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
   };
 
   // Handle API key update
-  const handleAPIKeyUpdate = () => {
-    if (apiKeyInput.trim()) {
-      updateAPIKey(apiKeyInput.trim());
-      setApiKeyInput('');
-      setShowAPIKey(false);
+  const handleAPIKeyUpdate = async () => {
+    if (!apiKeyInput.trim()) return;
+    
+    if (systemSettingsService) {
+      const result = await systemSettingsService.storeAPIKey(
+        config.provider, 
+        apiKeyInput.trim(),
+        config.provider === 'custom' ? endpointInput.trim() || undefined : undefined
+      );
+      
+      if (result.success) {
+        // Update local state
+        setApiKeyStatus(prev => ({ ...prev, hasUserKey: true }));
+        updateConfig({ api_key_source: 'user' });
+        setApiKeyInput('');
+        setEndpointInput('');
+        setShowAPIKey(false);
+        setConnectionResult(null);
+      } else {
+        console.error('Failed to store API key:', result.error);
+      }
     }
   };
 
   // Handle API key clear
-  const handleAPIKeyClear = () => {
-    clearAPIKey();
-    setApiKeyInput('');
-    setConnectionResult(null);
+  const handleAPIKeyClear = async () => {
+    if (systemSettingsService) {
+      const result = await systemSettingsService.deleteAPIKey(config.provider);
+      
+      if (result.success) {
+        // Update local state
+        setApiKeyStatus(prev => ({ ...prev, hasUserKey: false }));
+        updateConfig({ api_key_source: 'system' });
+        setApiKeyInput('');
+        setEndpointInput('');
+        setConnectionResult(null);
+      } else {
+        console.error('Failed to delete API key:', result.error);
+      }
+    }
   };
 
   // Test connection with detailed validation
@@ -243,8 +283,7 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
                     checked={config.api_key_source === 'system'}
                     onCheckedChange={(checked) => {
                       updateConfig({ 
-                        api_key_source: checked ? 'system' : 'user',
-                        custom_api_key: checked ? undefined : config.custom_api_key
+                        api_key_source: checked ? 'system' : 'user'
                       });
                     }}
                   />
@@ -254,7 +293,7 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
                 {config.api_key_source === 'user' && (
                   <div className="space-y-3 p-4 border rounded-lg">
                     <Label>Custom API Key</Label>
-                    {hasCustomAPIKey ? (
+                    {apiKeyStatus.hasUserKey ? (
                       <div className="flex items-center gap-2">
                         <Input
                           type="password"
@@ -272,6 +311,18 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
                       </div>
                     ) : (
                       <div className="space-y-2">
+                        {config.provider === 'custom' && (
+                          <div>
+                            <Label>Endpoint URL</Label>
+                            <Input
+                              type="url"
+                              placeholder="https://your-api-endpoint.com"
+                              value={endpointInput}
+                              onChange={(e) => setEndpointInput(e.target.value)}
+                              className="mb-2"
+                            />
+                          </div>
+                        )}
                         <div className="flex items-center gap-2">
                           <Input
                             type={showAPIKey ? "text" : "password"}
@@ -290,13 +341,13 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
                           <Button
                             size="sm"
                             onClick={handleAPIKeyUpdate}
-                            disabled={!apiKeyInput.trim()}
+                            disabled={!apiKeyInput.trim() || (config.provider === 'custom' && !endpointInput.trim())}
                           >
                             Save
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Your API key will be securely encrypted and stored.
+                          Your API key will be securely encrypted and stored on the server.
                         </p>
                       </div>
                     )}
@@ -310,7 +361,8 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
           <div className="space-y-3">
             <Label>Configuration Status</Label>
             <div className="flex items-center gap-2">
-              {isProviderConfigured() ? (
+              {(config.api_key_source === 'system' && apiKeyStatus.hasSystemKey) || 
+               (config.api_key_source === 'user' && apiKeyStatus.hasUserKey) ? (
                 <>
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span className="text-sm text-green-700 dark:text-green-400">
@@ -321,7 +373,10 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
                 <>
                   <AlertCircle className="h-4 w-4 text-orange-500" />
                   <span className="text-sm text-orange-700 dark:text-orange-400">
-                    Configuration incomplete
+                    {config.api_key_source === 'system' 
+                      ? 'System API key not available'
+                      : 'User API key not configured'
+                    }
                   </span>
                 </>
               )}
@@ -350,7 +405,9 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
                 variant="outline"
                 size="sm"
                 onClick={handleTestConnection}
-                disabled={isTestingConnection || !isProviderConfigured()}
+                disabled={isTestingConnection || 
+                  !((config.api_key_source === 'system' && apiKeyStatus.hasSystemKey) ||
+                    (config.api_key_source === 'user' && apiKeyStatus.hasUserKey))}
               >
                 {isTestingConnection ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />

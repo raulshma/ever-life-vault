@@ -37,11 +37,6 @@ export interface UseAISettingsReturn {
   // Testing and validation
   testConnection: () => Promise<{ success: boolean; error?: string; latency?: number }>;
   validateCurrentConfig: () => { isValid: boolean; errors: string[] };
-  
-  // API key management
-  updateAPIKey: (apiKey: string) => void;
-  clearAPIKey: () => void;
-  hasCustomAPIKey: boolean;
 }
 
 export function useAISettings(): UseAISettingsReturn {
@@ -218,25 +213,6 @@ export function useAISettings(): UseAISettingsReturn {
     return validateReceiptAIConfig(localConfig);
   }, [localConfig]);
 
-  // Update API key
-  const updateAPIKey = useCallback((apiKey: string) => {
-    updateConfig({
-      api_key_source: 'user',
-      custom_api_key: apiKey.trim() || undefined
-    });
-  }, [updateConfig]);
-
-  // Clear API key
-  const clearAPIKey = useCallback(() => {
-    updateConfig({
-      api_key_source: 'system',
-      custom_api_key: undefined
-    });
-  }, [updateConfig]);
-
-  // Check if has custom API key
-  const hasCustomAPIKey = localConfig.api_key_source === 'user' && !!localConfig.custom_api_key;
-
   return {
     // Configuration state
     config: localConfig,
@@ -260,12 +236,7 @@ export function useAISettings(): UseAISettingsReturn {
     
     // Testing and validation
     testConnection,
-    validateCurrentConfig,
-    
-    // API key management
-    updateAPIKey,
-    clearAPIKey,
-    hasCustomAPIKey
+    validateCurrentConfig
   };
 }
 

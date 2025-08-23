@@ -22,6 +22,7 @@ import { getLLMDataService } from './routes/llm.js'
 import authRoutes from './routes/auth.js'
 import { registerSshRoutes } from './routes/ssh.js'
 import { registerReceiptRoutes } from './routes/receipts.js'
+import { registerApiKeyRoutes } from './routes/api-keys.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -131,6 +132,20 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // SSH/WebTerminal routes (authenticated over Supabase JWT)
   registerSshRoutes(server, { requireSupabaseUser })
+
+  // Secure API key management routes
+  if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {
+    registerApiKeyRoutes(server, {
+      requireSupabaseUser,
+      SUPABASE_URL: env.SUPABASE_URL,
+      SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY,
+      GOOGLE_API_KEY: env.GOOGLE_API_KEY,
+      OPENROUTER_API_KEY: env.OPENROUTER_API_KEY,
+    })
+    server.log.info('Secure API key management routes registered')
+  } else {
+    server.log.warn('Skipping API key routes: SUPABASE_URL or SUPABASE_ANON_KEY not configured')
+  }
 
   // Receipt management routes with AI analysis
   if (env.SUPABASE_URL && env.SUPABASE_ANON_KEY) {

@@ -4,6 +4,8 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { createSupabaseClient } from '../auth/supabase.js'
 import { ReceiptAnalysisService } from '../services/ReceiptAnalysisService.js'
 import { EnhancedReceiptAnalysisService, AIProviderConfig } from '../services/EnhancedReceiptAnalysisService.js'
+import { SystemSettingsService } from '../services/SystemSettingsService.js'
+import { SecretsService } from '../services/SecretsService.js'
 
 // Helper function to get user's AI configuration from system settings
 async function getUserAIConfig(
@@ -12,16 +14,13 @@ async function getUserAIConfig(
   fallbackConfig: { googleApiKey?: string; openRouterApiKey?: string }
 ): Promise<AIProviderConfig | null> {
   try {
-    // Get user's AI configuration from system_settings table
-    const { data: settings, error } = await supabase
-      .from('system_settings')
-      .select('setting_value')
-      .eq('user_id', userId)
-      .eq('feature_category', 'receipt_ai')
-      .eq('setting_key', 'provider_config')
-      .single()
-
-    if (error || !settings) {
+    const systemSettingsService = new SystemSettingsService(supabase);
+    const secretsService = new SecretsService(supabase);
+    
+    // Get user's AI configuration
+    const config = await systemSettingsService.getReceiptAIConfig();
+    
+    if (!config) {
       // Fall back to default Google configuration if no user settings
       if (fallbackConfig.googleApiKey) {
         return {
@@ -35,34 +34,32 @@ async function getUserAIConfig(
       }
       return null
     }
-
-    const config = settings.setting_value as any
     
-    // Determine API key based on user's configuration
-    let apiKey: string | undefined
-    
-    if (config.api_key_source === 'system') {
-      // Use system-provided API key
-      if (config.provider === 'google' && fallbackConfig.googleApiKey) {
-        apiKey = fallbackConfig.googleApiKey
-      } else if (config.provider === 'openrouter' && fallbackConfig.openRouterApiKey) {
-        apiKey = fallbackConfig.openRouterApiKey
-      }
-    } else if (config.api_key_source === 'user' && config.custom_api_key) {
-      // Use user-provided API key (should be decrypted here in production)
-      apiKey = config.custom_api_key
-    }
+    // Get API key securely
+    const apiKey = await systemSettingsService.getProviderAPIKey(
+      config.provider,
+      userId,
+      config.use_system_key,
+      { google: fallbackConfig.googleApiKey, openrouter: fallbackConfig.openRouterApiKey }
+    );
 
     if (!apiKey) {
-      console.warn(`No API key available for provider ${config.provider}`)
-      return null
+      console.warn(`No API key available for provider ${config.provider}`);
+      return null;
+    }
+
+    // Get endpoint URL for custom providers
+    let endpointUrl: string | undefined;
+    if (config.provider === 'custom') {
+      const endpoint = await systemSettingsService.getProviderEndpoint(config.provider, userId);
+      endpointUrl = endpoint || undefined;
     }
 
     return {
       provider: config.provider,
       model: config.model,
       apiKey,
-      baseUrl: config.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : undefined,
+      baseUrl: config.provider === 'openrouter' ? 'https://openrouter.ai/api/v1' : endpointUrl,
       temperature: config.temperature || 0.1,
       maxTokens: config.max_tokens,
       timeout: (config.timeout_seconds || 60) * 1000,
