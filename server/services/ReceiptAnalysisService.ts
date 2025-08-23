@@ -1,4 +1,4 @@
-import { google } from '@ai-sdk/google'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { generateObject } from 'ai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -68,10 +68,14 @@ export type ReceiptAnalysisResult = z.infer<typeof ReceiptAnalysisSchema>
 export class ReceiptAnalysisService {
   private supabase: SupabaseClient
   private googleApiKey: string
+  private googleProvider: any
 
   constructor(supabase: SupabaseClient, googleApiKey: string) {
     this.supabase = supabase
     this.googleApiKey = googleApiKey
+    this.googleProvider = createGoogleGenerativeAI({
+      apiKey: googleApiKey,
+    })
   }
 
   /**
@@ -105,9 +109,7 @@ export class ReceiptAnalysisService {
 
       // Use Vercel AI SDK with Google Gemini to analyze the receipt
       const result = await generateObject({
-        model: google(model, {
-          apiKey: this.googleApiKey,
-        }),
+        model: this.googleProvider(model),
         messages: [
           {
             role: 'user',
