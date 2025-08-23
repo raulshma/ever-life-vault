@@ -354,19 +354,24 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
             def deployTarget = env.DEPLOY_DIR ?: 'N/A'
             def publicUrl = env.PUBLIC_BASE_URL ?: 'N/A'
             def triggeredBy = 'N/A'
+            def ws = env.WORKSPACE ?: '.'
 
             // Ensure these exist even if git info collection fails
             def changedCount = 0
             def changedPreview = 'N/A'
             try {
-              // Git info (make commands tolerant when workspace isn't a git repo)
-              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD || true').trim()
-              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD || true').trim()
-              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD || true').trim()
-              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>' || true").trim()
-              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s || true").trim()
-              remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url || true').trim()
+              // Git info (force path to workspace to avoid CWD issues)
+              commitShort = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --short HEAD || true").trim()
+              commitFull = sh(returnStdout: true, script: "git -C '${ws}' rev-parse HEAD || true").trim()
+              branch = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --abbrev-ref HEAD || true").trim()
+              author = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:'%an <%ae>' || true").trim()
+              commitMsg = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:%s || true").trim()
+              remoteUrl = sh(returnStdout: true, script: "git -C '${ws}' config --get remote.origin.url || true").trim()
               if (remoteUrl) {
+                // Strip any embedded credentials to avoid leaking tokens in notifications
+                try {
+                  remoteUrl = remoteUrl.replaceFirst('https?://[^@]+@', 'https://')
+                } catch (ignore) { }
                 if (remoteUrl.startsWith('git@')) {
                   remoteUrl = remoteUrl.replaceFirst('git@github.com:', 'https://github.com/')
                 }
@@ -379,7 +384,7 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
               }
 
               // Changed files in the last commit (full list may be long)
-              changedFiles = sh(returnStdout: true, script: "git show --name-only --pretty=\"\" HEAD || true").trim()
+              changedFiles = sh(returnStdout: true, script: "git -C '${ws}' show --name-only --pretty=\"\" HEAD || true").trim()
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
               changedCount = changedList.size()
@@ -394,28 +399,8 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
               }
 
               // Who triggered the build (prefer env vars provided by common plugins to avoid Script Security approvals)
-              try {
-                // Common env vars provided by build-user-vars-plugin or multibranch/PR plugins
-                triggeredBy = env.BUILD_USER ?: env.BUILD_USER_ID ?: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR ?: env.ghprbTriggerAuthor ?: env.ghprbCommentAuthor ?: triggeredBy
-                // Fallback: try causes only if env data not available (this may require script approval in sandboxed Jenkins)
-                if (!triggeredBy || triggeredBy == 'N/A') {
-                  try {
-                    def causes = currentBuild.rawBuild.getCauses()
-                    if (causes && causes.size() > 0) {
-                      def first = causes[0]
-                      if (first.respondsTo('getUserName')) {
-                        triggeredBy = first.getUserName()
-                      } else {
-                        triggeredBy = first.toString()
-                      }
-                    }
-                  } catch (inner) {
-                    // ignore and leave triggeredBy as-is
-                  }
-                }
-              } catch (u) {
-                // ignore
-              }
+              // Common env vars provided by build-user-vars-plugin or multibranch/PR plugins
+              triggeredBy = env.BUILD_USER ?: env.BUILD_USER_ID ?: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR ?: env.ghprbTriggerAuthor ?: env.ghprbCommentAuthor ?: triggeredBy
 
               // Parameters summary
               try {
@@ -426,7 +411,7 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
 
               // Docker image info (if docker available on agent)
               try {
-                imagesInfo = sh(returnStdout: true, script: "docker images ${env.APP_NAME} --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' || true").trim()
+                imagesInfo = sh(returnStdout: true, script: "docker images --filter reference='${env.APP_NAME}/*' --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' || true").trim()
               } catch (di) {
                 imagesInfo = 'N/A'
               }
@@ -508,19 +493,24 @@ ${changedPreview}
             def deployTarget = env.DEPLOY_DIR ?: 'N/A'
             def publicUrl = env.PUBLIC_BASE_URL ?: 'N/A'
             def triggeredBy = 'N/A'
+            def ws = env.WORKSPACE ?: '.'
 
             // Ensure these exist even if git info collection fails
             def changedCount = 0
             def changedPreview = 'N/A'
             try {
-              // Git info (make commands tolerant when workspace isn't a git repo)
-              commitShort = sh(returnStdout: true, script: 'git rev-parse --short HEAD || true').trim()
-              commitFull = sh(returnStdout: true, script: 'git rev-parse HEAD || true').trim()
-              branch = sh(returnStdout: true, script: 'git rev-parse --abbrev-ref HEAD || true').trim()
-              author = sh(returnStdout: true, script: "git log -1 --pretty=format:'%an <%ae>' || true").trim()
-              commitMsg = sh(returnStdout: true, script: "git log -1 --pretty=format:%s || true").trim()
-              remoteUrl = sh(returnStdout: true, script: 'git config --get remote.origin.url || true').trim()
+              // Git info (force path to workspace to avoid CWD issues)
+              commitShort = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --short HEAD || true").trim()
+              commitFull = sh(returnStdout: true, script: "git -C '${ws}' rev-parse HEAD || true").trim()
+              branch = sh(returnStdout: true, script: "git -C '${ws}' rev-parse --abbrev-ref HEAD || true").trim()
+              author = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:'%an <%ae>' || true").trim()
+              commitMsg = sh(returnStdout: true, script: "git -C '${ws}' log -1 --pretty=format:%s || true").trim()
+              remoteUrl = sh(returnStdout: true, script: "git -C '${ws}' config --get remote.origin.url || true").trim()
               if (remoteUrl) {
+                // Strip any embedded credentials to avoid leaking tokens in notifications
+                try {
+                  remoteUrl = remoteUrl.replaceFirst('https?://[^@]+@', 'https://')
+                } catch (ignore) { }
                 if (remoteUrl.startsWith('git@')) {
                   remoteUrl = remoteUrl.replaceFirst('git@github.com:', 'https://github.com/')
                 }
@@ -533,7 +523,7 @@ ${changedPreview}
               }
 
               // Changed files in the last commit (full list may be long)
-              changedFiles = sh(returnStdout: true, script: "git show --name-only --pretty=\"\" HEAD || true").trim()
+              changedFiles = sh(returnStdout: true, script: "git -C '${ws}' show --name-only --pretty=\"\" HEAD || true").trim()
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
               changedCount = changedList.size()
@@ -548,28 +538,8 @@ ${changedPreview}
               }
 
               // Who triggered the build (prefer env vars provided by common plugins to avoid Script Security approvals)
-              try {
-                // Common env vars provided by build-user-vars-plugin or multibranch/PR plugins
-                triggeredBy = env.BUILD_USER ?: env.BUILD_USER_ID ?: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR ?: env.ghprbTriggerAuthor ?: env.ghprbCommentAuthor ?: triggeredBy
-                // Fallback: try causes only if env data not available (this may require script approval in sandboxed Jenkins)
-                if (!triggeredBy || triggeredBy == 'N/A') {
-                  try {
-                    def causes = currentBuild.rawBuild.getCauses()
-                    if (causes && causes.size() > 0) {
-                      def first = causes[0]
-                      if (first.respondsTo('getUserName')) {
-                        triggeredBy = first.getUserName()
-                      } else {
-                        triggeredBy = first.toString()
-                      }
-                    }
-                  } catch (inner) {
-                    // ignore and leave triggeredBy as-is
-                  }
-                }
-              } catch (u) {
-                // ignore
-              }
+              // Common env vars provided by build-user-vars-plugin or multibranch/PR plugins
+              triggeredBy = env.BUILD_USER ?: env.BUILD_USER_ID ?: env.BUILD_USER_EMAIL ?: env.CHANGE_AUTHOR ?: env.ghprbTriggerAuthor ?: env.ghprbCommentAuthor ?: triggeredBy
 
               // Parameters summary
               try {
@@ -580,7 +550,7 @@ ${changedPreview}
 
               // Docker image info (if docker available on agent)
               try {
-                imagesInfo = sh(returnStdout: true, script: "docker images ${env.APP_NAME} --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' || true").trim()
+                imagesInfo = sh(returnStdout: true, script: "docker images --filter reference='${env.APP_NAME}/*' --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' || true").trim()
               } catch (di) {
                 imagesInfo = 'N/A'
               }
