@@ -589,12 +589,60 @@ export function registerReceiptRoutes(
           ...body,
           receipt_id: id,
           user_id: user.id,
+          analysis_status: 'pending'
         })
         .select()
         .single()
 
       if (error) {
         return reply.code(500).send({ error: 'Failed to create receipt document', details: error.message })
+      }
+
+      // Trigger AI analysis if enabled and document is an image or PDF
+      if (GOOGLE_API_KEY && data && (data.mime_type?.startsWith('image/') || data.mime_type === 'application/pdf')) {
+        try {
+          // Get public URL for analysis
+          const { data: urlData } = authenticatedSupabase.storage
+            .from('receipt-documents')
+            .getPublicUrl(data.file_path)
+          
+          if (urlData.publicUrl) {
+            // Initialize analysis service and analyze document
+            const analysisService = new ReceiptAnalysisService(authenticatedSupabase, GOOGLE_API_KEY)
+            
+            // Start analysis in background (don't wait for completion)
+            analysisService.analyzeDocument(
+              urlData.publicUrl,
+              data.document_type as any
+            ).then(async (analysisResult) => {
+              // Update document with analysis results
+              await analysisService.updateDocumentWithAnalysis(data.id, analysisResult)
+              
+              // Update status to completed
+              await authenticatedSupabase
+                .from('receipt_documents')
+                .update({ analysis_status: 'completed' })
+                .eq('id', data.id)
+            }).catch(async (error) => {
+              console.error('Document analysis failed:', error)
+              
+              // Update status to failed
+              await authenticatedSupabase
+                .from('receipt_documents')
+                .update({ analysis_status: 'failed' })
+                .eq('id', data.id)
+            })
+            
+            // Update status to processing
+            await authenticatedSupabase
+              .from('receipt_documents')
+              .update({ analysis_status: 'processing' })
+              .eq('id', data.id)
+          }
+        } catch (analysisError) {
+          console.error('Failed to initiate document analysis:', analysisError)
+          // Don't fail the document creation if analysis fails
+        }
       }
 
       return reply.code(201).send({ document: data })
@@ -673,6 +721,149 @@ export function registerReceiptRoutes(
       }
 
       return reply.code(204).send()
+    } catch (error: unknown) {
+      server.log.error(error)
+      return reply.code(500).send({ error: 'Internal server error' })
+    }
+  })
+
+  // POST /api/receipts/:id/documents/:docId/analyze - Analyze specific document
+  server.post('/api/receipts/:id/documents/:docId/analyze', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    const { id, docId } = request.params as { id: string; docId: string }
+
+    if (!GOOGLE_API_KEY) {
+      return reply.code(503).send({ error: 'AI analysis service not configured' })
+    }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      // Get document and verify ownership
+      const { data: document, error: docError } = await authenticatedSupabase
+        .from('receipt_documents')
+        .select('*')
+        .eq('id', docId)
+        .eq('receipt_id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (docError) {
+        if (docError.code === 'PGRST116') {
+          return reply.code(404).send({ error: 'Document not found' })
+        }
+        return reply.code(500).send({ error: 'Failed to fetch document', details: docError.message })
+      }
+
+      if (document.analysis_status === 'processing') {
+        return reply.code(409).send({ error: 'Analysis already in progress' })
+      }
+
+      // Get public URL for the document
+      const { data: urlData } = authenticatedSupabase.storage
+        .from('receipt-documents')
+        .getPublicUrl(document.file_path)
+
+      if (!urlData.publicUrl) {
+        return reply.code(500).send({ error: 'Failed to get document URL' })
+      }
+
+      // Update status to processing
+      await authenticatedSupabase
+        .from('receipt_documents')
+        .update({ analysis_status: 'processing' })
+        .eq('id', docId)
+
+      // Initialize analysis service
+      const analysisService = new ReceiptAnalysisService(authenticatedSupabase, GOOGLE_API_KEY)
+      
+      // Perform analysis
+      try {
+        const analysisResult = await analysisService.analyzeDocument(
+          urlData.publicUrl,
+          document.document_type as any
+        )
+        
+        // Update document with analysis results
+        await analysisService.updateDocumentWithAnalysis(docId, analysisResult)
+        
+        // Update status to completed
+        await authenticatedSupabase
+          .from('receipt_documents')
+          .update({ analysis_status: 'completed' })
+          .eq('id', docId)
+        
+        return reply.send({ 
+          message: 'Document analysis completed',
+          analysis: analysisResult
+        })
+      } catch (analysisError) {
+        console.error('Document analysis failed:', analysisError)
+        
+        // Update status to failed
+        await authenticatedSupabase
+          .from('receipt_documents')
+          .update({ analysis_status: 'failed' })
+          .eq('id', docId)
+        
+        return reply.code(500).send({ 
+          error: 'Document analysis failed',
+          details: analysisError instanceof Error ? analysisError.message : 'Unknown error'
+        })
+      }
+    } catch (error: unknown) {
+      server.log.error(error)
+      return reply.code(500).send({ error: 'Internal server error' })
+    }
+  })
+
+  // POST /api/receipts/:id/analyze-documents - Analyze all documents for a receipt
+  server.post('/api/receipts/:id/analyze-documents', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply)
+    if (!user) return
+
+    const { id } = request.params as { id: string }
+
+    if (!GOOGLE_API_KEY) {
+      return reply.code(503).send({ error: 'AI analysis service not configured' })
+    }
+
+    const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request)
+    if (!authenticatedSupabase) {
+      return reply.code(500).send({ error: 'Failed to create authenticated client' })
+    }
+
+    try {
+      // Verify receipt ownership
+      const { data: receipt, error: receiptError } = await authenticatedSupabase
+        .from('receipts')
+        .select('id')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single()
+
+      if (receiptError) {
+        if (receiptError.code === 'PGRST116') {
+          return reply.code(404).send({ error: 'Receipt not found' })
+        }
+        return reply.code(500).send({ error: 'Failed to verify receipt', details: receiptError.message })
+      }
+
+      // Initialize analysis service
+      const analysisService = new ReceiptAnalysisService(authenticatedSupabase, GOOGLE_API_KEY)
+      
+      // Analyze all documents for this receipt
+      const results = await analysisService.analyzeReceiptDocuments(id)
+      
+      return reply.send({ 
+        message: `Analysis completed for ${results.length} documents`,
+        results: results
+      })
     } catch (error: unknown) {
       server.log.error(error)
       return reply.code(500).send({ error: 'Internal server error' })

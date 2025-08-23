@@ -21,6 +21,9 @@ export interface ReceiptDocument {
   tags: string[];
   notes?: string;
   is_primary: boolean;
+  ai_analysis_data?: any;
+  ai_confidence_score?: number;
+  analysis_status: 'pending' | 'processing' | 'completed' | 'failed';
   created_at: string;
   updated_at: string;
 }
@@ -657,6 +660,113 @@ export function useReceipts() {
     }
   }, [user, makeRequest, toast]);
 
+  // Document analysis functions
+  const analyzeDocument = useCallback(async (receiptId: string, documentId: string): Promise<any | null> => {
+    if (!user) return null;
+
+    try {
+      const data = await makeRequest(`/api/receipts/${receiptId}/documents/${documentId}/analyze`, {
+        method: 'POST',
+      });
+
+      // Update the local state with analysis results
+      setReceipts(prev => prev.map(receipt => {
+        if (receipt.id === receiptId) {
+          return {
+            ...receipt,
+            receipt_documents: (receipt.receipt_documents || []).map(doc => 
+              doc.id === documentId ? { 
+                ...doc, 
+                analysis_status: 'completed' as const,
+                ai_analysis_data: data.analysis,
+                ai_confidence_score: data.analysis?.analysis_metadata?.confidence_score
+              } : doc
+            )
+          };
+        }
+        return receipt;
+      }));
+
+      toast({
+        title: "Success",
+        description: "Document analysis completed",
+      });
+
+      return data.analysis;
+    } catch (error) {
+      console.error('Error analyzing document:', error);
+      
+      // Update status to failed
+      setReceipts(prev => prev.map(receipt => {
+        if (receipt.id === receiptId) {
+          return {
+            ...receipt,
+            receipt_documents: (receipt.receipt_documents || []).map(doc => 
+              doc.id === documentId ? { ...doc, analysis_status: 'failed' as const } : doc
+            )
+          };
+        }
+        return receipt;
+      }));
+
+      toast({
+        title: "Error",
+        description: "Failed to analyze document",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [user, makeRequest, toast]);
+
+  const analyzeAllDocuments = useCallback(async (receiptId: string): Promise<any[] | null> => {
+    if (!user) return null;
+
+    try {
+      const data = await makeRequest(`/api/receipts/${receiptId}/analyze-documents`, {
+        method: 'POST',
+      });
+
+      // Update the local state with analysis results
+      setReceipts(prev => prev.map(receipt => {
+        if (receipt.id === receiptId) {
+          const updatedDocuments = (receipt.receipt_documents || []).map(doc => {
+            const analysisResult = data.results?.find((r: any) => r.documentId === doc.id);
+            if (analysisResult) {
+              return {
+                ...doc,
+                analysis_status: 'completed' as const,
+                ai_analysis_data: analysisResult.analysis,
+                ai_confidence_score: analysisResult.analysis?.analysis_metadata?.confidence_score
+              };
+            }
+            return doc;
+          });
+          
+          return {
+            ...receipt,
+            receipt_documents: updatedDocuments
+          };
+        }
+        return receipt;
+      }));
+
+      toast({
+        title: "Success",
+        description: `Analysis completed for ${data.results?.length || 0} documents`,
+      });
+
+      return data.results;
+    } catch (error) {
+      console.error('Error analyzing documents:', error);
+      toast({
+        title: "Error",
+        description: "Failed to analyze documents",
+        variant: "destructive",
+      });
+      return null;
+    }
+  }, [user, makeRequest, toast]);
+
   return {
     // Data
     receipts,
@@ -685,6 +795,8 @@ export function useReceipts() {
     addReceiptDocument,
     updateReceiptDocument,
     deleteReceiptDocument,
+    analyzeDocument,
+    analyzeAllDocuments,
     
     // Helper functions
     getExpenseStats,

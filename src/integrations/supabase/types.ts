@@ -1121,6 +1121,98 @@ export type Database = {
           },
         ]
       }
+      receipt_documents: {
+        Row: {
+          ai_analysis_data: Json | null
+          ai_confidence_score: number | null
+          analysis_duration_ms: number | null
+          analysis_error_message: string | null
+          analysis_model_used: string | null
+          analysis_status: string | null
+          created_at: string
+          description: string | null
+          document_number: string | null
+          document_type: string | null
+          expiry_date: string | null
+          file_path: string
+          file_size: number | null
+          id: string
+          is_primary: boolean | null
+          issue_date: string | null
+          issuer: string | null
+          mime_type: string | null
+          name: string
+          notes: string | null
+          original_filename: string | null
+          receipt_id: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_analysis_data?: Json | null
+          ai_confidence_score?: number | null
+          analysis_duration_ms?: number | null
+          analysis_error_message?: string | null
+          analysis_model_used?: string | null
+          analysis_status?: string | null
+          created_at?: string
+          description?: string | null
+          document_number?: string | null
+          document_type?: string | null
+          expiry_date?: string | null
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_primary?: boolean | null
+          issue_date?: string | null
+          issuer?: string | null
+          mime_type?: string | null
+          name: string
+          notes?: string | null
+          original_filename?: string | null
+          receipt_id: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_analysis_data?: Json | null
+          ai_confidence_score?: number | null
+          analysis_duration_ms?: number | null
+          analysis_error_message?: string | null
+          analysis_model_used?: string | null
+          analysis_status?: string | null
+          created_at?: string
+          description?: string | null
+          document_number?: string | null
+          document_type?: string | null
+          expiry_date?: string | null
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_primary?: boolean | null
+          issue_date?: string | null
+          issuer?: string | null
+          mime_type?: string | null
+          name?: string
+          notes?: string | null
+          original_filename?: string | null
+          receipt_id?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_documents_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipt_items: {
         Row: {
           barcode: string | null
@@ -1586,6 +1678,19 @@ export type Database = {
           locked?: boolean | null
           max_peers?: number | null
           password_salt?: string | null
+        }
+        Relationships: []
+      }
+      receipt_document_ai_analytics: {
+        Row: {
+          analysis_model_used: string | null
+          analysis_status: string | null
+          avg_analysis_duration_ms: number | null
+          avg_confidence_score: number | null
+          document_count: number | null
+          document_type: string | null
+          first_analysis_date: string | null
+          latest_analysis_date: string | null
         }
         Relationships: []
       }

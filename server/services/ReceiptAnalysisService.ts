@@ -63,7 +63,81 @@ const ReceiptAnalysisSchema = z.object({
   })
 })
 
+// Schema for document analysis results
+const DocumentAnalysisSchema = z.object({
+  // Document identification
+  document_info: z.object({
+    type: z.enum(['warranty', 'manual', 'invoice', 'guarantee', 'certificate', 'other']).describe('Type of document detected'),
+    title: z.string().nullable().describe('Document title or heading'),
+    language: z.string().nullable().describe('Document language (e.g., en, es, fr)'),
+    page_count: z.number().nullable().describe('Number of pages if detectable'),
+    format: z.string().nullable().describe('Document format (PDF, image, etc.)')
+  }),
+  
+  // Product information
+  product: z.object({
+    name: z.string().nullable().describe('Product name or model'),
+    brand: z.string().nullable().describe('Brand or manufacturer'),
+    model_number: z.string().nullable().describe('Model number or SKU'),
+    serial_number: z.string().nullable().describe('Serial number if present'),
+    category: z.string().nullable().describe('Product category'),
+    description: z.string().nullable().describe('Product description')
+  }),
+  
+  // Warranty and coverage details
+  warranty: z.object({
+    duration: z.string().nullable().describe('Warranty duration (e.g., "2 years", "90 days")'),
+    start_date: z.string().nullable().describe('Warranty start date in YYYY-MM-DD format'),
+    end_date: z.string().nullable().describe('Warranty end date in YYYY-MM-DD format'),
+    coverage_type: z.string().nullable().describe('Type of coverage (limited, full, parts only, etc.)'),
+    terms: z.array(z.string()).describe('Key warranty terms and conditions'),
+    exclusions: z.array(z.string()).describe('What is not covered'),
+    claim_process: z.string().nullable().describe('How to make a warranty claim')
+  }),
+  
+  // Important dates
+  dates: z.object({
+    purchase_date: z.string().nullable().describe('Purchase date in YYYY-MM-DD format'),
+    issue_date: z.string().nullable().describe('Document issue date in YYYY-MM-DD format'),
+    expiry_date: z.string().nullable().describe('Document expiry date in YYYY-MM-DD format'),
+    registration_deadline: z.string().nullable().describe('Product registration deadline if applicable')
+  }),
+  
+  // Contact and support information
+  support: z.object({
+    company_name: z.string().nullable().describe('Company or manufacturer name'),
+    phone: z.string().nullable().describe('Support phone number'),
+    email: z.string().nullable().describe('Support email address'),
+    website: z.string().nullable().describe('Support website URL'),
+    address: z.string().nullable().describe('Company address')
+  }),
+  
+  // Document numbers and references
+  references: z.object({
+    document_number: z.string().nullable().describe('Document reference number'),
+    certificate_number: z.string().nullable().describe('Certificate number if applicable'),
+    policy_number: z.string().nullable().describe('Policy or agreement number'),
+    order_number: z.string().nullable().describe('Related order number')
+  }),
+  
+  // Key extracted information
+  key_information: z.array(z.object({
+    category: z.string().describe('Information category (e.g., "Important Note", "Requirement")'),
+    content: z.string().describe('The important information extracted'),
+    priority: z.enum(['high', 'medium', 'low']).describe('Priority level of this information')
+  })).describe('Important information extracted from the document'),
+  
+  // Analysis metadata
+  analysis_metadata: z.object({
+    confidence_score: z.number().min(0).max(1).describe('Overall confidence in the analysis'),
+    extracted_text_length: z.number().describe('Length of text extracted from document'),
+    processing_notes: z.array(z.string()).describe('Notes about the analysis process'),
+    suggested_actions: z.array(z.string()).describe('Suggested actions based on document content')
+  })
+})
+
 export type ReceiptAnalysisResult = z.infer<typeof ReceiptAnalysisSchema>
+export type DocumentAnalysisResult = z.infer<typeof DocumentAnalysisSchema>
 
 // Schema for form auto-fill data
 export interface ReceiptFormData {
@@ -281,6 +355,244 @@ Be precise with amounts and dates. If information is unclear, provide reasonable
     }
     
     return notes.join(' | ')
+  }
+
+  /**
+   * Analyze a document file to extract structured information
+   */
+  async analyzeDocument(
+    fileUrl: string,
+    documentType: 'warranty' | 'manual' | 'invoice' | 'guarantee' | 'certificate' | 'other' = 'other',
+    options: {
+      model?: string
+    } = {}
+  ): Promise<DocumentAnalysisResult> {
+    const { model = 'gemini-2.5-flash' } = options
+    
+    try {
+      // Fetch the file
+      const fileResponse = await fetch(fileUrl)
+      if (!fileResponse.ok) {
+        throw new Error(`Failed to fetch file: ${fileResponse.statusText}`)
+      }
+      
+      const fileBuffer = await fileResponse.arrayBuffer()
+      const fileData = new Uint8Array(fileBuffer)
+      
+      // Determine the file type from the URL or content type
+      const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream'
+      const isImage = contentType.startsWith('image/')
+      const isPDF = contentType === 'application/pdf'
+      
+      if (!isImage && !isPDF) {
+        // For non-image, non-PDF files, we might need to convert or extract text differently
+        // For now, we'll treat them as text documents
+        console.warn(`Unsupported file type for AI analysis: ${contentType}. Attempting text extraction.`)
+      }
+      
+      // Create analysis prompt based on document type
+      const prompt = this.createDocumentAnalysisPrompt(documentType)
+      
+      // Use Vercel AI SDK with Google Gemini to analyze the document
+      const result = await generateObject({
+        model: this.googleProvider(model),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: prompt
+              },
+              {
+                type: 'image',
+                image: fileData
+              }
+            ]
+          }
+        ],
+        schema: DocumentAnalysisSchema,
+        maxRetries: 2,
+      })
+      
+      return result.object
+      
+    } catch (error) {
+      console.error('Document analysis failed:', error)
+      throw error
+    }
+  }
+  
+  /**
+   * Create analysis prompt based on document type
+   */
+  private createDocumentAnalysisPrompt(documentType: string): string {
+    const basePrompt = `
+Analyze this document and extract all relevant information with high accuracy.
+
+Pay special attention to:
+- Document identification and type
+- Product information (name, model, serial numbers)
+- Important dates (warranty periods, expiration dates, deadlines)
+- Contact information for support or claims
+- Key terms, conditions, and important notices
+- Reference numbers and document identifiers
+
+Be precise with dates and numbers. If information is unclear or not visible, mark it as null rather than guessing.
+`
+    
+    switch (documentType) {
+      case 'warranty':
+        return basePrompt + `
+This appears to be a WARRANTY document. Focus on:
+- Warranty duration and coverage details
+- What is covered and what is excluded
+- How to make warranty claims
+- Product registration requirements
+- Important warranty terms and conditions
+- Manufacturer contact information`
+        
+      case 'manual':
+        return basePrompt + `
+This appears to be a MANUAL or instruction document. Focus on:
+- Product specifications and features
+- Safety warnings and important notices
+- Setup and installation instructions
+- Troubleshooting information
+- Maintenance requirements
+- Contact information for support`
+        
+      case 'invoice':
+        return basePrompt + `
+This appears to be an INVOICE or bill. Focus on:
+- Billing information and amounts
+- Product details and quantities
+- Payment terms and due dates
+- Seller and buyer information
+- Invoice numbers and references
+- Tax information and breakdowns`
+        
+      case 'guarantee':
+        return basePrompt + `
+This appears to be a GUARANTEE document. Focus on:
+- Guarantee terms and duration
+- What is guaranteed and conditions
+- How to claim the guarantee
+- Important deadlines and requirements
+- Company information and contacts
+- Legal terms and conditions`
+        
+      case 'certificate':
+        return basePrompt + `
+This appears to be a CERTIFICATE. Focus on:
+- Certificate type and purpose
+- Certification details and standards
+- Validity period and expiration
+- Issuing authority information
+- Certificate numbers and references
+- Requirements and compliance details`
+        
+      default:
+        return basePrompt + `
+Analyze this document comprehensively and identify:
+- The type and purpose of the document
+- All relevant information that might be important
+- Any deadlines, dates, or time-sensitive information
+- Contact details and reference numbers
+- Key terms or conditions that should be noted`
+    }
+  }
+  
+  /**
+   * Update receipt document with analysis results
+   */
+  async updateDocumentWithAnalysis(
+    documentId: string,
+    analysisResult: DocumentAnalysisResult
+  ): Promise<void> {
+    // Update the receipt_documents table with analysis data
+    const updates = {
+      // Update document metadata based on analysis
+      name: analysisResult.product.name || analysisResult.document_info.title,
+      description: analysisResult.product.description,
+      document_type: analysisResult.document_info.type,
+      expiry_date: analysisResult.dates.expiry_date || analysisResult.warranty.end_date,
+      issue_date: analysisResult.dates.issue_date,
+      document_number: analysisResult.references.document_number || analysisResult.references.certificate_number,
+      issuer: analysisResult.support.company_name,
+      
+      // Store full analysis data in a JSONB field (we'll need to add this to the schema)
+      ai_analysis_data: analysisResult,
+      ai_confidence_score: analysisResult.analysis_metadata.confidence_score,
+      
+      updated_at: new Date().toISOString()
+    }
+    
+    const { error } = await this.supabase
+      .from('receipt_documents')
+      .update(updates)
+      .eq('id', documentId)
+    
+    if (error) {
+      throw new Error(`Failed to update document with analysis: ${error.message}`)
+    }
+  }
+  
+  /**
+   * Analyze multiple documents for a receipt
+   */
+  async analyzeReceiptDocuments(
+    receiptId: string,
+    options: {
+      model?: string
+    } = {}
+  ): Promise<{ documentId: string; analysis: DocumentAnalysisResult }[]> {
+    // Get all documents for this receipt
+    const { data: documents, error } = await this.supabase
+      .from('receipt_documents')
+      .select('*')
+      .eq('receipt_id', receiptId)
+    
+    if (error) {
+      throw new Error(`Failed to fetch receipt documents: ${error.message}`)
+    }
+    
+    if (!documents || documents.length === 0) {
+      return []
+    }
+    
+    const results: { documentId: string; analysis: DocumentAnalysisResult }[] = []
+    
+    // Analyze each document
+    for (const doc of documents) {
+      try {
+        // Get public URL for the document
+        const { data } = this.supabase.storage
+          .from('receipt-documents')
+          .getPublicUrl(doc.file_path)
+        
+        if (data.publicUrl) {
+          const analysis = await this.analyzeDocument(
+            data.publicUrl,
+            doc.document_type as any,
+            options
+          )
+          
+          // Update document with analysis
+          await this.updateDocumentWithAnalysis(doc.id, analysis)
+          
+          results.push({
+            documentId: doc.id,
+            analysis
+          })
+        }
+      } catch (error) {
+        console.error(`Failed to analyze document ${doc.id}:`, error)
+        // Continue with other documents even if one fails
+      }
+    }
+    
+    return results
   }
 
   /**
