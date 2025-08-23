@@ -372,29 +372,75 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
             try {
               // Git info - use WORKSPACE directory or find the git root
               def gitDir = ws
+              echo "Initial workspace directory: ${ws}"
+              echo "Current working directory: ${sh(returnStdout: true, script: 'pwd').trim()}"
+              
               // Check if current workspace is a git repo, if not try to find the git root
               def gitRootCheck = sh(returnStdout: true, script: "cd '${ws}' && git rev-parse --show-toplevel 2>/dev/null || echo 'NOTGIT'").trim()
               if (gitRootCheck == 'NOTGIT') {
-                // Try to find git repository in the workspace
-                def findGit = sh(returnStdout: true, script: "find '${ws}' -name '.git' -type d 2>/dev/null | head -1 | xargs dirname || echo 'NOTFOUND'").trim()
-                if (findGit != 'NOTFOUND') {
-                  gitDir = findGit
+                echo "Workspace ${ws} is not a git repository, searching for git directories..."
+                
+                // Try to find git repository in the workspace - fix the xargs issue
+                def findGitOutput = sh(returnStdout: true, script: "find '${ws}' -name '.git' -type d 2>/dev/null || true").trim()
+                if (findGitOutput && !findGitOutput.isEmpty()) {
+                  // Get the parent directory of the .git folder
+                  gitDir = sh(returnStdout: true, script: "dirname '${findGitOutput.split('\n')[0]}'").trim()
                   echo "Found git repository at: ${gitDir}"
                 } else {
-                  echo "Warning: No git repository found in workspace ${ws}"
-                  gitDir = '.' // fallback to current directory
+                  echo "No .git directory found in ${ws}, trying current working directory..."
+                  // Try current working directory
+                  def cwdGitCheck = sh(returnStdout: true, script: "git rev-parse --show-toplevel 2>/dev/null || echo 'NOTGIT'").trim()
+                  if (cwdGitCheck != 'NOTGIT') {
+                    gitDir = cwdGitCheck
+                    echo "Found git repository in current working directory: ${gitDir}"
+                  } else {
+                    echo "Warning: No git repository found in workspace ${ws} or current directory"
+                    // Try to use the checkout directory from earlier stages
+                    // The checkout stage should have created the repository somewhere
+                    def possibleDirs = [
+                      "${ws}",
+                      "/home/jenkins/workspace/${env.JOB_NAME}",
+                      "/home/jenkins/workspace/${env.JOB_BASE_NAME}",
+                      env.WORKSPACE
+                    ].findAll { it != null && !it.isEmpty() }.unique()
+                    
+                    for (dir in possibleDirs) {
+                      def checkDir = sh(returnStdout: true, script: "if [ -d '${dir}/.git' ]; then echo '${dir}'; fi || true").trim()
+                      if (checkDir && !checkDir.isEmpty()) {
+                        gitDir = checkDir
+                        echo "Found git repository at alternative location: ${gitDir}"
+                        break
+                      }
+                    }
+                    
+                    if (!gitDir || gitDir == ws) {
+                      echo "Still no git repository found, will use fallback with no git info"
+                      gitDir = null
+                    }
+                  }
                 }
               } else {
                 gitDir = gitRootCheck
                 echo "Using git repository at: ${gitDir}"
               }
               
-              commitShort = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --short HEAD || true").trim()
-              commitFull = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse HEAD || true").trim()
-              branch = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --abbrev-ref HEAD || true").trim()
-              author = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:'%an <%ae>' || true").trim()
-              commitMsg = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:%s || true").trim()
-              remoteUrl = sh(returnStdout: true, script: "git -C '${gitDir}' config --get remote.origin.url || true").trim()
+              if (gitDir) {
+                commitShort = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --short HEAD || true").trim()
+                commitFull = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse HEAD || true").trim()
+                branch = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --abbrev-ref HEAD || true").trim()
+                author = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:'%an <%ae>' || true").trim()
+                commitMsg = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:%s || true").trim()
+                remoteUrl = sh(returnStdout: true, script: "git -C '${gitDir}' config --get remote.origin.url || true").trim()
+              } else {
+                echo "No git repository available, trying Jenkins environment variables as fallback"
+                // Try to use Jenkins environment variables as fallback
+                commitShort = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
+                commitFull = env.GIT_COMMIT ?: 'unknown'
+                branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
+                author = env.CHANGE_AUTHOR ?: env.BUILD_USER_EMAIL ?: 'unknown'
+                commitMsg = env.CHANGE_TITLE ?: 'No commit message available'
+                remoteUrl = env.GIT_URL ?: ''
+              }
               if (remoteUrl) {
                 // Strip any embedded credentials to avoid leaking tokens in notifications
                 try {
@@ -412,7 +458,9 @@ VITE_TURNSTILE_SITE_KEY=${turnstileSiteKey}
               }
 
               // Changed files in the last commit (full list may be long)
-              changedFiles = sh(returnStdout: true, script: "git -C '${gitDir}' show --name-only --pretty=\"\" HEAD || true").trim()
+              if (gitDir) {
+                changedFiles = sh(returnStdout: true, script: "git -C '${gitDir}' show --name-only --pretty=\"\" HEAD || true").trim()
+              }
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
               changedCount = changedList.size()
@@ -529,29 +577,75 @@ ${changedPreview}
             try {
               // Git info - use WORKSPACE directory or find the git root
               def gitDir = ws
+              echo "Initial workspace directory: ${ws}"
+              echo "Current working directory: ${sh(returnStdout: true, script: 'pwd').trim()}"
+              
               // Check if current workspace is a git repo, if not try to find the git root
               def gitRootCheck = sh(returnStdout: true, script: "cd '${ws}' && git rev-parse --show-toplevel 2>/dev/null || echo 'NOTGIT'").trim()
               if (gitRootCheck == 'NOTGIT') {
-                // Try to find git repository in the workspace
-                def findGit = sh(returnStdout: true, script: "find '${ws}' -name '.git' -type d 2>/dev/null | head -1 | xargs dirname || echo 'NOTFOUND'").trim()
-                if (findGit != 'NOTFOUND') {
-                  gitDir = findGit
+                echo "Workspace ${ws} is not a git repository, searching for git directories..."
+                
+                // Try to find git repository in the workspace - fix the xargs issue
+                def findGitOutput = sh(returnStdout: true, script: "find '${ws}' -name '.git' -type d 2>/dev/null || true").trim()
+                if (findGitOutput && !findGitOutput.isEmpty()) {
+                  // Get the parent directory of the .git folder
+                  gitDir = sh(returnStdout: true, script: "dirname '${findGitOutput.split('\n')[0]}'").trim()
                   echo "Found git repository at: ${gitDir}"
                 } else {
-                  echo "Warning: No git repository found in workspace ${ws}"
-                  gitDir = '.' // fallback to current directory
+                  echo "No .git directory found in ${ws}, trying current working directory..."
+                  // Try current working directory
+                  def cwdGitCheck = sh(returnStdout: true, script: "git rev-parse --show-toplevel 2>/dev/null || echo 'NOTGIT'").trim()
+                  if (cwdGitCheck != 'NOTGIT') {
+                    gitDir = cwdGitCheck
+                    echo "Found git repository in current working directory: ${gitDir}"
+                  } else {
+                    echo "Warning: No git repository found in workspace ${ws} or current directory"
+                    // Try to use the checkout directory from earlier stages
+                    // The checkout stage should have created the repository somewhere
+                    def possibleDirs = [
+                      "${ws}",
+                      "/home/jenkins/workspace/${env.JOB_NAME}",
+                      "/home/jenkins/workspace/${env.JOB_BASE_NAME}",
+                      env.WORKSPACE
+                    ].findAll { it != null && !it.isEmpty() }.unique()
+                    
+                    for (dir in possibleDirs) {
+                      def checkDir = sh(returnStdout: true, script: "if [ -d '${dir}/.git' ]; then echo '${dir}'; fi || true").trim()
+                      if (checkDir && !checkDir.isEmpty()) {
+                        gitDir = checkDir
+                        echo "Found git repository at alternative location: ${gitDir}"
+                        break
+                      }
+                    }
+                    
+                    if (!gitDir || gitDir == ws) {
+                      echo "Still no git repository found, will use fallback with no git info"
+                      gitDir = null
+                    }
+                  }
                 }
               } else {
                 gitDir = gitRootCheck
                 echo "Using git repository at: ${gitDir}"
               }
               
-              commitShort = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --short HEAD || true").trim()
-              commitFull = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse HEAD || true").trim()
-              branch = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --abbrev-ref HEAD || true").trim()
-              author = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:'%an <%ae>' || true").trim()
-              commitMsg = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:%s || true").trim()
-              remoteUrl = sh(returnStdout: true, script: "git -C '${gitDir}' config --get remote.origin.url || true").trim()
+              if (gitDir) {
+                commitShort = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --short HEAD || true").trim()
+                commitFull = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse HEAD || true").trim()
+                branch = sh(returnStdout: true, script: "git -C '${gitDir}' rev-parse --abbrev-ref HEAD || true").trim()
+                author = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:'%an <%ae>' || true").trim()
+                commitMsg = sh(returnStdout: true, script: "git -C '${gitDir}' log -1 --pretty=format:%s || true").trim()
+                remoteUrl = sh(returnStdout: true, script: "git -C '${gitDir}' config --get remote.origin.url || true").trim()
+              } else {
+                echo "No git repository available, trying Jenkins environment variables as fallback"
+                // Try to use Jenkins environment variables as fallback
+                commitShort = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : 'unknown'
+                commitFull = env.GIT_COMMIT ?: 'unknown'
+                branch = env.GIT_BRANCH ?: env.BRANCH_NAME ?: 'unknown'
+                author = env.CHANGE_AUTHOR ?: env.BUILD_USER_EMAIL ?: 'unknown'
+                commitMsg = env.CHANGE_TITLE ?: 'No commit message available'
+                remoteUrl = env.GIT_URL ?: ''
+              }
               if (remoteUrl) {
                 // Strip any embedded credentials to avoid leaking tokens in notifications
                 try {
@@ -569,7 +663,9 @@ ${changedPreview}
               }
 
               // Changed files in the last commit (full list may be long)
-              changedFiles = sh(returnStdout: true, script: "git -C '${gitDir}' show --name-only --pretty=\"\" HEAD || true").trim()
+              if (gitDir) {
+                changedFiles = sh(returnStdout: true, script: "git -C '${gitDir}' show --name-only --pretty=\"\" HEAD || true").trim()
+              }
               // Truncate preview to avoid overly large notifications
               def changedList = changedFiles ? changedFiles.readLines().collect{ it.trim() }.findAll{ it } : []
               changedCount = changedList.size()
