@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { SecretsService } from '../services/SecretsService';
+import { SecretsService } from '../services/SecretsService.js';
 
 // Simple SystemSettings class for this route
 class SystemSettingsService {
