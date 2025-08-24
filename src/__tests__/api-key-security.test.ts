@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SystemSettingsService } from '../src/services/systemSettingsService';
-import { ReceiptAIConfig, DEFAULT_RECEIPT_AI_CONFIG } from '../src/types/systemSettings';
+import { SystemSettingsService } from '../services/systemSettingsService';
+import { ReceiptAIConfig, DEFAULT_RECEIPT_AI_CONFIG } from '../types/systemSettings';
 
 // Mock fetch for testing
 global.fetch = vi.fn();

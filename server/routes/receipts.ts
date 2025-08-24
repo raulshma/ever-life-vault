@@ -38,7 +38,6 @@ async function getUserAIConfig(
     // Get API key securely
     const apiKey = await systemSettingsService.getProviderAPIKey(
       config.provider,
-      userId,
       config.use_system_key,
       { google: fallbackConfig.googleApiKey, openrouter: fallbackConfig.openRouterApiKey }
     );
@@ -51,7 +50,7 @@ async function getUserAIConfig(
     // Get endpoint URL for custom providers
     let endpointUrl: string | undefined;
     if (config.provider === 'custom') {
-      const endpoint = await systemSettingsService.getProviderEndpoint(config.provider, userId);
+      const endpoint = await systemSettingsService.getProviderEndpoint(config.provider);
       endpointUrl = endpoint || undefined;
     }
 

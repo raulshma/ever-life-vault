@@ -77,9 +77,17 @@ export class SystemSettingsService {
    */
   async getReceiptAIConfig(): Promise<AIProviderConfig> {
     try {
+      // Get the current user from the authenticated Supabase client
+      const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
       const { data, error } = await this.supabase
         .from('system_settings')
         .select('setting_value')
+        .eq('user_id', user.id)
         .eq('feature_category', 'receipt_ai')
         .eq('setting_key', 'provider_config')
         .single();
@@ -116,6 +124,16 @@ export class SystemSettingsService {
     validationErrors?: string[];
   }> {
     try {
+      // Get the current user from the authenticated Supabase client
+      const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+      
+      if (userError || !user) {
+        return {
+          success: false,
+          error: 'User not authenticated'
+        };
+      }
+
       // Validate configuration
       const validation = this.validateConfig(config);
       if (!validation.isValid) {
@@ -134,6 +152,7 @@ export class SystemSettingsService {
       const { error } = await this.supabase
         .from('system_settings')
         .upsert({
+          user_id: user.id,
           feature_category: 'receipt_ai',
           setting_key: 'provider_config',
           setting_value: mergedConfig,
@@ -160,7 +179,7 @@ export class SystemSettingsService {
   /**
    * Get API key for a provider (used by backend only)
    */
-  async getProviderAPIKey(provider: string, userId: string, useSystemKey: boolean, systemKeys: { google?: string; openrouter?: string }): Promise<string | null> {
+  async getProviderAPIKey(provider: string, useSystemKey: boolean, systemKeys: { google?: string; openrouter?: string }): Promise<string | null> {
     try {
       if (useSystemKey) {
         // Use system API key
@@ -169,9 +188,16 @@ export class SystemSettingsService {
         return null;
       }
 
+      // Get the current user from the authenticated Supabase client
+      const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
       // Use user API key
       const secretKey = `ai_provider_${provider}_api_key`;
-      return await this.secretsService.retrieveSecret(secretKey, userId);
+      return await this.secretsService.retrieveSecret(secretKey, user.id);
     } catch (error) {
       console.error('Error getting provider API key:', error);
       return null;
@@ -181,12 +207,19 @@ export class SystemSettingsService {
   /**
    * Get endpoint URL for custom provider
    */
-  async getProviderEndpoint(provider: string, userId: string): Promise<string | null> {
+  async getProviderEndpoint(provider: string): Promise<string | null> {
     if (provider !== 'custom') return null;
 
     try {
+      // Get the current user from the authenticated Supabase client
+      const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+      
+      if (userError || !user) {
+        throw new Error('User not authenticated');
+      }
+
       const secretKey = `ai_provider_${provider}_endpoint`;
-      return await this.secretsService.retrieveSecret(secretKey, userId);
+      return await this.secretsService.retrieveSecret(secretKey, user.id);
     } catch (error) {
       console.error('Error getting provider endpoint:', error);
       return null;

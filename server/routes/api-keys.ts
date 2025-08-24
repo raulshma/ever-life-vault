@@ -37,9 +37,17 @@ class SystemSettingsService {
   }
 
   async setReceiptAIConfig(config: any): Promise<{ success: boolean; error?: string }> {
+    // Get the current user from the authenticated Supabase client
+    const { data: { user }, error: userError } = await this.supabase.auth.getUser();
+    
+    if (userError || !user) {
+      return { success: false, error: 'User not authenticated' };
+    }
+
     const { error } = await this.supabase
       .from('system_settings')
       .upsert({
+        user_id: user.id,
         feature_category: 'receipt_ai',
         setting_key: 'provider_config',
         setting_value: config,

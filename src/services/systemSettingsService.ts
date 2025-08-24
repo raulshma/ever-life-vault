@@ -265,7 +265,7 @@ export class SystemSettingsService {
   }
 
   // Get receipt AI configuration
-  async getReceiptAIConfig(): Promise<AIProviderConfig> {
+  async getReceiptAIConfig(): Promise<ReceiptAIConfig> {
     try {
       const response = await fetch('/api/ai-providers/config', {
         headers: {
@@ -277,7 +277,25 @@ export class SystemSettingsService {
         throw new Error('Failed to fetch AI configuration');
       }
       
-      return await response.json();
+      const backendConfig = await response.json();
+      
+      // Map backend AIProviderConfig format to frontend ReceiptAIConfig format
+      const frontendConfig: ReceiptAIConfig = {
+        provider: backendConfig.provider,
+        model: backendConfig.model,
+        api_key_source: backendConfig.use_system_key ? 'system' : 'user',
+        custom_endpoint: backendConfig.endpoint_url,
+        enable_quick_analysis: backendConfig.enable_quick_analysis ?? true,
+        enable_document_analysis: backendConfig.enable_document_analysis ?? true,
+        auto_categorization: backendConfig.auto_categorization ?? true,
+        confidence_threshold: backendConfig.confidence_threshold ?? 0.8,
+        retry_attempts: backendConfig.retry_attempts ?? 3,
+        timeout_seconds: backendConfig.timeout_seconds ?? 60,
+        temperature: backendConfig.temperature,
+        max_tokens: backendConfig.max_tokens
+      };
+      
+      return frontendConfig;
     } catch (error) {
       console.error('Error getting AI config:', error);
       throw new Error('Failed to load AI configuration');
@@ -285,15 +303,28 @@ export class SystemSettingsService {
   }
 
   // Set receipt AI configuration
-  async setReceiptAIConfig(config: Partial<AIProviderConfig>): Promise<{ success: boolean; error?: string; validationErrors?: string[] }> {
+  async setReceiptAIConfig(config: Partial<ReceiptAIConfig>): Promise<{ success: boolean; error?: string; validationErrors?: string[] }> {
     try {
+      // Map frontend ReceiptAIConfig to backend ProviderConfigSchema format
+      const backendConfig = {
+        provider: config.provider,
+        model: config.model,
+        use_system_key: config.api_key_source === 'system',
+        endpoint_url: config.custom_endpoint,
+        temperature: config.temperature,
+        max_tokens: config.max_tokens,
+        timeout_seconds: config.timeout_seconds,
+        retry_attempts: config.retry_attempts,
+        confidence_threshold: config.confidence_threshold
+      };
+      
       const response = await fetch('/api/ai-providers/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
         },
-        body: JSON.stringify(config)
+        body: JSON.stringify(backendConfig)
       });
       
       if (!response.ok) {
@@ -375,8 +406,11 @@ export class SystemSettingsService {
   }
 
   // Test AI provider connection
-  async testAIProviderConnection(config: Partial<AIProviderConfig>): Promise<TestConnectionResult> {
+  async testAIProviderConnection(config: Partial<ReceiptAIConfig>): Promise<TestConnectionResult> {
     try {
+      // Map frontend ReceiptAIConfig to backend AIProviderConfig format
+      const useSystemKey = config.api_key_source === 'system';
+      
       const response = await fetch('/api/ai-providers/test-connection', {
         method: 'POST',
         headers: {
@@ -386,8 +420,8 @@ export class SystemSettingsService {
         body: JSON.stringify({
           provider: config.provider,
           model: config.model,
-          use_system_key: config.use_system_key,
-          endpoint_url: config.endpoint_url
+          use_system_key: useSystemKey,
+          endpoint_url: config.custom_endpoint
         })
       });
       
