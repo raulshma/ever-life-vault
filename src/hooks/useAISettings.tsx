@@ -13,6 +13,15 @@ import {
   isProviderConfigured
 } from '@/types/systemSettings';
 
+interface CachedAIModel {
+  id: string;
+  name: string;
+  description?: string | null;
+  context_length?: number | null;
+  pricing?: any;
+  is_recommended?: boolean;
+}
+
 export interface UseAISettingsReturn {
   // Configuration state
   config: ReceiptAIConfig;
@@ -37,6 +46,11 @@ export interface UseAISettingsReturn {
   // Testing and validation
   testConnection: () => Promise<{ success: boolean; error?: string; latency?: number }>;
   validateCurrentConfig: () => { isValid: boolean; errors: string[] };
+  
+  // OpenRouter models
+  fetchOpenRouterModels: () => Promise<CachedAIModel[]>;
+  openRouterModels: CachedAIModel[];
+  isLoadingOpenRouterModels: boolean;
 }
 
 export function useAISettings(): UseAISettingsReturn {
@@ -47,6 +61,8 @@ export function useAISettings(): UseAISettingsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [openRouterModels, setOpenRouterModels] = useState<CachedAIModel[]>([]);
+  const [isLoadingOpenRouterModels, setIsLoadingOpenRouterModels] = useState(false);
 
   // Sync local config with global config
   useEffect(() => {
@@ -154,8 +170,21 @@ export function useAISettings(): UseAISettingsReturn {
 
   // Get models for a specific provider
   const getProviderModels = useCallback((provider: AIProvider): AIModel[] => {
+    // If OpenRouter and we have cached models, use them
+    if (provider === 'openrouter' && openRouterModels.length > 0) {
+      return openRouterModels.map(model => ({
+        id: model.id,
+        name: model.name,
+        description: model.description || undefined,
+        provider: 'openrouter',
+        contextLength: model.context_length || undefined,
+        pricing: model.pricing,
+        isRecommended: model.is_recommended || false
+      }));
+    }
+    
     return getAvailableModels(provider);
-  }, []);
+  }, [openRouterModels]);
 
   // Check if provider is properly configured
   const isProviderConfiguredCheck = useCallback((provider?: AIProvider): boolean => {
@@ -213,6 +242,37 @@ export function useAISettings(): UseAISettingsReturn {
     return validateReceiptAIConfig(localConfig);
   }, [localConfig]);
 
+  // Fetch OpenRouter models from cache
+  const fetchOpenRouterModels = useCallback(async (): Promise<CachedAIModel[]> => {
+    if (!systemSettingsService) {
+      return [];
+    }
+
+    setIsLoadingOpenRouterModels(true);
+    try {
+      const models = await systemSettingsService.getOpenRouterModels();
+      setOpenRouterModels(models);
+      return models;
+    } catch (error) {
+      console.error('Error fetching OpenRouter models:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch OpenRouter models',
+        variant: 'destructive'
+      });
+      return [];
+    } finally {
+      setIsLoadingOpenRouterModels(false);
+    }
+  }, [systemSettingsService, toast]);
+
+  // Fetch OpenRouter models on mount if using OpenRouter
+  useEffect(() => {
+    if (localConfig.provider === 'openrouter') {
+      fetchOpenRouterModels();
+    }
+  }, [localConfig.provider, fetchOpenRouterModels]);
+
   return {
     // Configuration state
     config: localConfig,
@@ -236,7 +296,12 @@ export function useAISettings(): UseAISettingsReturn {
     
     // Testing and validation
     testConnection,
-    validateCurrentConfig
+    validateCurrentConfig,
+    
+    // OpenRouter models
+    fetchOpenRouterModels,
+    openRouterModels,
+    isLoadingOpenRouterModels
   };
 }
 

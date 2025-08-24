@@ -3,27 +3,67 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { 
+  ReceiptAIConfig, 
   SystemSettingsData, 
   SystemSettingsUpdate, 
   SystemSettingsResponse,
-  ReceiptAIConfig,
-  DEFAULT_RECEIPT_AI_CONFIG,
   FocusTimerConfig,
-  DEFAULT_FOCUS_TIMER_CONFIG,
   DashboardConfig,
-  DEFAULT_DASHBOARD_CONFIG,
   NotificationConfig,
-  DEFAULT_NOTIFICATION_CONFIG,
   UIConfig,
-  DEFAULT_UI_CONFIG,
   IntegrationConfig,
-  DEFAULT_INTEGRATION_CONFIG,
   SecurityConfig,
-  DEFAULT_SECURITY_CONFIG,
-  validateReceiptAIConfig,
-  AI_PROVIDERS,
-  getAvailableModels
+  DEFAULT_RECEIPT_AI_CONFIG,
+  DEFAULT_FOCUS_TIMER_CONFIG,
+  DEFAULT_DASHBOARD_CONFIG,
+  DEFAULT_NOTIFICATION_CONFIG,
+  DEFAULT_UI_CONFIG,
+  DEFAULT_INTEGRATION_CONFIG,
+  DEFAULT_SECURITY_CONFIG
 } from '@/types/systemSettings';
+
+// Types matching the backend
+interface AIProviderConfig {
+  provider: 'google' | 'openrouter' | 'custom';
+  model: string;
+  use_system_key: boolean;
+  endpoint_url?: string;
+  temperature?: number;
+  max_tokens?: number;
+  timeout_seconds?: number;
+  retry_attempts?: number;
+  confidence_threshold?: number;
+  enable_quick_analysis?: boolean;
+  enable_document_analysis?: boolean;
+  auto_categorization?: boolean;
+}
+
+interface TestConnectionResult {
+  success: boolean;
+  error?: string;
+  latency?: number;
+  details?: {
+    configurationValid: boolean;
+    apiKeyPresent: boolean;
+    providerReachable: boolean;
+    modelAvailable: boolean;
+  };
+}
+
+interface APIKeyStatus {
+  has_user_key: boolean;
+  has_system_key: boolean;
+  provider: string;
+}
+
+interface CachedAIModel {
+  id: string;
+  name: string;
+  description?: string | null;
+  context_length?: number | null;
+  pricing?: any;
+  is_recommended?: boolean;
+}
 
 export class SystemSettingsService {
   private supabase: SupabaseClient;
@@ -178,18 +218,19 @@ export class SystemSettingsService {
     settingKey: string
   ): Promise<SystemSettingsResponse> {
     try {
-      const { error } = await this.supabase
+      const { data, error } = await this.supabase
         .from('system_settings')
         .delete()
         .eq('feature_category', featureCategory)
-        .eq('setting_key', settingKey);
+        .eq('setting_key', settingKey)
+        .select();
 
       if (error) {
-        console.error('Error deleting setting:', error);
+        console.error('Error deleting system setting:', error);
         return { success: false, error: error.message };
       }
 
-      return { success: true };
+      return { success: true, data };
     } catch (error) {
       console.error('Error in deleteSetting:', error);
       return { 
@@ -200,460 +241,265 @@ export class SystemSettingsService {
   }
 
   /**
-   * Get settings grouped by feature category
+   * Get settings organized by feature category
    */
   async getSettingsByFeature(): Promise<Record<string, Record<string, unknown>>> {
-    try {
-      const { data } = await this.supabase
-        .from('system_settings_by_feature')
-        .select('*');
-
-      if (!data) return {};
-
-      const result: Record<string, Record<string, unknown>> = {};
-      for (const row of data) {
-        result[row.feature_category] = row.settings;
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Error fetching settings by feature:', error);
+    const response = await this.getSettings();
+    if (!response.success || !response.data) {
       return {};
     }
-  }
 
-  /**
-   * Reset settings for a feature category to defaults
-   */
-  async resetFeatureSettings(featureCategory: string): Promise<SystemSettingsResponse> {
-    try {
-      // Delete existing settings for the feature
-      await this.supabase
-        .from('system_settings')
-        .delete()
-        .eq('feature_category', featureCategory);
-
-      // Insert default settings based on feature category
-      const defaultSettings = this.getDefaultSettingsForFeature(featureCategory);
-      
-      if (defaultSettings.length > 0) {
-        const { data, error } = await this.supabase
-          .from('system_settings')
-          .insert(defaultSettings)
-          .select();
-
-        if (error) {
-          console.error('Error resetting feature settings:', error);
-          return { success: false, error: error.message };
-        }
-
-        return { success: true, data };
+    const result: Record<string, Record<string, unknown>> = {};
+    
+    // Handle both single item and array responses
+    const settingsData = Array.isArray(response.data) ? response.data : [response.data];
+    
+    for (const setting of settingsData) {
+      if (!result[setting.feature_category]) {
+        result[setting.feature_category] = {};
       }
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error in resetFeatureSettings:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
+      result[setting.feature_category][setting.setting_key] = setting.setting_value;
     }
+    
+    return result;
   }
 
-  /**
-   * Get default settings for a feature category
-   */
-  private getDefaultSettingsForFeature(featureCategory: string): Omit<SystemSettingsData, 'id' | 'user_id' | 'created_at' | 'updated_at'>[] {
-    switch (featureCategory) {
-      case 'receipt_ai':
-        return [{
-          feature_category: 'receipt_ai',
-          setting_key: 'provider_config',
-          setting_value: DEFAULT_RECEIPT_AI_CONFIG as any,
-          is_encrypted: false
-        }];
+  // Get receipt AI configuration
+  async getReceiptAIConfig(): Promise<AIProviderConfig> {
+    try {
+      const response = await fetch('/api/ai-providers/config', {
+        headers: {
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
+        }
+      });
       
-      case 'focus_timer':
-        return [{
-          feature_category: 'focus_timer',
-          setting_key: 'timer_config',
-          setting_value: DEFAULT_FOCUS_TIMER_CONFIG as any,
-          is_encrypted: false
-        }];
-
-      case 'dashboard':
-        return [{
-          feature_category: 'dashboard',
-          setting_key: 'dashboard_config',
-          setting_value: DEFAULT_DASHBOARD_CONFIG as any,
-          is_encrypted: false
-        }];
-
-      case 'notifications':
-        return [{
-          feature_category: 'notifications',
-          setting_key: 'notification_config',
-          setting_value: DEFAULT_NOTIFICATION_CONFIG as any,
-          is_encrypted: false
-        }, {
-          feature_category: 'notifications',
-          setting_key: 'ui_config',
-          setting_value: DEFAULT_UI_CONFIG as any,
-          is_encrypted: false
-        }];
-
-      case 'integrations':
-        return [{
-          feature_category: 'integrations',
-          setting_key: 'integration_config',
-          setting_value: DEFAULT_INTEGRATION_CONFIG as any,
-          is_encrypted: false
-        }];
-
-      case 'security':
-        return [{
-          feature_category: 'security',
-          setting_key: 'security_config',
-          setting_value: DEFAULT_SECURITY_CONFIG as any,
-          is_encrypted: false
-        }];
-
-      default:
-        return [];
+      if (!response.ok) {
+        throw new Error('Failed to fetch AI configuration');
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error getting AI config:', error);
+      throw new Error('Failed to load AI configuration');
     }
   }
 
-  /**
-   * Validate and set receipt AI configuration (without API keys)
-   */
-  async setReceiptAIConfig(config: Partial<ReceiptAIConfig>): Promise<{
-    success: boolean;
-    error?: string;
-    validationErrors?: string[];
-  }> {
-    // Basic frontend validation
-    const validation = validateReceiptAIConfig(config);
-    if (!validation.isValid) {
-      return {
-        success: false,
-        error: 'Configuration validation failed',
-        validationErrors: validation.errors
-      };
-    }
-
-    // Remove sensitive fields before sending to backend
-    const sanitizedConfig = {
-      provider: config.provider,
-      model: config.model,
-      use_system_key: config.api_key_source === 'system',
-      endpoint_url: config.custom_endpoint,
-      temperature: config.temperature,
-      max_tokens: config.max_tokens,
-      timeout_seconds: config.timeout_seconds,
-      retry_attempts: config.retry_attempts,
-      confidence_threshold: config.confidence_threshold,
-      enable_quick_analysis: config.enable_quick_analysis,
-      enable_document_analysis: config.enable_document_analysis,
-      auto_categorization: config.auto_categorization
-    };
-
+  // Set receipt AI configuration
+  async setReceiptAIConfig(config: Partial<AIProviderConfig>): Promise<{ success: boolean; error?: string; validationErrors?: string[] }> {
     try {
       const response = await fetch('/api/ai-providers/config', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
         },
-        body: JSON.stringify(sanitizedConfig)
+        body: JSON.stringify(config)
       });
-
-      const result = await response.json();
       
       if (!response.ok) {
-        return {
-          success: false,
-          error: result.error || 'Failed to save configuration',
-          validationErrors: result.validation_errors
-        };
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Failed to save configuration' };
       }
-
+      
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error'
-      };
+      console.error('Error setting AI config:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
-  /**
-   * Get receipt AI configuration (without sensitive API keys)
-   */
-  async getReceiptAIConfig(): Promise<ReceiptAIConfig> {
-    try {
-      const response = await fetch('/api/ai-providers/config', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
-        }
-      });
-
-      if (!response.ok) {
-        // Fallback to default if API fails
-        return DEFAULT_RECEIPT_AI_CONFIG;
-      }
-
-      const config = await response.json();
-      
-      // Convert backend format to frontend format
-      return {
-        ...DEFAULT_RECEIPT_AI_CONFIG,
-        provider: config.provider,
-        model: config.model,
-        api_key_source: config.use_system_key ? 'system' : 'user',
-        custom_endpoint: config.endpoint_url,
-        temperature: config.temperature,
-        max_tokens: config.max_tokens,
-        timeout_seconds: config.timeout_seconds,
-        retry_attempts: config.retry_attempts,
-        confidence_threshold: config.confidence_threshold,
-        enable_quick_analysis: config.enable_quick_analysis,
-        enable_document_analysis: config.enable_document_analysis,
-        auto_categorization: config.auto_categorization
-      };
-    } catch (error) {
-      console.error('Failed to load receipt AI config:', error);
-      return DEFAULT_RECEIPT_AI_CONFIG;
-    }
-  }
-
-  /**
-   * Test AI provider connection with comprehensive validation (using backend)
-   */
-  async testAIProviderConnection(config: ReceiptAIConfig): Promise<{
-    success: boolean;
-    error?: string;
-    latency?: number;
-    details?: {
-      configurationValid: boolean;
-      apiKeyPresent: boolean;
-      providerReachable: boolean;
-      modelAvailable: boolean;
-    };
-  }> {
-    try {
-      const testData = {
-        provider: config.provider,
-        model: config.model,
-        use_system_key: config.api_key_source === 'system',
-        endpoint_url: config.custom_endpoint
-      };
-
-      const response = await fetch('/api/ai-providers/test-connection', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify(testData)
-      });
-
-      const result = await response.json();
-      
-      if (!response.ok) {
-        return {
-          success: false,
-          error: result.error || 'Connection test failed'
-        };
-      }
-
-      return result;
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error'
-      };
-    }
-  }
-
-  /**
-   * Store user API key securely on backend
-   */
+  // Store API key for a provider
   async storeAPIKey(provider: string, apiKey: string, endpointUrl?: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const body: any = { provider, api_key: apiKey };
-      if (endpointUrl) {
-        body.endpoint_url = endpointUrl;
-      }
-
       const response = await fetch('/api/ai-providers/api-keys', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ provider, api_key: apiKey, endpoint_url: endpointUrl })
       });
-
-      const result = await response.json();
       
       if (!response.ok) {
-        return {
-          success: false,
-          error: result.error || 'Failed to store API key'
-        };
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Failed to store API key' };
       }
-
+      
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error'
-      };
+      console.error('Error storing API key:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
-  /**
-   * Delete user API key from backend
-   */
+  // Delete API key for a provider
   async deleteAPIKey(provider: string): Promise<{ success: boolean; error?: string }> {
     try {
       const response = await fetch(`/api/ai-providers/api-keys/${provider}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
         }
       });
-
-      const result = await response.json();
       
       if (!response.ok) {
-        return {
-          success: false,
-          error: result.error || 'Failed to delete API key'
-        };
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Failed to delete API key' };
       }
-
+      
       return { success: true };
     } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Network error'
-      };
+      console.error('Error deleting API key:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
-  /**
-   * Check API key status for a provider
-   */
-  async getAPIKeyStatus(provider: string): Promise<{
-    hasUserKey: boolean;
-    hasSystemKey: boolean;
-    error?: string;
-  }> {
+  // Get API key status for a provider
+  async getAPIKeyStatus(provider: string): Promise<APIKeyStatus> {
     try {
       const response = await fetch(`/api/ai-providers/api-keys/${provider}/status`, {
-        method: 'GET',
         headers: {
-          'Authorization': `Bearer ${(await this.supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
         }
       });
-
+      
       if (!response.ok) {
-        return {
-          hasUserKey: false,
-          hasSystemKey: false,
-          error: 'Failed to check API key status'
-        };
+        throw new Error('Failed to get API key status');
       }
-
-      const result = await response.json();
-      return {
-        hasUserKey: result.has_user_key,
-        hasSystemKey: result.has_system_key
-      };
+      
+      return await response.json();
     } catch (error) {
-      return {
-        hasUserKey: false,
-        hasSystemKey: false,
-        error: error instanceof Error ? error.message : 'Network error'
+      console.error('Error getting API key status:', error);
+      throw new Error('Failed to check API key status');
+    }
+  }
+
+  // Test AI provider connection
+  async testAIProviderConnection(config: Partial<AIProviderConfig>): Promise<TestConnectionResult> {
+    try {
+      const response = await fetch('/api/ai-providers/test-connection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
+        },
+        body: JSON.stringify({
+          provider: config.provider,
+          model: config.model,
+          use_system_key: config.use_system_key,
+          endpoint_url: config.endpoint_url
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { success: false, error: errorData.error || 'Connection test failed' };
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error testing connection:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Connection test failed' 
       };
     }
   }
 
-  /**
-   * Validate configuration with detailed error reporting
-   */
-  async validateConfiguration(config: ReceiptAIConfig): Promise<{
+  // Validate configuration
+  async validateConfiguration(config: Partial<AIProviderConfig>): Promise<{
     isValid: boolean;
     errors: string[];
     warnings: string[];
     recommendations: string[];
   }> {
-    const errors: string[] = [];
-    const warnings: string[] = [];
-    const recommendations: string[] = [];
-
-    // Basic validation using existing function
-    const basicValidation = validateReceiptAIConfig(config);
-    errors.push(...basicValidation.errors);
-
-    // Provider-specific validation
-    const providerInfo = AI_PROVIDERS[config.provider];
-    if (!providerInfo) {
-      errors.push(`Unknown provider: ${config.provider}`);
-    } else {
-      // Check API key availability through backend
-      try {
-        const keyStatus = await this.getAPIKeyStatus(config.provider);
-        
-        if (config.api_key_source === 'system' && !keyStatus.hasSystemKey) {
-          errors.push('System API key not available');
-        }
-        
-        if (config.api_key_source === 'user' && !keyStatus.hasUserKey) {
-          errors.push('User API key not configured');
-        }
-      } catch (error) {
-        warnings.push('Could not verify API key availability');
-      }
-
-      // Model availability check
-      const models = getAvailableModels(config.provider);
-      if (!models.find(m => m.id === config.model)) {
-        errors.push(`Model '${config.model}' is not available for provider '${config.provider}'`);
-        
-        const recommendedModel = models.find(m => m.isRecommended);
-        if (recommendedModel) {
-          recommendations.push(`Consider using the recommended model: ${recommendedModel.name}`);
-        }
-      }
-    }
-
-    // Performance warnings
-    if (config.timeout_seconds && config.timeout_seconds < 30) {
-      warnings.push('Timeout is set quite low - may cause issues with complex receipts');
-    }
-    
-    if (config.retry_attempts && config.retry_attempts > 5) {
-      warnings.push('High retry count may cause slow responses');
-    }
-
-    if (config.confidence_threshold && config.confidence_threshold < 0.5) {
-      warnings.push('Low confidence threshold may result in inaccurate results');
-    }
-
-    // Feature recommendations
-    if (!config.enable_quick_analysis && !config.enable_document_analysis) {
-      warnings.push('Both quick and document analysis are disabled');
-    }
-
-    return {
-      isValid: errors.length === 0,
-      errors,
-      warnings,
-      recommendations
+    const result = {
+      isValid: true,
+      errors: [] as string[],
+      warnings: [] as string[],
+      recommendations: [] as string[]
     };
+
+    // Provider validation
+    if (!config.provider || !['google', 'openrouter', 'custom'].includes(config.provider)) {
+      result.errors.push('Invalid AI provider selected');
+      result.isValid = false;
+    }
+
+    // Model validation
+    if (!config.model || typeof config.model !== 'string') {
+      result.errors.push('Model must be specified');
+      result.isValid = false;
+    }
+
+    // Temperature validation
+    if (config.temperature !== undefined) {
+      if (typeof config.temperature !== 'number' || config.temperature < 0 || config.temperature > 2) {
+        result.errors.push('Temperature must be between 0 and 2');
+        result.isValid = false;
+      }
+    }
+
+    // Confidence threshold validation
+    if (config.confidence_threshold !== undefined) {
+      if (typeof config.confidence_threshold !== 'number' || config.confidence_threshold < 0 || config.confidence_threshold > 1) {
+        result.errors.push('Confidence threshold must be between 0 and 1');
+        result.isValid = false;
+      }
+    }
+
+    // Retry attempts validation
+    if (config.retry_attempts !== undefined) {
+      if (typeof config.retry_attempts !== 'number' || config.retry_attempts < 0 || config.retry_attempts > 10) {
+        result.errors.push('Retry attempts must be between 0 and 10');
+        result.isValid = false;
+      }
+    }
+
+    // Timeout validation
+    if (config.timeout_seconds !== undefined) {
+      if (typeof config.timeout_seconds !== 'number' || config.timeout_seconds < 10 || config.timeout_seconds > 300) {
+        result.errors.push('Timeout must be between 10 and 300 seconds');
+        result.isValid = false;
+      }
+    }
+
+    // Add warnings and recommendations
+    if (config.provider === 'openrouter' && config.model) {
+      if (!config.model.includes('/')) {
+        result.warnings.push('OpenRouter models typically use the format "provider/model-name"');
+      }
+    }
+
+    if (config.provider === 'google' && config.model) {
+      const recommendedModels = ['gemini-2.5-flash', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+      if (!recommendedModels.includes(config.model)) {
+        result.recommendations.push('Consider using one of the recommended Google models for better performance');
+      }
+    }
+
+    return result;
+  }
+
+  // Get OpenRouter models from cache
+  async getOpenRouterModels(): Promise<CachedAIModel[]> {
+    try {
+      const response = await fetch('/api/ai-providers/openrouter/models', {
+        headers: {
+          'Authorization': `Bearer ${await this.supabase.auth.getSession().then(session => session.data.session?.access_token)}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch OpenRouter models');
+      }
+      
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Error getting OpenRouter models:', error);
+      return [];
+    }
   }
 
   /**

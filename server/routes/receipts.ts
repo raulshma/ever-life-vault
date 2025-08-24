@@ -604,7 +604,7 @@ export function registerReceiptRoutes(
     }
   })
 
-  // POST /api/receipts/quick-analyze - Quick analysis for form auto-fill
+  // POST /api/receipts/quick-analyze - Quick analyze receipt image for form auto-fill
   server.post('/api/receipts/quick-analyze', async (request, reply) => {
     const user = await requireSupabaseUser(request, reply)
     if (!user) return
@@ -617,34 +617,27 @@ export function registerReceiptRoutes(
     try {
       const body = quickAnalysisSchema.parse(request.body)
       
-      // Create analysis service based on user's configuration
+      // Initialize analysis service with user's configuration
       const analysisService = await createAnalysisService(
-        authenticatedSupabase,
-        user.id,
+        authenticatedSupabase, 
+        user.id, 
         { googleApiKey: GOOGLE_API_KEY, openRouterApiKey: OPENROUTER_API_KEY }
       )
-      
-      if (!analysisService) {
-        return reply.code(503).send({ error: 'AI analysis service not configured or available' })
-      }
-      
-      // Perform quick analysis for form filling
-      const formData = await analysisService.quickAnalyzeForForm(body.image_url, {
-        model: body.model
-      })
 
-      return reply.send({ 
-        formData,
-        provider: analysisService instanceof EnhancedReceiptAnalysisService 
-          ? analysisService.getConfig().provider 
-          : 'google'
-      })
+      if (!analysisService) {
+        return reply.code(503).send({ error: 'AI analysis service not configured' })
+      }
+
+      // Perform quick analysis
+      const formData = await analysisService.quickAnalyzeForForm(body.image_url)
+      
+      return reply.send({ formData })
     } catch (error: unknown) {
       if (error instanceof ZodError) {
         return handleZodError(error, reply, 'Invalid quick analysis request')
       }
       server.log.error(error)
-      return reply.code(500).send({ error: 'AI analysis failed', details: error instanceof Error ? error.message : 'Unknown error' })
+      return reply.code(500).send({ error: 'Internal server error' })
     }
   })
 

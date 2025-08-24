@@ -14,7 +14,10 @@ import {
   ExternalLink,
   Zap,
   Clock,
-  Target
+  Target,
+  Plus,
+  Edit3,
+  RefreshCw
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,14 +47,16 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
     isSaving,
     isDirty,
     availableProviders,
-    availableModels,
     updateConfig,
     saveConfig,
     resetConfig,
     getProviderModels,
     isProviderConfigured,
     testConnection,
-    validateCurrentConfig
+    validateCurrentConfig,
+    fetchOpenRouterModels,
+    openRouterModels,
+    isLoadingOpenRouterModels
   } = useAISettings();
   
   const { systemSettingsService } = useSettings();
@@ -82,13 +87,18 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
     hasUserKey: boolean;
     hasSystemKey: boolean;
   }>({ hasUserKey: false, hasSystemKey: false });
+  const [useCustomModel, setUseCustomModel] = useState(false);
+  const [customModelName, setCustomModelName] = useState('');
 
   // Load API key status when provider changes
   useEffect(() => {
     if (systemSettingsService && config.provider) {
       systemSettingsService.getAPIKeyStatus(config.provider).then(status => {
-        if (!status.error) {
-          setApiKeyStatus(status);
+        if (!('error' in status)) {
+          setApiKeyStatus({
+            hasUserKey: status.has_user_key,
+            hasSystemKey: status.has_system_key
+          });
         }
       });
     }
@@ -99,15 +109,45 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
     onUnsavedChanges?.(isDirty);
   }, [isDirty, onUnsavedChanges]);
 
+  // Set custom model state when config changes
+  useEffect(() => {
+    if (config.provider === 'openrouter') {
+      const models = getProviderModels(config.provider);
+      const modelExists = models.some(model => model.id === config.model);
+      setUseCustomModel(!modelExists);
+      if (!modelExists) {
+        setCustomModelName(config.model);
+      }
+    } else {
+      setUseCustomModel(false);
+      setCustomModelName('');
+    }
+  }, [config.provider, config.model, getProviderModels]);
+
   // Handle provider change
   const handleProviderChange = (provider: AIProvider) => {
     updateConfig({ provider });
     setConnectionResult(null);
+    // Reset custom model when changing provider
+    if (provider !== 'openrouter') {
+      setUseCustomModel(false);
+      setCustomModelName('');
+    }
   };
 
   // Handle model change
   const handleModelChange = (model: string) => {
     updateConfig({ model });
+    // If selecting a predefined model, disable custom model
+    setUseCustomModel(false);
+    setCustomModelName('');
+  };
+
+  // Handle custom model change
+  const handleCustomModelChange = () => {
+    if (customModelName.trim()) {
+      updateConfig({ model: customModelName.trim() });
+    }
   };
 
   // Handle API key update
@@ -249,23 +289,113 @@ export function ReceiptAISettings({ onUnsavedChanges }: ReceiptAISettingsProps) 
           {/* Model Selection */}
           <div className="space-y-3">
             <Label htmlFor="model">Model</Label>
-            <Select value={config.model} onValueChange={handleModelChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {models.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{model.name}</span>
-                      {model.isRecommended && (
-                        <Badge variant="secondary" className="text-xs">Recommended</Badge>
+            {config.provider === 'openrouter' ? (
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={useCustomModel}
+                    onCheckedChange={(checked) => {
+                      setUseCustomModel(checked);
+                      if (!checked && models.length > 0) {
+                        // Switch back to first available model
+                        updateConfig({ model: models[0].id });
+                      }
+                    }}
+                  />
+                  <Label>Use custom model name</Label>
+                </div>
+                
+                {useCustomModel ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Enter model name (e.g., openai/gpt-4o)"
+                      value={customModelName}
+                      onChange={(e) => setCustomModelName(e.target.value)}
+                      onBlur={handleCustomModelChange}
+                      onKeyDown={(e) => e.key === 'Enter' && handleCustomModelChange()}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleCustomModelChange}
+                      disabled={!customModelName.trim()}
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Select value={config.model} onValueChange={handleModelChange}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isLoadingOpenRouterModels ? (
+                          <div className="p-2 text-center">
+                            <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                            <p className="text-sm mt-1">Loading models...</p>
+                          </div>
+                        ) : openRouterModels.length > 0 ? (
+                          openRouterModels.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{model.name}</span>
+                                {model.is_recommended && (
+                                  <Badge variant="secondary" className="text-xs">Recommended</Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        ) : (
+                          // Fallback to static models if cache is empty
+                          models.map((model) => (
+                            <SelectItem key={model.id} value={model.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{model.name}</span>
+                                {model.isRecommended && (
+                                  <Badge variant="secondary" className="text-xs">Recommended</Badge>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={fetchOpenRouterModels}
+                      disabled={isLoadingOpenRouterModels}
+                    >
+                      {isLoadingOpenRouterModels ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
                       )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                      Refresh Models
+                    </Button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Select value={config.model} onValueChange={handleModelChange}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {models.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{model.name}</span>
+                        {model.isRecommended && (
+                          <Badge variant="secondary" className="text-xs">Recommended</Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             {models.find(m => m.id === config.model)?.description && (
               <p className="text-sm text-muted-foreground">
                 {models.find(m => m.id === config.model)?.description}

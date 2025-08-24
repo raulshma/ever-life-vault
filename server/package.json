@@ -14,9 +14,8 @@
     "postinstall": "npm run build"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^2.0.19",
     "@ai-sdk/google": "^2.0.8",
-    "@openrouter/ai-sdk-provider": "^1.1.2",
+    "@ai-sdk/openai": "^2.0.19",
     "@fastify/caching": "^9.0.3",
     "@fastify/compress": "^8.1.0",
     "@fastify/cors": "^10.0.1",
@@ -25,6 +24,7 @@
     "@fastify/http-proxy": "^10.0.2",
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/websocket": "^11.2.0",
+    "@openrouter/ai-sdk-provider": "^1.1.2",
     "@supabase/supabase-js": "^2.45.4",
     "ai": "^5.0.22",
     "dotenv": "^16.4.5",
@@ -44,6 +44,7 @@
     "@types/node-cron": "^3.0.11",
     "copyfiles": "^2.4.1",
     "rimraf": "^6.0.1",
+    "tsc-esm": "^1.0.4",
     "tsx": "^4.19.2",
     "typescript": "^5.0.0"
   },

@@ -477,4 +477,104 @@ export function registerApiKeyRoutes(
       });
     }
   });
+
+  // Fetch and cache OpenRouter models
+  server.get('/api/ai-providers/openrouter/models', async (request, reply) => {
+    const user = await requireSupabaseUser(request, reply);
+    if (!user) return;
+
+    try {
+      const authenticatedSupabase = makeSupabaseForRequest({ SUPABASE_URL, SUPABASE_ANON_KEY }, request);
+      if (!authenticatedSupabase) {
+        return reply.code(401).send({ error: 'Authentication required' });
+      }
+
+      // Check if we have cached models that are less than 1 hour old
+      const { data: cachedModels, error: cacheError } = await authenticatedSupabase
+        .from('llm_models_cache')
+        .select('*')
+        .eq('provider', 'OpenRouter')
+        .gt('updated_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()); // 1 hour
+
+      if (!cacheError && cachedModels && cachedModels.length > 0) {
+        // Return cached models
+        const models = cachedModels.map(model => ({
+          id: model.id,
+          name: model.data.name || model.id,
+          description: model.data.description || null,
+          context_length: model.data.context_length || null,
+          pricing: model.data.pricing || null,
+          is_recommended: model.data.is_recommended || false
+        }));
+        
+        return reply.send({ 
+          success: true, 
+          data: models,
+          source: 'cache'
+        });
+      }
+
+      // Fetch fresh models from OpenRouter API
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: { 
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Transform and cache models
+      const models = result.data.map((model: any) => ({
+        id: model.id,
+        name: model.name,
+        description: model.description || null,
+        context_length: model.context_length || null,
+        pricing: model.pricing || null,
+        is_recommended: model.id === 'openai/gpt-4o' // Mark GPT-4O as recommended
+      }));
+
+      // Cache models in database
+      const cacheEntries = models.map((model: any) => ({
+        id: model.id,
+        provider: 'OpenRouter',
+        company: model.id.split('/')[0], // Extract company from model ID
+        is_available: true,
+        data: {
+          name: model.name,
+          description: model.description,
+          context_length: model.context_length,
+          pricing: model.pricing,
+          is_recommended: model.is_recommended
+        }
+      }));
+
+      // Upsert cache entries
+      const { error: upsertError } = await authenticatedSupabase
+        .from('llm_models_cache')
+        .upsert(cacheEntries, {
+          onConflict: 'id'
+        });
+
+      if (upsertError) {
+        server.log.error({ err: upsertError }, 'Error caching OpenRouter models');
+        // Don't fail the request if caching fails, just return the models
+      }
+
+      return reply.send({ 
+        success: true, 
+        data: models,
+        source: 'api'
+      });
+    } catch (error) {
+      server.log.error({ err: error }, 'Error fetching OpenRouter models');
+      return reply.code(500).send({ 
+        error: 'Failed to fetch OpenRouter models',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
 }

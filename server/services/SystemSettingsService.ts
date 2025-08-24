@@ -1,5 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SecretsService } from './SecretsService';
+import { SecretsService } from './SecretsService.js';
 
 export interface AIProviderConfig {
   provider: 'google' | 'openrouter' | 'custom';
@@ -378,6 +378,42 @@ export class SystemSettingsService {
         success: false, 
         error: error instanceof Error ? error.message : 'Connection failed' 
       };
+    }
+  }
+
+  /**
+   * Get OpenRouter models from cache
+   */
+  async getOpenRouterModels(): Promise<any[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from('llm_models_cache')
+        .select('*')
+        .eq('provider', 'OpenRouter')
+        .gt('updated_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()) // 1 hour
+        .order('updated_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching OpenRouter models from cache:', error);
+        return [];
+      }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Transform cached data to match expected format
+      return data.map(model => ({
+        id: model.id,
+        name: model.data.name || model.id,
+        description: model.data.description || null,
+        context_length: model.data.context_length || null,
+        pricing: model.data.pricing || null,
+        is_recommended: model.data.is_recommended || false
+      }));
+    } catch (error) {
+      console.error('Error getting OpenRouter models:', error);
+      return [];
     }
   }
 
