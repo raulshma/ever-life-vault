@@ -23,6 +23,7 @@ import {
   Receipt,
   BarChart3,
   Settings,
+  Key,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -63,6 +64,7 @@ export const moduleCategories: NavGroups = {
     { name: "Vault", path: "/vault", icon: Shield },
     { name: "Integrations", path: "/integrations", icon: Monitor },
     { name: "LLM Models", path: "/llm-models", icon: Brain },
+    { name: "API Keys", path: "/keys", icon: Key },
     { name: "Repo Flattener", path: "/repo-flatten", icon: GitBranch },
     { name: "Live Share", path: "/share/new", icon: Share2 },
     { name: "Clip", path: "/clip/new", icon: FileText },

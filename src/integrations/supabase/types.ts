@@ -14,6 +14,143 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          created_at: string | null
+          daily_request_limit: number | null
+          daily_requests_used: number | null
+          daily_reset_at: string | null
+          daily_token_limit: number | null
+          daily_tokens_used: number | null
+          id: string
+          is_active: boolean | null
+          key_hash: string
+          key_name: string
+          last_used_at: string | null
+          monthly_request_limit: number | null
+          monthly_requests_used: number | null
+          monthly_reset_at: string | null
+          monthly_token_limit: number | null
+          monthly_tokens_used: number | null
+          provider: string
+          rotation_priority: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          daily_request_limit?: number | null
+          daily_requests_used?: number | null
+          daily_reset_at?: string | null
+          daily_token_limit?: number | null
+          daily_tokens_used?: number | null
+          id?: string
+          is_active?: boolean | null
+          key_hash: string
+          key_name: string
+          last_used_at?: string | null
+          monthly_request_limit?: number | null
+          monthly_requests_used?: number | null
+          monthly_reset_at?: string | null
+          monthly_token_limit?: number | null
+          monthly_tokens_used?: number | null
+          provider: string
+          rotation_priority?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          daily_request_limit?: number | null
+          daily_requests_used?: number | null
+          daily_reset_at?: string | null
+          daily_token_limit?: number | null
+          daily_tokens_used?: number | null
+          id?: string
+          is_active?: boolean | null
+          key_hash?: string
+          key_name?: string
+          last_used_at?: string | null
+          monthly_request_limit?: number | null
+          monthly_requests_used?: number | null
+          monthly_reset_at?: string | null
+          monthly_token_limit?: number | null
+          monthly_tokens_used?: number | null
+          provider?: string
+          rotation_priority?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      api_usage_logs: {
+        Row: {
+          api_key_id: string
+          completion_tokens: number | null
+          endpoint: string | null
+          error_message: string | null
+          estimated_cost_usd: number | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          model_used: string | null
+          prompt_tokens: number | null
+          provider: string
+          request_timestamp: string | null
+          response_time_ms: number | null
+          status_code: number | null
+          success: boolean | null
+          total_tokens: number | null
+          user_id: string
+        }
+        Insert: {
+          api_key_id: string
+          completion_tokens?: number | null
+          endpoint?: string | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          model_used?: string | null
+          prompt_tokens?: number | null
+          provider: string
+          request_timestamp?: string | null
+          response_time_ms?: number | null
+          status_code?: number | null
+          success?: boolean | null
+          total_tokens?: number | null
+          user_id: string
+        }
+        Update: {
+          api_key_id?: string
+          completion_tokens?: number | null
+          endpoint?: string | null
+          error_message?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          model_used?: string | null
+          prompt_tokens?: number | null
+          provider?: string
+          request_timestamp?: string | null
+          response_time_ms?: number | null
+          status_code?: number | null
+          success?: boolean | null
+          total_tokens?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_usage_logs_api_key_id_fkey"
+            columns: ["api_key_id"]
+            isOneToOne: false
+            referencedRelation: "api_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clips: {
         Row: {
           content: string | null
@@ -1056,6 +1193,102 @@ export type Database = {
         }
         Relationships: []
       }
+      provider_rate_limit_presets: {
+        Row: {
+          concurrent_requests: number | null
+          created_at: string | null
+          id: string
+          model_pattern: string | null
+          provider: string
+          requests_per_day: number | null
+          requests_per_hour: number | null
+          requests_per_minute: number | null
+          tier_name: string
+          tokens_per_day: number | null
+          tokens_per_hour: number | null
+          tokens_per_minute: number | null
+        }
+        Insert: {
+          concurrent_requests?: number | null
+          created_at?: string | null
+          id?: string
+          model_pattern?: string | null
+          provider: string
+          requests_per_day?: number | null
+          requests_per_hour?: number | null
+          requests_per_minute?: number | null
+          tier_name: string
+          tokens_per_day?: number | null
+          tokens_per_hour?: number | null
+          tokens_per_minute?: number | null
+        }
+        Update: {
+          concurrent_requests?: number | null
+          created_at?: string | null
+          id?: string
+          model_pattern?: string | null
+          provider?: string
+          requests_per_day?: number | null
+          requests_per_hour?: number | null
+          requests_per_minute?: number | null
+          tier_name?: string
+          tokens_per_day?: number | null
+          tokens_per_hour?: number | null
+          tokens_per_minute?: number | null
+        }
+        Relationships: []
+      }
+      rate_limit_configs: {
+        Row: {
+          burst_allowance: number | null
+          created_at: string | null
+          id: string
+          provider: string
+          requests_per_day: number | null
+          requests_per_hour: number | null
+          requests_per_minute: number | null
+          throttle_delay_ms: number | null
+          throttle_enabled: boolean | null
+          tokens_per_day: number | null
+          tokens_per_hour: number | null
+          tokens_per_minute: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          burst_allowance?: number | null
+          created_at?: string | null
+          id?: string
+          provider: string
+          requests_per_day?: number | null
+          requests_per_hour?: number | null
+          requests_per_minute?: number | null
+          throttle_delay_ms?: number | null
+          throttle_enabled?: boolean | null
+          tokens_per_day?: number | null
+          tokens_per_hour?: number | null
+          tokens_per_minute?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          burst_allowance?: number | null
+          created_at?: string | null
+          id?: string
+          provider?: string
+          requests_per_day?: number | null
+          requests_per_hour?: number | null
+          requests_per_minute?: number | null
+          throttle_delay_ms?: number | null
+          throttle_enabled?: boolean | null
+          tokens_per_day?: number | null
+          tokens_per_hour?: number | null
+          tokens_per_minute?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       receipt_analysis_jobs: {
         Row: {
           ai_model_used: string | null
@@ -1848,6 +2081,14 @@ export type Database = {
           participant_id: string
           room_id: string
         }[]
+      }
+      reset_daily_usage_counters: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      reset_monthly_usage_counters: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       set_live_share_participant_status: {
         Args: { _participant_id: string; _status: string }

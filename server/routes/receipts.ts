@@ -81,13 +81,13 @@ async function createAnalysisService(
   if (!userConfig) {
     // Fall back to legacy service if no configuration available
     if (fallbackConfig.googleApiKey) {
-      return new ReceiptAnalysisService(supabase, fallbackConfig.googleApiKey)
+      return new ReceiptAnalysisService(supabase, fallbackConfig.googleApiKey, userId)
     }
     return null
   }
 
-  // Use enhanced service with user's configuration
-  return new EnhancedReceiptAnalysisService(supabase, userConfig)
+  // Use enhanced service with user's configuration and userId for API key management
+  return new EnhancedReceiptAnalysisService(supabase, userConfig, userId)
 }
 
 // Helper function to handle Zod errors

@@ -1,6 +1,8 @@
 import Fastify, { FastifyInstance } from 'fastify'
 // @ts-ignore - types are provided via local shims
 import fastifyWebsocket from '@fastify/websocket'
+import * as path from 'path'
+import * as fs from 'fs/promises'
 import { env } from './config/env.js'
 import { registerCors } from './plugins/cors.js'
 import { registerServiceProxies } from './plugins/proxies.js'
@@ -23,6 +25,7 @@ import authRoutes from './routes/auth.js'
 import { registerSshRoutes } from './routes/ssh.js'
 import { registerReceiptRoutes } from './routes/receipts.js'
 import { registerApiKeyRoutes } from './routes/api-keys.js'
+import { apiKeyManagementRoutes } from './routes/api-key-management.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -161,6 +164,20 @@ export async function buildServer(): Promise<FastifyInstance> {
     server.log.warn('Skipping receipt routes: SUPABASE_URL or SUPABASE_ANON_KEY not configured')
   }
 
+  // API Key Management routes with usage tracking and rate limiting
+  if (supabase) {
+    await server.register(apiKeyManagementRoutes, {
+      supabase,
+      requireAuth: true,
+      requireSupabaseUser,
+      SUPABASE_URL: env.SUPABASE_URL!,
+      SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY!,
+    })
+    server.log.info('API Key Management routes registered with usage tracking and rate limiting')
+  } else {
+    server.log.warn('Skipping API Key Management routes: Supabase not configured')
+  }
+
   // RSS proxy route to avoid CORS issues (always available)
   server.get('/rss-proxy', async (request, reply) => {
     try {
@@ -268,6 +285,31 @@ export async function buildServer(): Promise<FastifyInstance> {
       microsoft: !!(env.MS_CLIENT_ID && env.MS_REDIRECT_URI),
     },
   }))
+
+  // Catch-all route for SPA - serve index.html for client-side routing
+  // This must come after all API routes
+  server.get('*', async (request, reply) => {
+    // Skip API routes and static assets
+    if (request.url.startsWith('/api/') ||
+        request.url.startsWith('/auth/') ||
+        request.url.includes('.') ||
+        request.url.startsWith('/health') ||
+        request.url.startsWith('/rss-proxy')) {
+      return reply.status(404).send({ error: 'Not Found', statusCode: 404 })
+    }
+
+    // For SPA routes, serve the index.html
+    try {
+      const indexPath = path.join(process.cwd(), 'dist', 'index.html')
+      const indexContent = await fs.readFile(indexPath, 'utf-8')
+      return reply
+        .type('text/html')
+        .send(indexContent)
+    } catch (error) {
+      // If index.html doesn't exist, fall back to 404
+      return reply.status(404).send({ error: 'Not Found', statusCode: 404 })
+    }
+  })
 
   return server
 }

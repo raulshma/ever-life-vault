@@ -3,6 +3,10 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Import API key management services
+import { APIKeyManagementService } from './APIKeyManagementService.js'
+import { RateLimitingService } from './RateLimitingService.js'
+
 // Local type definitions for Supabase tables
 interface Receipt {
   id: string;
@@ -369,17 +373,49 @@ const DocumentAnalysisSchema = z.object({
 
 export class ReceiptAnalysisService {
   private supabase: SupabaseClient
-  private googleApiKey: string
   private googleProvider: (model: string) => any
   private readonly maxRetries: number = 3
   private readonly retryDelay: number = 1000 // Base delay in ms
   private readonly timeoutMs: number = 60000 // 60 second timeout
+  private apiKeyService: APIKeyManagementService
+  private rateLimitService: RateLimitingService
+  private userId: string
+  private currentKeyId?: string
+  private currentApiKey?: string
 
-  constructor(supabase: SupabaseClient, googleApiKey: string) {
+  constructor(supabase: SupabaseClient, googleApiKey: string, userId?: string) {
     this.supabase = supabase
-    this.googleApiKey = googleApiKey
+    this.userId = userId || 'system' // fallback for legacy usage
+    
+    if (userId) {
+      // Modern usage with API key management
+      this.apiKeyService = new APIKeyManagementService(supabase, userId)
+      this.rateLimitService = new RateLimitingService(supabase, userId)
+      this.initializeProvider()
+    } else {
+      // Legacy usage with direct API key
+      this.googleProvider = createGoogleGenerativeAI({
+        apiKey: googleApiKey,
+      })
+    }
+  }
+
+  /**
+   * Initialize Google provider with API key management
+   */
+  private async initializeProvider(): Promise<void> {
+    // Get the best available Google API key
+    const keyInfo = await this.apiKeyService.getBestAPIKey('google')
+    
+    if (!keyInfo) {
+      throw new Error('No Google API key available')
+    }
+
+    this.currentKeyId = keyInfo.keyId
+    this.currentApiKey = keyInfo.apiKey
+
     this.googleProvider = createGoogleGenerativeAI({
-      apiKey: googleApiKey,
+      apiKey: keyInfo.apiKey,
     })
   }
 
@@ -444,8 +480,128 @@ export class ReceiptAnalysisService {
       message.includes('forbidden') ||
       message.includes('bad request') ||
       message.includes('unsupported file type') ||
-      message.includes('file too large')
+      message.includes('file too large') ||
+      message.includes('quota exceeded') ||
+      message.includes('rate limit')
     );
+  }
+
+  /**
+   * Execute AI operation with usage tracking and rate limiting
+   */
+  private async executeAIOperation<T>(
+    operation: () => Promise<T>,
+    context: string,
+    model: string
+  ): Promise<T> {
+    // Skip usage tracking for legacy usage (no userId)
+    if (!this.userId || this.userId === 'system') {
+      return operation()
+    }
+
+    const startTime = Date.now()
+    let promptTokens = 0
+    let completionTokens = 0
+    let totalTokens = 0
+
+    try {
+      // Check rate limits before proceeding
+      if (this.currentKeyId) {
+        await this.rateLimitService.checkRateLimit('google', this.currentKeyId)
+      }
+
+      const result = await operation()
+      
+      // Extract token usage if available
+      if (result && typeof result === 'object') {
+        const usage = (result as any).usage || (result as any).meta?.usage
+        if (usage) {
+          promptTokens = usage.prompt_tokens || usage.input_tokens || 0
+          completionTokens = usage.completion_tokens || usage.output_tokens || 0
+          totalTokens = usage.total_tokens || (promptTokens + completionTokens)
+        }
+      }
+
+      const responseTime = Date.now() - startTime
+
+      // Log successful usage
+      if (this.currentKeyId) {
+        await this.apiKeyService.logAPIUsage(this.currentKeyId, {
+          provider: 'google',
+          modelUsed: model,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          responseTimeMs: responseTime,
+          success: true,
+          endpoint: 'generateObject',
+          method: 'POST'
+        })
+      }
+
+      return result
+
+    } catch (error) {
+      const responseTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+      // Log failed usage
+      if (this.currentKeyId) {
+        await this.apiKeyService.logAPIUsage(this.currentKeyId, {
+          provider: 'google',
+          modelUsed: model,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          responseTimeMs: responseTime,
+          success: false,
+          errorMessage,
+          endpoint: 'generateObject',
+          method: 'POST'
+        })
+      }
+
+      // Check if this is a rate limit error and we should rotate keys
+      if (this.isRateLimitError(error as Error)) {
+        console.log(`Rate limit hit for key ${this.currentKeyId}, attempting key rotation...`)
+        const newKeyInfo = await this.apiKeyService.getBestAPIKey('google', undefined, this.currentKeyId)
+        
+        if (newKeyInfo && newKeyInfo.keyId !== this.currentKeyId) {
+          await this.rotateAPIKey(newKeyInfo.keyId, newKeyInfo.apiKey)
+          throw new Error(`Rate limit exceeded. Rotated to new key. Please retry the operation.`)
+        }
+      }
+
+      throw error
+    }
+  }
+
+  /**
+   * Check if error is rate limit related
+   */
+  private isRateLimitError(error: Error): boolean {
+    const message = error.message.toLowerCase()
+    return (
+      message.includes('rate limit') ||
+      message.includes('too many requests') ||
+      message.includes('quota exceeded') ||
+      message.includes('429') ||
+      message.includes('throttle')
+    )
+  }
+
+  /**
+   * Rotate to a new API key
+   */
+  private async rotateAPIKey(newKeyId: string, newApiKey: string): Promise<void> {
+    console.log(`Rotating Google API key from ${this.currentKeyId} to ${newKeyId}`)
+    
+    this.currentKeyId = newKeyId
+    this.currentApiKey = newApiKey
+    
+    this.googleProvider = createGoogleGenerativeAI({
+      apiKey: newApiKey,
+    })
   }
   
   /**
@@ -567,26 +723,30 @@ Be precise with amounts and dates. If information is unclear, provide reasonable
       progressCallback?.('Analyzing with AI', 80);
 
       // Use Vercel AI SDK with Google Gemini to analyze the receipt
-      const result = await generateObject({
-        model: this.googleProvider(model),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              },
-              {
-                type: 'image',
-                image: imageData
-              }
-            ]
-          }
-        ],
-        schema: ReceiptAnalysisSchema,
-        maxRetries: 2,
-      });
+      const result = await this.executeAIOperation(
+        () => generateObject({
+          model: this.googleProvider(model),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt
+                },
+                {
+                  type: 'image',
+                  image: imageData
+                }
+              ]
+            }
+          ],
+          schema: ReceiptAnalysisSchema,
+          maxRetries: 2,
+        }),
+        'Quick Receipt Analysis',
+        model
+      );
 
       const analysisResult = result.object;
       
@@ -761,26 +921,30 @@ Be precise with amounts and dates. If information is unclear, provide reasonable
       progressCallback?.('Analyzing with AI', 80);
       
       // Use Vercel AI SDK with Google Gemini to analyze the document
-      const result = await generateObject({
-        model: this.googleProvider(model),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'text',
-                text: prompt
-              },
-              {
-                type: 'image',
-                image: fileData
-              }
-            ]
-          }
-        ],
-        schema: DocumentAnalysisSchema,
-        maxRetries: 2,
-      });
+      const result = await this.executeAIOperation(
+        () => generateObject({
+          model: this.googleProvider(model),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: prompt
+                },
+                {
+                  type: 'image',
+                  image: fileData
+                }
+              ]
+            }
+          ],
+          schema: DocumentAnalysisSchema,
+          maxRetries: 2,
+        }),
+        `Document Analysis (${documentType})`,
+        model
+      );
       
       progressCallback?.('Complete', 100);
       
@@ -1011,26 +1175,30 @@ Analyze this document comprehensively and identify:
         progressCallback?.('Analyzing with AI', 80);
 
         // Use Vercel AI SDK with Google Gemini to analyze the receipt
-        const aiResult = await generateObject({
-          model: this.googleProvider(model),
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: prompt
-                },
-                {
-                  type: 'image',
-                  image: imageData
-                }
-              ]
-            }
-          ],
-          schema: ReceiptAnalysisSchema,
-          maxRetries: 2,
-        });
+        const aiResult = await this.executeAIOperation(
+          () => generateObject({
+            model: this.googleProvider(model),
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  {
+                    type: 'text',
+                    text: prompt
+                  },
+                  {
+                    type: 'image',
+                    image: imageData
+                  }
+                ]
+              }
+            ],
+            schema: ReceiptAnalysisSchema,
+            maxRetries: 2,
+          }),
+          'Receipt Image Analysis',
+          model
+        );
 
         return aiResult.object;
       }, 'Receipt Image Analysis');
@@ -1321,5 +1489,58 @@ to make informed classifications.`
       
       console.log(`Job ${jobId} completed successfully`);
     }, `Analysis Job Processing (${jobId})`);
+  }
+
+  /**
+   * Get current API key usage statistics
+   */
+  async getCurrentUsageStats(): Promise<{
+    keyId?: string
+    dailyUsage: { requests: number; tokens: number }
+    monthlyUsage: { requests: number; tokens: number }
+    limits: { daily?: { requests?: number; tokens?: number }; monthly?: { requests?: number; tokens?: number } }
+  }> {
+    // Skip for legacy usage (no userId)
+    if (!this.userId || this.userId === 'system' || !this.currentKeyId) {
+      return {
+        dailyUsage: { requests: 0, tokens: 0 },
+        monthlyUsage: { requests: 0, tokens: 0 },
+        limits: {}
+      }
+    }
+
+    const keys = await this.apiKeyService.getAPIKeys('google')
+    const currentKey = keys.find(k => k.id === this.currentKeyId)
+
+    if (!currentKey) {
+      return {
+        keyId: this.currentKeyId,
+        dailyUsage: { requests: 0, tokens: 0 },
+        monthlyUsage: { requests: 0, tokens: 0 },
+        limits: {}
+      }
+    }
+
+    return {
+      keyId: this.currentKeyId,
+      dailyUsage: {
+        requests: currentKey.dailyRequestsUsed,
+        tokens: currentKey.dailyTokensUsed
+      },
+      monthlyUsage: {
+        requests: currentKey.monthlyRequestsUsed,
+        tokens: currentKey.monthlyTokensUsed
+      },
+      limits: {
+        daily: {
+          requests: currentKey.dailyRequestLimit,
+          tokens: currentKey.dailyTokenLimit
+        },
+        monthly: {
+          requests: currentKey.monthlyRequestLimit,
+          tokens: currentKey.monthlyTokenLimit
+        }
+      }
+    }
   }
 }

@@ -1,7 +1,7 @@
 /**
  * AI SDK Service for enhanced receipt and document analysis
  * This service provides comprehensive AI-powered analysis using the AI SDK
- * with proper typing and enhanced error handling.
+ * with proper typing, enhanced error handling, API key management, and rate limiting.
  */
 
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
@@ -13,6 +13,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 // Import types from centralized location
 import type { AIProviderConfig } from './EnhancedReceiptAnalysisService.js'
+import { APIKeyManagementService } from './APIKeyManagementService.js'
+import { RateLimitingService } from './RateLimitingService.js'
 
 // Local type definitions (mirrored from EnhancedReceiptAnalysisService)
 interface MerchantInfo {
@@ -267,9 +269,15 @@ export class AISDKService {
   private provider: any
   private readonly defaultMaxRetries: number = 3
   private readonly defaultRetryDelay: number = 1000
+  private apiKeyService: APIKeyManagementService
+  private rateLimitService: RateLimitingService
+  private userId: string
+  private currentKeyId?: string
+  private currentApiKey?: string
 
-  constructor(supabase: SupabaseClient, config: AIProviderConfig) {
+  constructor(supabase: SupabaseClient, config: AIProviderConfig, userId: string) {
     this.supabase = supabase
+    this.userId = userId
     this.config = {
       temperature: 0.1,
       maxTokens: undefined,
@@ -278,24 +286,39 @@ export class AISDKService {
       ...config
     }
 
+    this.apiKeyService = new APIKeyManagementService(supabase, userId)
+    this.rateLimitService = new RateLimitingService(supabase, userId)
+
     this.initializeProvider()
   }
 
   /**
-   * Initialize AI provider based on configuration
+   * Initialize AI provider based on configuration with API key management
    */
-  private initializeProvider(): void {
+  private async initializeProvider(): Promise<void> {
+    // Get the best available API key for the provider
+    const keyInfo = await this.apiKeyService.getBestAPIKey(this.config.provider)
+    
+    if (!keyInfo && !this.config.apiKey) {
+      throw new Error(`No API key available for provider: ${this.config.provider}`)
+    }
+
+    // Use managed API key if available, fallback to config key
+    const apiKey = keyInfo?.apiKey || this.config.apiKey
+    this.currentKeyId = keyInfo?.keyId
+    this.currentApiKey = apiKey
+
     switch (this.config.provider) {
       case 'google':
         this.provider = createGoogleGenerativeAI({
-          apiKey: this.config.apiKey,
+          apiKey,
           baseURL: this.config.baseUrl
         })
         break
 
       case 'openrouter':
         this.provider = createOpenRouter({
-          apiKey: this.config.apiKey,
+          apiKey,
           baseURL: this.config.baseUrl || 'https://openrouter.ai/api/v1',
           headers: {
             'HTTP-Referer': 'https://ever-life-vault.com',
@@ -309,7 +332,7 @@ export class AISDKService {
           throw new Error('Custom provider requires baseUrl configuration')
         }
         this.provider = createOpenAI({
-          apiKey: this.config.apiKey,
+          apiKey,
           baseURL: this.config.baseUrl
         })
         break
@@ -761,11 +784,11 @@ Provide comprehensive analysis of all visible information in the document.
   }
 
   /**
-   * Update provider configuration
+   * Update provider configuration and reinitialize
    */
-  updateConfig(newConfig: Partial<AIProviderConfig>): void {
+  async updateConfig(newConfig: Partial<AIProviderConfig>): Promise<void> {
     this.config = { ...this.config, ...newConfig }
-    this.initializeProvider()
+    await this.initializeProvider()
   }
 
   /**
@@ -773,5 +796,120 @@ Provide comprehensive analysis of all visible information in the document.
    */
   getConfig(): AIProviderConfig {
     return { ...this.config }
+  }
+
+  /**
+   * Rotate to a new API key
+   */
+  private async rotateAPIKey(newKeyId: string, newApiKey: string): Promise<void> {
+    console.log(`Rotating API key from ${this.currentKeyId} to ${newKeyId}`)
+    
+    this.currentKeyId = newKeyId
+    this.currentApiKey = newApiKey
+    this.config.apiKey = newApiKey
+    
+    await this.initializeProvider()
+  }
+
+  /**
+   * Check if error is rate limit related
+   */
+  private isRateLimitError(error: Error): boolean {
+    const message = error.message.toLowerCase()
+    return (
+      message.includes('rate limit') ||
+      message.includes('too many requests') ||
+      message.includes('quota exceeded') ||
+      message.includes('429') ||
+      message.includes('throttle')
+    )
+  }
+
+  /**
+   * Extract status code from error
+   */
+  private extractStatusCode(error: Error): number {
+    const message = error.message
+    
+    // Try to extract status code from common error patterns
+    const statusMatch = message.match(/(\d{3})/)
+    if (statusMatch) {
+      return parseInt(statusMatch[1], 10)
+    }
+
+    // Default status codes for common errors
+    if (message.toLowerCase().includes('rate limit')) return 429
+    if (message.toLowerCase().includes('unauthorized')) return 401
+    if (message.toLowerCase().includes('forbidden')) return 403
+    if (message.toLowerCase().includes('not found')) return 404
+    if (message.toLowerCase().includes('timeout')) return 408
+    
+    return 500 // Default server error
+  }
+
+  /**
+   * Calculate retry delay with exponential backoff
+   */
+  private calculateRetryDelay(attempt: number): number {
+    return Math.min(this.defaultRetryDelay * Math.pow(2, attempt - 1), 30000)
+  }
+
+  /**
+   * Sleep utility function
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * Get current API key usage statistics
+   */
+  async getCurrentUsageStats(): Promise<{
+    keyId?: string
+    dailyUsage: { requests: number; tokens: number }
+    monthlyUsage: { requests: number; tokens: number }
+    limits: { daily?: { requests?: number; tokens?: number }; monthly?: { requests?: number; tokens?: number } }
+  }> {
+    if (!this.currentKeyId) {
+      return {
+        dailyUsage: { requests: 0, tokens: 0 },
+        monthlyUsage: { requests: 0, tokens: 0 },
+        limits: {}
+      }
+    }
+
+    const keys = await this.apiKeyService.getAPIKeys(this.config.provider)
+    const currentKey = keys.find(k => k.id === this.currentKeyId)
+
+    if (!currentKey) {
+      return {
+        keyId: this.currentKeyId,
+        dailyUsage: { requests: 0, tokens: 0 },
+        monthlyUsage: { requests: 0, tokens: 0 },
+        limits: {}
+      }
+    }
+
+    return {
+      keyId: this.currentKeyId,
+      dailyUsage: {
+        requests: currentKey.dailyRequestsUsed,
+        tokens: currentKey.dailyTokensUsed
+      },
+      monthlyUsage: {
+        requests: currentKey.monthlyRequestsUsed,
+        tokens: currentKey.monthlyTokensUsed
+      },
+      limits: {
+        daily: {
+          requests: currentKey.dailyRequestLimit,
+          tokens: currentKey.dailyTokenLimit
+        },
+        monthly: {
+          requests: currentKey.monthlyRequestLimit,
+          tokens: currentKey.monthlyTokenLimit
+        }
+      }
+    }
   }
 }

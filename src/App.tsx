@@ -45,6 +45,7 @@ const Feeds = lazy(() => import("./pages/Feeds"));
 const RepoFlatten = lazy(() => import("./pages/RepoFlatten"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 const LLMModels = lazy(() => import("./pages/LLMModels"));
+const APIKeysPage = lazy(() => import("./pages/APIKeysPage"));
 const Receipts = lazy(() => import("./pages/Receipts"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -213,6 +214,14 @@ function AppRoutes() {
           element={
             <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
               <LLMModels />
+            </Suspense>
+          }
+        />
+        <Route
+          path="keys"
+          element={
+            <Suspense fallback={<RouteLoadingFallback variant="inline" />}>
+              <APIKeysPage />
             </Suspense>
           }
         />

@@ -5,6 +5,10 @@ import { generateObject } from 'ai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+// Import API key management services
+import { APIKeyManagementService } from './APIKeyManagementService.js'
+import { RateLimitingService } from './RateLimitingService.js'
+
 // Local type definitions for Supabase tables
 interface Receipt {
   id: string;
@@ -363,9 +367,15 @@ export class EnhancedReceiptAnalysisService {
   private readonly defaultMaxRetries: number = 3
   private readonly defaultRetryDelay: number = 1000 // Base delay in ms
   private readonly defaultTimeoutMs: number = 60000 // 60 second timeout
+  private apiKeyService: APIKeyManagementService
+  private rateLimitService: RateLimitingService
+  private userId: string
+  private currentKeyId?: string
+  private currentApiKey?: string
 
-  constructor(supabase: SupabaseClient, config: AIProviderConfig) {
+  constructor(supabase: SupabaseClient, config: AIProviderConfig, userId: string) {
     this.supabase = supabase
+    this.userId = userId
     this.config = {
       temperature: 0.1,
       maxTokens: undefined,
@@ -374,24 +384,39 @@ export class EnhancedReceiptAnalysisService {
       ...config
     }
     
+    this.apiKeyService = new APIKeyManagementService(supabase, userId)
+    this.rateLimitService = new RateLimitingService(supabase, userId)
+    
     this.initializeProvider()
   }
 
   /**
-   * Initialize AI provider based on configuration
+   * Initialize AI provider based on configuration with API key management
    */
-  private initializeProvider(): void {
+  private async initializeProvider(): Promise<void> {
+    // Get the best available API key for the provider
+    const keyInfo = await this.apiKeyService.getBestAPIKey(this.config.provider)
+    
+    if (!keyInfo && !this.config.apiKey) {
+      throw new Error(`No API key available for provider: ${this.config.provider}`)
+    }
+
+    // Use managed API key if available, fallback to config key
+    const apiKey = keyInfo?.apiKey || this.config.apiKey
+    this.currentKeyId = keyInfo?.keyId
+    this.currentApiKey = apiKey
+
     switch (this.config.provider) {
       case 'google':
         this.provider = createGoogleGenerativeAI({
-          apiKey: this.config.apiKey,
+          apiKey,
           baseURL: this.config.baseUrl
         })
         break
         
       case 'openrouter':
         this.provider = createOpenRouter({
-          apiKey: this.config.apiKey,
+          apiKey,
           baseURL: this.config.baseUrl || 'https://openrouter.ai/api/v1',
           headers: {
             'HTTP-Referer': 'https://ever-life-vault.com',
@@ -405,7 +430,7 @@ export class EnhancedReceiptAnalysisService {
           throw new Error('Custom provider requires baseUrl configuration')
         }
         this.provider = createOpenAI({
-          apiKey: this.config.apiKey,
+          apiKey,
           baseURL: this.config.baseUrl
         })
         break
@@ -416,11 +441,11 @@ export class EnhancedReceiptAnalysisService {
   }
 
   /**
-   * Update provider configuration
+   * Update provider configuration and reinitialize
    */
-  updateConfig(newConfig: Partial<AIProviderConfig>): void {
+  async updateConfig(newConfig: Partial<AIProviderConfig>): Promise<void> {
     this.config = { ...this.config, ...newConfig }
-    this.initializeProvider()
+    await this.initializeProvider()
   }
 
   /**
@@ -533,6 +558,118 @@ export class EnhancedReceiptAnalysisService {
       message.includes('quota exceeded') ||
       message.includes('rate limit')
     )
+  }
+
+  /**
+   * Execute AI operation with usage tracking and rate limiting
+   */
+  private async executeAIOperation<T>(
+    operation: () => Promise<T>,
+    context: string,
+    model: string
+  ): Promise<T> {
+    const startTime = Date.now()
+    let promptTokens = 0
+    let completionTokens = 0
+    let totalTokens = 0
+
+    try {
+      // Check rate limits before proceeding
+      if (this.currentKeyId) {
+        await this.rateLimitService.checkRateLimit(this.config.provider, this.currentKeyId)
+      }
+
+      const result = await operation()
+      
+      // Extract token usage if available (some providers return this in result)
+      if (result && typeof result === 'object') {
+        const usage = (result as any).usage || (result as any).meta?.usage
+        if (usage) {
+          promptTokens = usage.prompt_tokens || usage.input_tokens || 0
+          completionTokens = usage.completion_tokens || usage.output_tokens || 0
+          totalTokens = usage.total_tokens || (promptTokens + completionTokens)
+        }
+      }
+
+      const responseTime = Date.now() - startTime
+
+      // Log successful usage
+      if (this.currentKeyId) {
+        await this.apiKeyService.logAPIUsage(this.currentKeyId, {
+          provider: this.config.provider,
+          modelUsed: model,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          responseTimeMs: responseTime,
+          success: true,
+          endpoint: 'generateObject',
+          method: 'POST'
+        })
+      }
+
+      return result
+
+    } catch (error) {
+      const responseTime = Date.now() - startTime
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+
+      // Log failed usage
+      if (this.currentKeyId) {
+        await this.apiKeyService.logAPIUsage(this.currentKeyId, {
+          provider: this.config.provider,
+          modelUsed: model,
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          responseTimeMs: responseTime,
+          success: false,
+          errorMessage,
+          endpoint: 'generateObject',
+          method: 'POST'
+        })
+      }
+
+      // Check if this is a rate limit error and we should rotate keys
+      if (this.isRateLimitError(error as Error)) {
+        console.log(`Rate limit hit for key ${this.currentKeyId}, attempting key rotation...`)
+        const newKeyInfo = await this.apiKeyService.getBestAPIKey(this.config.provider, undefined)
+        
+        if (newKeyInfo && newKeyInfo.keyId !== this.currentKeyId) {
+          await this.rotateAPIKey(newKeyInfo.keyId, newKeyInfo.apiKey)
+          throw new Error(`Rate limit exceeded. Rotated to new key. Please retry the operation.`)
+        }
+      }
+
+      throw error
+    }
+  }
+
+  /**
+   * Check if error is rate limit related
+   */
+  private isRateLimitError(error: Error): boolean {
+    const message = error.message.toLowerCase()
+    return (
+      message.includes('rate limit') ||
+      message.includes('too many requests') ||
+      message.includes('quota exceeded') ||
+      message.includes('429') ||
+      message.includes('throttle')
+    )
+  }
+
+  /**
+   * Rotate to a new API key
+   */
+  private async rotateAPIKey(newKeyId: string, newApiKey: string): Promise<void> {
+    console.log(`Rotating API key from ${this.currentKeyId} to ${newKeyId}`)
+    
+    this.currentKeyId = newKeyId
+    this.currentApiKey = newApiKey
+    this.config.apiKey = newApiKey
+    
+    await this.initializeProvider()
   }
   
   /**
@@ -704,22 +841,26 @@ Focus on extracting actionable information that the user might need later.
 
       progressCallback?.('Analyzing with AI', 80)
 
-      // Use Vercel AI SDK to analyze the receipt
-      const result = await generateObject({
-        model: this.provider(model),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image', image: imageData }
-            ]
-          }
-        ],
-        schema: ReceiptAnalysisSchema,
-        maxRetries: 2,
-        temperature
-      })
+      // Use Vercel AI SDK to analyze the receipt with usage tracking
+      const result = await this.executeAIOperation(
+        () => generateObject({
+          model: this.provider(model),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image', image: imageData }
+              ]
+            }
+          ],
+          schema: ReceiptAnalysisSchema,
+          maxRetries: 2,
+          temperature
+        }),
+        'Quick Receipt Analysis',
+        model
+      )
 
       const analysisResult = result.object
       
@@ -789,22 +930,26 @@ Focus on extracting actionable information that the user might need later.
 
         progressCallback?.('Analyzing with AI', 80)
 
-        // Use Vercel AI SDK to analyze the receipt
-        const aiResult = await generateObject({
-          model: this.provider(model),
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: prompt },
-                { type: 'image', image: imageData }
-              ]
-            }
-          ],
-          schema: ReceiptAnalysisSchema,
-                  maxRetries: 2,
-        temperature
-        })
+        // Use Vercel AI SDK to analyze the receipt with usage tracking
+        const aiResult = await this.executeAIOperation(
+          () => generateObject({
+            model: this.provider(model),
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  { type: 'image', image: imageData }
+                ]
+              }
+            ],
+            schema: ReceiptAnalysisSchema,
+            maxRetries: 2,
+            temperature
+          }),
+          'Full Receipt Analysis',
+          model
+        )
 
         return aiResult.object
       }, 'Receipt Image Analysis')
@@ -892,22 +1037,26 @@ Focus on extracting actionable information that the user might need later.
       
       progressCallback?.('Analyzing with AI', 80)
       
-      // Use Vercel AI SDK to analyze the document
-      const result = await generateObject({
-        model: this.provider(model),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: prompt },
-              { type: 'image', image: fileData }
-            ]
-          }
-        ],
-        schema: DocumentAnalysisSchema,
-        maxRetries: 2,
-        temperature
-      })
+      // Use Vercel AI SDK to analyze the document with usage tracking
+      const result = await this.executeAIOperation(
+        () => generateObject({
+          model: this.provider(model),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: prompt },
+                { type: 'image', image: fileData }
+              ]
+            }
+          ],
+          schema: DocumentAnalysisSchema,
+          maxRetries: 2,
+          temperature
+        }),
+        `Document Analysis (${documentType})`,
+        model
+      )
       
       progressCallback?.('Complete', 100)
       
@@ -1076,6 +1225,58 @@ Focus on extracting actionable information that the user might need later.
       console.log(`Job ${jobId} status updated to: ${status}`)
     } catch (error) {
       console.error('Job status update failed:', error)
+    }
+  }
+
+  /**
+   * Get current API key usage statistics
+   */
+  async getCurrentUsageStats(): Promise<{
+    keyId?: string
+    dailyUsage: { requests: number; tokens: number }
+    monthlyUsage: { requests: number; tokens: number }
+    limits: { daily?: { requests?: number; tokens?: number }; monthly?: { requests?: number; tokens?: number } }
+  }> {
+    if (!this.currentKeyId) {
+      return {
+        dailyUsage: { requests: 0, tokens: 0 },
+        monthlyUsage: { requests: 0, tokens: 0 },
+        limits: {}
+      }
+    }
+
+    const keys = await this.apiKeyService.getAPIKeys(this.config.provider)
+    const currentKey = keys.find(k => k.id === this.currentKeyId)
+
+    if (!currentKey) {
+      return {
+        keyId: this.currentKeyId,
+        dailyUsage: { requests: 0, tokens: 0 },
+        monthlyUsage: { requests: 0, tokens: 0 },
+        limits: {}
+      }
+    }
+
+    return {
+      keyId: this.currentKeyId,
+      dailyUsage: {
+        requests: currentKey.dailyRequestsUsed,
+        tokens: currentKey.dailyTokensUsed
+      },
+      monthlyUsage: {
+        requests: currentKey.monthlyRequestsUsed,
+        tokens: currentKey.monthlyTokensUsed
+      },
+      limits: {
+        daily: {
+          requests: currentKey.dailyRequestLimit,
+          tokens: currentKey.dailyTokenLimit
+        },
+        monthly: {
+          requests: currentKey.monthlyRequestLimit,
+          tokens: currentKey.monthlyTokenLimit
+        }
+      }
     }
   }
 }
