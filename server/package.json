@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
-    "build": "tsc && npm run copy-files",
+    "build": "node --max-old-space-size=4096 ./node_modules/.bin/tsc && npm run copy-files",
     "build:dev": "tsc --watch",
     "dev": "tsx index.ts",
     "copy-files": "copyfiles -u 0 config/**/* dist/ && copyfiles -u 0 utils/**/* dist/",

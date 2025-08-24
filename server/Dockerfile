@@ -14,6 +14,7 @@ RUN npm install --ignore-scripts --no-audit --no-fund
 COPY . .
 
 # Build TypeScript -> dist and prune dev deps for runtime
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-alpine AS runner
