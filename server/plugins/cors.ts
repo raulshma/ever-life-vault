@@ -73,7 +73,10 @@ export async function registerCors(server: FastifyInstance, allowedOrigins: stri
         }
       }
     }
+
+    // Always call done() to continue the request chain
     done()
+    return undefined
   })
 
   // Handle WebSocket upgrade events specifically
