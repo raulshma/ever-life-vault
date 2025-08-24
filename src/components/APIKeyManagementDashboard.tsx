@@ -39,6 +39,9 @@ interface APIKeyInfo {
   keyName: string
   provider: string
   isActive: boolean
+  isSystemKey: boolean
+  systemKeyName?: string
+  systemKeySource?: string
   createdAt: string
   lastUsedAt?: string
   dailyRequestLimit?: number
@@ -263,6 +266,11 @@ export function APIKeyManagementDashboard() {
               <div className="text-2xl font-bold">{apiKeys.length}</div>
               <p className="text-xs text-muted-foreground">
                 {apiKeys.filter(k => k.isActive).length} active
+                {apiKeys.filter(k => k.isSystemKey).length > 0 && (
+                  <span className="block text-blue-600">
+                    {apiKeys.filter(k => k.isSystemKey).length} system keys
+                  </span>
+                )}
               </p>
             </CardContent>
           </Card>
@@ -335,14 +343,24 @@ export function APIKeyManagementDashboard() {
           ) : (
             <div className="grid gap-4">
               {apiKeys.map((key) => (
-                <Card key={key.id}>
+                <Card key={key.id} className={key.isSystemKey ? 'border-blue-200 bg-blue-50/50' : ''}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">{getProviderIcon(key.provider)}</span>
                         <div>
-                          <h3 className="font-semibold">{key.keyName}</h3>
-                          <p className="text-sm text-muted-foreground">{key.provider}</p>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{key.keyName}</h3>
+                            {key.isSystemKey && (
+                              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-700 border-blue-300">
+                                System Key
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {key.provider}
+                            {key.isSystemKey && key.systemKeySource && ` • Source: ${key.systemKeySource}`}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -353,25 +371,27 @@ export function APIKeyManagementDashboard() {
                             <><XCircle className="w-3 h-3 mr-1" /> Inactive</>
                           )}
                         </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="w-4 h-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => toggleKeyStatus(key.id, key.isActive)}>
-                              {key.isActive ? 'Deactivate' : 'Activate'}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="text-destructive"
-                              onClick={() => deleteKey(key.id)}
-                            >
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {!key.isSystemKey && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => toggleKeyStatus(key.id, key.isActive)}>
+                                {key.isActive ? 'Deactivate' : 'Activate'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>Edit</DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-destructive"
+                                onClick={() => deleteKey(key.id)}
+                              >
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     </div>
 

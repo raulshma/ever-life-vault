@@ -178,14 +178,15 @@ export class SystemSettingsService {
 
   /**
    * Get API key for a provider (used by backend only)
+   * Now uses the unified API key management system
    */
   async getProviderAPIKey(provider: string, useSystemKey: boolean, systemKeys: { google?: string; openrouter?: string }): Promise<string | null> {
     try {
       if (useSystemKey) {
-        // Use system API key
-        if (provider === 'google') return systemKeys.google || null;
-        if (provider === 'openrouter') return systemKeys.openrouter || null;
-        return null;
+        // Use system API key from the unified management system
+        // The system keys are now managed through the API key management service
+        // and will be automatically initialized during server startup
+        return systemKeys[provider as keyof typeof systemKeys] || null;
       }
 
       // Get the current user from the authenticated Supabase client

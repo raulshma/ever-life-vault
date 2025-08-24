@@ -24,6 +24,7 @@ export type Database = {
           daily_tokens_used: number | null
           id: string
           is_active: boolean | null
+          is_system_key: boolean | null
           key_hash: string
           key_name: string
           last_used_at: string | null
@@ -34,6 +35,8 @@ export type Database = {
           monthly_tokens_used: number | null
           provider: string
           rotation_priority: number | null
+          system_key_name: string | null
+          system_key_source: string | null
           updated_at: string | null
           user_id: string
         }
@@ -46,6 +49,7 @@ export type Database = {
           daily_tokens_used?: number | null
           id?: string
           is_active?: boolean | null
+          is_system_key?: boolean | null
           key_hash: string
           key_name: string
           last_used_at?: string | null
@@ -56,6 +60,8 @@ export type Database = {
           monthly_tokens_used?: number | null
           provider: string
           rotation_priority?: number | null
+          system_key_name?: string | null
+          system_key_source?: string | null
           updated_at?: string | null
           user_id: string
         }
@@ -68,6 +74,7 @@ export type Database = {
           daily_tokens_used?: number | null
           id?: string
           is_active?: boolean | null
+          is_system_key?: boolean | null
           key_hash?: string
           key_name?: string
           last_used_at?: string | null
@@ -78,6 +85,8 @@ export type Database = {
           monthly_tokens_used?: number | null
           provider?: string
           rotation_priority?: number | null
+          system_key_name?: string | null
+          system_key_source?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -2051,6 +2060,24 @@ export type Database = {
         Args: { _id: string }
         Returns: string
       }
+      get_system_api_keys: {
+        Args: { provider_name: string }
+        Returns: {
+          daily_request_limit: number
+          daily_requests_used: number
+          daily_token_limit: number
+          daily_tokens_used: number
+          id: string
+          is_active: boolean
+          key_name: string
+          last_used_at: string
+          monthly_request_limit: number
+          monthly_requests_used: number
+          monthly_token_limit: number
+          monthly_tokens_used: number
+          rotation_priority: number
+        }[]
+      }
       list_docker_compose_configs: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2070,6 +2097,10 @@ export type Database = {
           key: string
           updated_at: string
         }[]
+      }
+      log_system_api_usage: {
+        Args: { key_id: string; usage_data: Json }
+        Returns: undefined
       }
       purge_expired_live_shares: {
         Args: Record<PropertyKey, never>

@@ -306,7 +306,7 @@ export async function apiKeyManagementRoutes(
         })
       }
 
-      await service.setRateLimitConfig({
+      await service.setRateLimitConfig(provider as 'openrouter' | 'google', {
         ...config,
         provider: provider as 'openrouter' | 'google'
       })

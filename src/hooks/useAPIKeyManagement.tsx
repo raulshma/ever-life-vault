@@ -14,6 +14,9 @@ export interface APIKeyInfo {
   keyName: string
   provider: string
   isActive: boolean
+  isSystemKey: boolean
+  systemKeyName?: string
+  systemKeySource?: string
   createdAt: string
   lastUsedAt?: string
   dailyRequestLimit?: number

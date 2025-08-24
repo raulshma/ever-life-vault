@@ -26,6 +26,7 @@ import { registerSshRoutes } from './routes/ssh.js'
 import { registerReceiptRoutes } from './routes/receipts.js'
 import { registerApiKeyRoutes } from './routes/api-keys.js'
 import { apiKeyManagementRoutes } from './routes/api-key-management.js'
+import { APIKeyManagementService } from './services/APIKeyManagementService.js'
 
 export async function buildServer(): Promise<FastifyInstance> {
   const server = Fastify({ logger: true })
@@ -174,6 +175,18 @@ export async function buildServer(): Promise<FastifyInstance> {
       SUPABASE_ANON_KEY: env.SUPABASE_ANON_KEY!,
     })
     server.log.info('API Key Management routes registered with usage tracking and rate limiting')
+
+    // Initialize system keys in the API key management system
+    try {
+      const apiKeyService = new APIKeyManagementService(supabase)
+      await apiKeyService.initializeSystemKeys({
+        google: env.GOOGLE_API_KEY,
+        openrouter: env.OPENROUTER_API_KEY
+      })
+      server.log.info('System keys initialized in API key management system')
+    } catch (error) {
+      server.log.warn(`Failed to initialize system keys: ${error instanceof Error ? error.message : String(error)}`)
+    }
   } else {
     server.log.warn('Skipping API Key Management routes: Supabase not configured')
   }
