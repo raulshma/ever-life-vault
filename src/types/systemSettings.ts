@@ -247,7 +247,115 @@ export const AI_PROVIDERS: Record<AIProvider, AIProviderInfo> = {
   }
 };
 
-// Default AI configuration
+// Focus Timer Configuration Types
+export type FocusMode = 
+  | 'pomodoro_25_5' | 'pomodoro_30_5' | 'pomodoro_45_15' | 'pomodoro_50_10' | 'pomodoro_60_15'
+  | 'fiftytwo_17' | 'flow_90' | 'flow_120_15' | 'ultradian_90_20' | 'custom';
+
+export interface FocusProfile {
+  id: string;
+  name: string;
+  bpm: number;
+  accentEvery: number;
+  subdivisions: number;
+}
+
+export interface FocusTimerConfig {
+  default_mode: FocusMode;
+  default_focus_minutes: number;
+  default_break_minutes: number;
+  default_bpm: number;
+  default_accent_every: number;
+  default_subdivisions: number;
+  auto_start_breaks: boolean;
+  auto_start_focus: boolean;
+  mute_by_default: boolean;
+  track_sessions: boolean;
+  notification_sound: boolean;
+  daily_goal_minutes: number;
+  preferred_profiles: FocusProfile[];
+}
+
+// Dashboard & Widgets Configuration Types
+export interface DashboardConfig {
+  auto_save_layout: boolean;
+  auto_save_interval_seconds: number;
+  compact_mode: boolean;
+  animation_enabled: boolean;
+  default_refresh_interval_seconds: number;
+  max_widgets_per_dashboard: number;
+  enable_widget_caching: boolean;
+  default_cache_time_minutes: number;
+  show_widget_borders: boolean;
+  enable_grid_snap: boolean;
+}
+
+// Notifications & UI Configuration Types
+export interface NotificationConfig {
+  receipt_analysis_complete: boolean;
+  budget_alerts: boolean;
+  integration_errors: boolean;
+  system_updates: boolean;
+  focus_session_complete: boolean;
+  daily_goal_achieved: boolean;
+  toast_duration_seconds: number;
+  enable_sound_notifications: boolean;
+  enable_browser_notifications: boolean;
+}
+
+export interface UIConfig {
+  theme_mode: 'light' | 'dark' | 'amoled' | 'system';
+  view_transitions_enabled: boolean;
+  auto_categorize_sidebar: boolean;
+  reduce_motion: boolean;
+  high_contrast: boolean;
+  compact_ui: boolean;
+  sidebar_collapsed_by_default: boolean;
+}
+
+// Integration Configuration Types
+export interface IntegrationConfig {
+  default_timeout_seconds: number;
+  auto_refresh_tokens: boolean;
+  oauth_callback_timeout_seconds: number;
+  enable_integration_caching: boolean;
+  cache_duration_minutes: number;
+  max_retry_attempts: number;
+  retry_delay_seconds: number;
+  steam: {
+    show_private_profile_warning: boolean;
+    cache_duration_hours: number;
+  };
+  mal: {
+    default_list_status: 'watching' | 'completed' | 'on_hold' | 'dropped' | 'plan_to_watch';
+    auto_update_progress: boolean;
+  };
+  aggregator: {
+    max_items_per_feed: number;
+    refresh_interval_minutes: number;
+  };
+}
+
+// Security & Vault Configuration Types
+export interface SecurityConfig {
+  vault_session_timeout_minutes: number;
+  require_master_password_confirmation: boolean;
+  auto_lock_on_idle: boolean;
+  idle_timeout_minutes: number;
+  backup_frequency_days: number;
+  max_backup_count: number;
+  encrypt_local_storage: boolean;
+  require_2fa: boolean;
+  password_requirements: {
+    min_length: number;
+    require_uppercase: boolean;
+    require_lowercase: boolean;
+    require_numbers: boolean;
+    require_symbols: boolean;
+  };
+}
+
+// Default configurations
 export const DEFAULT_RECEIPT_AI_CONFIG: ReceiptAIConfig = {
   provider: 'openrouter',
   model: 'openai/gpt-4o',
@@ -263,6 +371,101 @@ export const DEFAULT_RECEIPT_AI_CONFIG: ReceiptAIConfig = {
   timeout_seconds: 60,
   temperature: 0.1,
   max_tokens: undefined
+};
+
+export const DEFAULT_FOCUS_TIMER_CONFIG: FocusTimerConfig = {
+  default_mode: 'pomodoro_25_5',
+  default_focus_minutes: 25,
+  default_break_minutes: 5,
+  default_bpm: 120,
+  default_accent_every: 4,
+  default_subdivisions: 1,
+  auto_start_breaks: false,
+  auto_start_focus: false,
+  mute_by_default: false,
+  track_sessions: true,
+  notification_sound: true,
+  daily_goal_minutes: 120,
+  preferred_profiles: [
+    { id: 'relaxed', name: 'Relaxed', bpm: 60, accentEvery: 4, subdivisions: 1 },
+    { id: 'moderate', name: 'Moderate', bpm: 120, accentEvery: 4, subdivisions: 1 },
+    { id: 'energetic', name: 'Energetic', bpm: 140, accentEvery: 2, subdivisions: 1 }
+  ]
+};
+
+export const DEFAULT_DASHBOARD_CONFIG: DashboardConfig = {
+  auto_save_layout: true,
+  auto_save_interval_seconds: 30,
+  compact_mode: false,
+  animation_enabled: true,
+  default_refresh_interval_seconds: 300,
+  max_widgets_per_dashboard: 20,
+  enable_widget_caching: true,
+  default_cache_time_minutes: 5,
+  show_widget_borders: true,
+  enable_grid_snap: true
+};
+
+export const DEFAULT_NOTIFICATION_CONFIG: NotificationConfig = {
+  receipt_analysis_complete: true,
+  budget_alerts: true,
+  integration_errors: true,
+  system_updates: false,
+  focus_session_complete: true,
+  daily_goal_achieved: true,
+  toast_duration_seconds: 5,
+  enable_sound_notifications: true,
+  enable_browser_notifications: false
+};
+
+export const DEFAULT_UI_CONFIG: UIConfig = {
+  theme_mode: 'system',
+  view_transitions_enabled: true,
+  auto_categorize_sidebar: false,
+  reduce_motion: false,
+  high_contrast: false,
+  compact_ui: false,
+  sidebar_collapsed_by_default: false
+};
+
+export const DEFAULT_INTEGRATION_CONFIG: IntegrationConfig = {
+  default_timeout_seconds: 30,
+  auto_refresh_tokens: true,
+  oauth_callback_timeout_seconds: 300,
+  enable_integration_caching: true,
+  cache_duration_minutes: 15,
+  max_retry_attempts: 3,
+  retry_delay_seconds: 2,
+  steam: {
+    show_private_profile_warning: true,
+    cache_duration_hours: 1
+  },
+  mal: {
+    default_list_status: 'watching',
+    auto_update_progress: false
+  },
+  aggregator: {
+    max_items_per_feed: 50,
+    refresh_interval_minutes: 30
+  }
+};
+
+export const DEFAULT_SECURITY_CONFIG: SecurityConfig = {
+  vault_session_timeout_minutes: 60,
+  require_master_password_confirmation: true,
+  auto_lock_on_idle: true,
+  idle_timeout_minutes: 15,
+  backup_frequency_days: 7,
+  max_backup_count: 10,
+  encrypt_local_storage: true,
+  require_2fa: false,
+  password_requirements: {
+    min_length: 12,
+    require_uppercase: true,
+    require_lowercase: true,
+    require_numbers: true,
+    require_symbols: false
+  }
 };
 
 // System settings feature definitions
@@ -284,40 +487,90 @@ export const SYSTEM_SETTINGS_FEATURES: SystemSettingsFeature[] = [
     ]
   },
   {
+    category: 'focus_timer',
+    name: 'Focus Timer',
+    description: 'Configure focus timer, metronome, and session preferences',
+    icon: 'Timer',
+    settings: [
+      {
+        key: 'timer_config',
+        name: 'Focus Timer Configuration',
+        description: 'Configure default timer settings and preferences',
+        type: 'object',
+        defaultValue: DEFAULT_FOCUS_TIMER_CONFIG,
+        required: true
+      }
+    ]
+  },
+  {
     category: 'dashboard',
-    name: 'Dashboard Settings',
-    description: 'Customize dashboard behavior and appearance',
+    name: 'Dashboard & Widgets',
+    description: 'Customize dashboard behavior, layout, and widget settings',
     icon: 'Layout',
     settings: [
       {
-        key: 'layout_config',
-        name: 'Layout Configuration',
+        key: 'dashboard_config',
+        name: 'Dashboard Configuration',
+        description: 'Configure dashboard layout and widget behavior',
         type: 'object',
-        defaultValue: {
-          auto_save_layout: true,
-          compact_mode: false,
-          animation_enabled: true,
-          refresh_interval: 300
-        }
+        defaultValue: DEFAULT_DASHBOARD_CONFIG,
+        required: true
       }
     ]
   },
   {
     category: 'notifications',
-    name: 'Notifications',
-    description: 'Configure application notifications and alerts',
+    name: 'Notifications & UI',
+    description: 'Configure application notifications, alerts, and UI preferences',
     icon: 'Bell',
     settings: [
       {
-        key: 'preferences',
+        key: 'notification_config',
         name: 'Notification Preferences',
+        description: 'Configure when and how to receive notifications',
         type: 'object',
-        defaultValue: {
-          receipt_analysis_complete: true,
-          budget_alerts: true,
-          integration_errors: true,
-          system_updates: false
-        }
+        defaultValue: DEFAULT_NOTIFICATION_CONFIG,
+        required: true
+      },
+      {
+        key: 'ui_config',
+        name: 'UI Preferences',
+        description: 'Configure user interface behavior and appearance',
+        type: 'object',
+        defaultValue: DEFAULT_UI_CONFIG,
+        required: true
+      }
+    ]
+  },
+  {
+    category: 'integrations',
+    name: 'Integrations & APIs',
+    description: 'Configure external service integrations and API settings',
+    icon: 'Plug',
+    settings: [
+      {
+        key: 'integration_config',
+        name: 'Integration Configuration',
+        description: 'Configure external service integration preferences',
+        type: 'object',
+        defaultValue: DEFAULT_INTEGRATION_CONFIG,
+        required: true
+      }
+    ]
+  },
+  {
+    category: 'security',
+    name: 'Security & Vault',
+    description: 'Configure security settings, vault behavior, and backup preferences',
+    icon: 'Shield',
+    settings: [
+      {
+        key: 'security_config',
+        name: 'Security Configuration',
+        description: 'Configure security settings and vault behavior',
+        type: 'object',
+        defaultValue: DEFAULT_SECURITY_CONFIG,
+        required: true
       }
     ]
   }

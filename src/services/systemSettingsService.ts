@@ -8,6 +8,18 @@ import {
   SystemSettingsResponse,
   ReceiptAIConfig,
   DEFAULT_RECEIPT_AI_CONFIG,
+  FocusTimerConfig,
+  DEFAULT_FOCUS_TIMER_CONFIG,
+  DashboardConfig,
+  DEFAULT_DASHBOARD_CONFIG,
+  NotificationConfig,
+  DEFAULT_NOTIFICATION_CONFIG,
+  UIConfig,
+  DEFAULT_UI_CONFIG,
+  IntegrationConfig,
+  DEFAULT_INTEGRATION_CONFIG,
+  SecurityConfig,
+  DEFAULT_SECURITY_CONFIG,
   validateReceiptAIConfig,
   AI_PROVIDERS,
   getAvailableModels
@@ -261,29 +273,48 @@ export class SystemSettingsService {
           is_encrypted: false
         }];
       
+      case 'focus_timer':
+        return [{
+          feature_category: 'focus_timer',
+          setting_key: 'timer_config',
+          setting_value: DEFAULT_FOCUS_TIMER_CONFIG as any,
+          is_encrypted: false
+        }];
+
       case 'dashboard':
         return [{
           feature_category: 'dashboard',
-          setting_key: 'layout_config',
-          setting_value: {
-            auto_save_layout: true,
-            compact_mode: false,
-            animation_enabled: true,
-            refresh_interval: 300
-          },
+          setting_key: 'dashboard_config',
+          setting_value: DEFAULT_DASHBOARD_CONFIG as any,
           is_encrypted: false
         }];
 
       case 'notifications':
         return [{
           feature_category: 'notifications',
-          setting_key: 'preferences',
-          setting_value: {
-            receipt_analysis_complete: true,
-            budget_alerts: true,
-            integration_errors: true,
-            system_updates: false
-          },
+          setting_key: 'notification_config',
+          setting_value: DEFAULT_NOTIFICATION_CONFIG as any,
+          is_encrypted: false
+        }, {
+          feature_category: 'notifications',
+          setting_key: 'ui_config',
+          setting_value: DEFAULT_UI_CONFIG as any,
+          is_encrypted: false
+        }];
+
+      case 'integrations':
+        return [{
+          feature_category: 'integrations',
+          setting_key: 'integration_config',
+          setting_value: DEFAULT_INTEGRATION_CONFIG as any,
+          is_encrypted: false
+        }];
+
+      case 'security':
+        return [{
+          feature_category: 'security',
+          setting_key: 'security_config',
+          setting_value: DEFAULT_SECURITY_CONFIG as any,
           is_encrypted: false
         }];
 
@@ -657,6 +688,128 @@ export class SystemSettingsService {
    */
   async exportSettings(): Promise<Record<string, Record<string, unknown>>> {
     return await this.getSettingsByFeature();
+  }
+
+  // Generic configuration methods for all setting types
+
+  /**
+   * Get Focus Timer configuration
+   */
+  async getFocusTimerConfig(): Promise<FocusTimerConfig> {
+    const config = await this.getSetting<FocusTimerConfig>('focus_timer', 'timer_config');
+    return config || DEFAULT_FOCUS_TIMER_CONFIG;
+  }
+
+  /**
+   * Set Focus Timer configuration
+   */
+  async setFocusTimerConfig(config: Partial<FocusTimerConfig>): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const fullConfig = { ...DEFAULT_FOCUS_TIMER_CONFIG, ...config };
+    const result = await this.setSetting('focus_timer', 'timer_config', fullConfig as any);
+    return { success: result.success, error: result.error };
+  }
+
+  /**
+   * Get Dashboard configuration
+   */
+  async getDashboardConfig(): Promise<DashboardConfig> {
+    const config = await this.getSetting<DashboardConfig>('dashboard', 'dashboard_config');
+    return config || DEFAULT_DASHBOARD_CONFIG;
+  }
+
+  /**
+   * Set Dashboard configuration
+   */
+  async setDashboardConfig(config: Partial<DashboardConfig>): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const fullConfig = { ...DEFAULT_DASHBOARD_CONFIG, ...config };
+    const result = await this.setSetting('dashboard', 'dashboard_config', fullConfig as any);
+    return { success: result.success, error: result.error };
+  }
+
+  /**
+   * Get Notification configuration
+   */
+  async getNotificationConfig(): Promise<NotificationConfig> {
+    const config = await this.getSetting<NotificationConfig>('notifications', 'notification_config');
+    return config || DEFAULT_NOTIFICATION_CONFIG;
+  }
+
+  /**
+   * Set Notification configuration
+   */
+  async setNotificationConfig(config: Partial<NotificationConfig>): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const fullConfig = { ...DEFAULT_NOTIFICATION_CONFIG, ...config };
+    const result = await this.setSetting('notifications', 'notification_config', fullConfig as any);
+    return { success: result.success, error: result.error };
+  }
+
+  /**
+   * Get UI configuration
+   */
+  async getUIConfig(): Promise<UIConfig> {
+    const config = await this.getSetting<UIConfig>('notifications', 'ui_config');
+    return config || DEFAULT_UI_CONFIG;
+  }
+
+  /**
+   * Set UI configuration
+   */
+  async setUIConfig(config: Partial<UIConfig>): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const fullConfig = { ...DEFAULT_UI_CONFIG, ...config };
+    const result = await this.setSetting('notifications', 'ui_config', fullConfig as any);
+    return { success: result.success, error: result.error };
+  }
+
+  /**
+   * Get Integration configuration
+   */
+  async getIntegrationConfig(): Promise<IntegrationConfig> {
+    const config = await this.getSetting<IntegrationConfig>('integrations', 'integration_config');
+    return config || DEFAULT_INTEGRATION_CONFIG;
+  }
+
+  /**
+   * Set Integration configuration
+   */
+  async setIntegrationConfig(config: Partial<IntegrationConfig>): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const fullConfig = { ...DEFAULT_INTEGRATION_CONFIG, ...config };
+    const result = await this.setSetting('integrations', 'integration_config', fullConfig as any);
+    return { success: result.success, error: result.error };
+  }
+
+  /**
+   * Get Security configuration
+   */
+  async getSecurityConfig(): Promise<SecurityConfig> {
+    const config = await this.getSetting<SecurityConfig>('security', 'security_config');
+    return config || DEFAULT_SECURITY_CONFIG;
+  }
+
+  /**
+   * Set Security configuration
+   */
+  async setSecurityConfig(config: Partial<SecurityConfig>): Promise<{
+    success: boolean;
+    error?: string;
+  }> {
+    const fullConfig = { ...DEFAULT_SECURITY_CONFIG, ...config };
+    const result = await this.setSetting('security', 'security_config', fullConfig as any);
+    return { success: result.success, error: result.error };
   }
 }
 

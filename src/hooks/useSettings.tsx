@@ -3,7 +3,7 @@ import { getConfigValue, setConfigValue, batchConfigOperations } from '@/integra
 import { useAuth } from '@/hooks/useAuth'
 import { createSystemSettingsService, SystemSettingsService } from '@/services/systemSettingsService'
 import { supabase } from '@/integrations/supabase/client'
-import { ReceiptAIConfig, DEFAULT_RECEIPT_AI_CONFIG } from '@/types/systemSettings'
+import { ReceiptAIConfig, DEFAULT_RECEIPT_AI_CONFIG, FocusTimerConfig, DEFAULT_FOCUS_TIMER_CONFIG, DashboardConfig, DEFAULT_DASHBOARD_CONFIG, NotificationConfig, DEFAULT_NOTIFICATION_CONFIG, UIConfig, DEFAULT_UI_CONFIG, IntegrationConfig, DEFAULT_INTEGRATION_CONFIG, SecurityConfig, DEFAULT_SECURITY_CONFIG } from '@/types/systemSettings'
 
 type ThemeMode = 'light' | 'dark' | 'amoled' | 'system';
 
@@ -27,6 +27,30 @@ interface SettingsContextType {
   receiptAIConfig: ReceiptAIConfig;
   setReceiptAIConfig: (config: Partial<ReceiptAIConfig>) => Promise<boolean>;
   refreshReceiptAIConfig: () => Promise<void>;
+  // Focus Timer settings
+  focusTimerConfig: FocusTimerConfig;
+  setFocusTimerConfig: (config: Partial<FocusTimerConfig>) => Promise<boolean>;
+  refreshFocusTimerConfig: () => Promise<void>;
+  // Dashboard settings
+  dashboardConfig: DashboardConfig;
+  setDashboardConfig: (config: Partial<DashboardConfig>) => Promise<boolean>;
+  refreshDashboardConfig: () => Promise<void>;
+  // Notification settings
+  notificationConfig: NotificationConfig;
+  setNotificationConfig: (config: Partial<NotificationConfig>) => Promise<boolean>;
+  refreshNotificationConfig: () => Promise<void>;
+  // UI settings
+  uiConfig: UIConfig;
+  setUIConfig: (config: Partial<UIConfig>) => Promise<boolean>;
+  refreshUIConfig: () => Promise<void>;
+  // Integration settings
+  integrationConfig: IntegrationConfig;
+  setIntegrationConfig: (config: Partial<IntegrationConfig>) => Promise<boolean>;
+  refreshIntegrationConfig: () => Promise<void>;
+  // Security settings
+  securityConfig: SecurityConfig;
+  setSecurityConfig: (config: Partial<SecurityConfig>) => Promise<boolean>;
+  refreshSecurityConfig: () => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -35,6 +59,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const { user } = useAuth();
   const [systemSettingsService, setSystemSettingsService] = useState<SystemSettingsService | null>(null);
   const [receiptAIConfig, setReceiptAIConfigState] = useState<ReceiptAIConfig>(DEFAULT_RECEIPT_AI_CONFIG);
+  const [focusTimerConfig, setFocusTimerConfigState] = useState<FocusTimerConfig>(DEFAULT_FOCUS_TIMER_CONFIG);
+  const [dashboardConfig, setDashboardConfigState] = useState<DashboardConfig>(DEFAULT_DASHBOARD_CONFIG);
+  const [notificationConfig, setNotificationConfigState] = useState<NotificationConfig>(DEFAULT_NOTIFICATION_CONFIG);
+  const [uiConfig, setUIConfigState] = useState<UIConfig>(DEFAULT_UI_CONFIG);
+  const [integrationConfig, setIntegrationConfigState] = useState<IntegrationConfig>(DEFAULT_INTEGRATION_CONFIG);
+  const [securityConfig, setSecurityConfigState] = useState<SecurityConfig>(DEFAULT_SECURITY_CONFIG);
 
   const [viewTransitionsEnabled, setViewTransitionsEnabledState] = useState<boolean>(() => {
     const stored = localStorage.getItem('viewTransitionsEnabled');
@@ -195,8 +225,177 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     if (systemSettingsService) {
       refreshReceiptAIConfig();
+      refreshFocusTimerConfig();
+      refreshDashboardConfig();
+      refreshNotificationConfig();
+      refreshUIConfig();
+      refreshIntegrationConfig();
+      refreshSecurityConfig();
     }
   }, [systemSettingsService]);
+
+  // Helper functions for all configuration types
+  const refreshFocusTimerConfig = async () => {
+    if (!systemSettingsService) return;
+    try {
+      const config = await systemSettingsService.getFocusTimerConfig();
+      setFocusTimerConfigState(config);
+    } catch (error) {
+      console.error('Failed to load focus timer config:', error);
+    }
+  };
+
+  const setFocusTimerConfig = async (config: Partial<FocusTimerConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    try {
+      const result = await systemSettingsService.setFocusTimerConfig(config);
+      if (result.success) {
+        await refreshFocusTimerConfig();
+        return true;
+      } else {
+        console.error('Failed to update focus timer config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating focus timer config:', error);
+      return false;
+    }
+  };
+
+  const refreshDashboardConfig = async () => {
+    if (!systemSettingsService) return;
+    try {
+      const config = await systemSettingsService.getDashboardConfig();
+      setDashboardConfigState(config);
+    } catch (error) {
+      console.error('Failed to load dashboard config:', error);
+    }
+  };
+
+  const setDashboardConfig = async (config: Partial<DashboardConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    try {
+      const result = await systemSettingsService.setDashboardConfig(config);
+      if (result.success) {
+        await refreshDashboardConfig();
+        return true;
+      } else {
+        console.error('Failed to update dashboard config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating dashboard config:', error);
+      return false;
+    }
+  };
+
+  const refreshNotificationConfig = async () => {
+    if (!systemSettingsService) return;
+    try {
+      const config = await systemSettingsService.getNotificationConfig();
+      setNotificationConfigState(config);
+    } catch (error) {
+      console.error('Failed to load notification config:', error);
+    }
+  };
+
+  const setNotificationConfig = async (config: Partial<NotificationConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    try {
+      const result = await systemSettingsService.setNotificationConfig(config);
+      if (result.success) {
+        await refreshNotificationConfig();
+        return true;
+      } else {
+        console.error('Failed to update notification config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating notification config:', error);
+      return false;
+    }
+  };
+
+  const refreshUIConfig = async () => {
+    if (!systemSettingsService) return;
+    try {
+      const config = await systemSettingsService.getUIConfig();
+      setUIConfigState(config);
+    } catch (error) {
+      console.error('Failed to load UI config:', error);
+    }
+  };
+
+  const setUIConfig = async (config: Partial<UIConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    try {
+      const result = await systemSettingsService.setUIConfig(config);
+      if (result.success) {
+        await refreshUIConfig();
+        return true;
+      } else {
+        console.error('Failed to update UI config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating UI config:', error);
+      return false;
+    }
+  };
+
+  const refreshIntegrationConfig = async () => {
+    if (!systemSettingsService) return;
+    try {
+      const config = await systemSettingsService.getIntegrationConfig();
+      setIntegrationConfigState(config);
+    } catch (error) {
+      console.error('Failed to load integration config:', error);
+    }
+  };
+
+  const setIntegrationConfig = async (config: Partial<IntegrationConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    try {
+      const result = await systemSettingsService.setIntegrationConfig(config);
+      if (result.success) {
+        await refreshIntegrationConfig();
+        return true;
+      } else {
+        console.error('Failed to update integration config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating integration config:', error);
+      return false;
+    }
+  };
+
+  const refreshSecurityConfig = async () => {
+    if (!systemSettingsService) return;
+    try {
+      const config = await systemSettingsService.getSecurityConfig();
+      setSecurityConfigState(config);
+    } catch (error) {
+      console.error('Failed to load security config:', error);
+    }
+  };
+
+  const setSecurityConfig = async (config: Partial<SecurityConfig>): Promise<boolean> => {
+    if (!systemSettingsService) return false;
+    try {
+      const result = await systemSettingsService.setSecurityConfig(config);
+      if (result.success) {
+        await refreshSecurityConfig();
+        return true;
+      } else {
+        console.error('Failed to update security config:', result.error);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error updating security config:', error);
+      return false;
+    }
+  };
 
   // Load settings from DB on mount
   useEffect(() => {
@@ -269,6 +468,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       receiptAIConfig,
       setReceiptAIConfig,
       refreshReceiptAIConfig,
+      focusTimerConfig,
+      setFocusTimerConfig,
+      refreshFocusTimerConfig,
+      dashboardConfig,
+      setDashboardConfig,
+      refreshDashboardConfig,
+      notificationConfig,
+      setNotificationConfig,
+      refreshNotificationConfig,
+      uiConfig,
+      setUIConfig,
+      refreshUIConfig,
+      integrationConfig,
+      setIntegrationConfig,
+      refreshIntegrationConfig,
+      securityConfig,
+      setSecurityConfig,
+      refreshSecurityConfig,
     }}>
       {children}
     </SettingsContext.Provider>

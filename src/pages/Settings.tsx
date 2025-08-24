@@ -10,7 +10,10 @@ import {
   Upload,
   AlertCircle,
   CheckCircle,
-  Loader2
+  Loader2,
+  Timer,
+  Plug,
+  Shield
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +28,11 @@ import { SYSTEM_SETTINGS_FEATURES } from '@/types/systemSettings';
 
 // Import feature-specific settings components
 import { ReceiptAISettings } from '@/components/ReceiptAISettings';
+import { FocusTimerSettings } from '@/components/FocusTimerSettings';
+import { DashboardSettings } from '@/components/DashboardSettings';
+import { NotificationsUISettings } from '@/components/NotificationsUISettings';
+import { IntegrationSettings } from '@/components/IntegrationSettings';
+import { SecuritySettings } from '@/components/SecuritySettings';
 
 interface SettingsPageProps {
   defaultTab?: string;
@@ -189,10 +197,16 @@ export default function Settings({ defaultTab = 'receipt_ai' }: SettingsPageProp
     switch (category) {
       case 'receipt_ai':
         return Brain;
+      case 'focus_timer':
+        return Timer;
       case 'dashboard':
         return Layout;
       case 'notifications':
         return Bell;
+      case 'integrations':
+        return Plug;
+      case 'security':
+        return Shield;
       default:
         return SettingsIcon;
     }
@@ -264,7 +278,9 @@ export default function Settings({ defaultTab = 'receipt_ai' }: SettingsPageProp
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full gap-1" style={{
+          gridTemplateColumns: `repeat(${SYSTEM_SETTINGS_FEATURES.length}, 1fr)`
+        }}>
           {SYSTEM_SETTINGS_FEATURES.map((feature) => {
             const IconComponent = getFeatureIcon(feature.category);
             return (
@@ -313,22 +329,24 @@ export default function Settings({ defaultTab = 'receipt_ai' }: SettingsPageProp
                     <ReceiptAISettings onUnsavedChanges={setHasUnsavedChanges} />
                   )}
                   
+                  {feature.category === 'focus_timer' && (
+                    <FocusTimerSettings onUnsavedChanges={setHasUnsavedChanges} />
+                  )}
+                  
                   {feature.category === 'dashboard' && (
-                    <div className="space-y-4">
-                      <p className="text-muted-foreground">
-                        Dashboard settings will be implemented here.
-                      </p>
-                      <Badge variant="secondary">Coming Soon</Badge>
-                    </div>
+                    <DashboardSettings onUnsavedChanges={setHasUnsavedChanges} />
                   )}
                   
                   {feature.category === 'notifications' && (
-                    <div className="space-y-4">
-                      <p className="text-muted-foreground">
-                        Notification preferences will be implemented here.
-                      </p>
-                      <Badge variant="secondary">Coming Soon</Badge>
-                    </div>
+                    <NotificationsUISettings onUnsavedChanges={setHasUnsavedChanges} />
+                  )}
+                  
+                  {feature.category === 'integrations' && (
+                    <IntegrationSettings onUnsavedChanges={setHasUnsavedChanges} />
+                  )}
+                  
+                  {feature.category === 'security' && (
+                    <SecuritySettings onUnsavedChanges={setHasUnsavedChanges} />
                   )}
                 </CardContent>
               </Card>
