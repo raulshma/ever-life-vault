@@ -373,12 +373,12 @@ const DocumentAnalysisSchema = z.object({
 
 export class ReceiptAnalysisService {
   private supabase: SupabaseClient
-  private googleProvider: (model: string) => any
+  private googleProvider!: (model: string) => any
   private readonly maxRetries: number = 3
   private readonly retryDelay: number = 1000 // Base delay in ms
   private readonly timeoutMs: number = 60000 // 60 second timeout
-  private apiKeyService: APIKeyManagementService
-  private rateLimitService: RateLimitingService
+  private apiKeyService!: APIKeyManagementService
+  private rateLimitService!: RateLimitingService
   private userId: string
   private currentKeyId?: string
   private currentApiKey?: string
@@ -564,7 +564,7 @@ export class ReceiptAnalysisService {
       // Check if this is a rate limit error and we should rotate keys
       if (this.isRateLimitError(error as Error)) {
         console.log(`Rate limit hit for key ${this.currentKeyId}, attempting key rotation...`)
-        const newKeyInfo = await this.apiKeyService.getBestAPIKey('google', undefined, this.currentKeyId)
+        const newKeyInfo = await this.apiKeyService.getBestAPIKey('google', undefined)
         
         if (newKeyInfo && newKeyInfo.keyId !== this.currentKeyId) {
           await this.rotateAPIKey(newKeyInfo.keyId, newKeyInfo.apiKey)
