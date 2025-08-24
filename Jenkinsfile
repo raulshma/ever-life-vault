@@ -100,14 +100,34 @@ pipeline {
       steps {
         script {
           echo "Revert mode enabled - will revert to last successful build"
-          
+
           // Find the last successful build
           def lastSuccessfulBuild = currentBuild.getPreviousSuccessfulBuild()
           if (lastSuccessfulBuild) {
             echo "Last successful build: #${lastSuccessfulBuild.number}"
             env.LAST_SUCCESSFUL_BUILD = lastSuccessfulBuild.number.toString()
+
+            // Validate that archived artifacts exist for this build
+            def archiveFound = false
+            def possiblePaths = [
+              "${env.JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.LAST_SUCCESSFUL_BUILD}/archive",
+              "/var/jenkins_home/jobs/${env.JOB_NAME}/builds/${env.LAST_SUCCESSFUL_BUILD}/archive"
+            ]
+
+            for (path in possiblePaths) {
+              if (fileExists("${path}/deploy")) {
+                echo "✓ Found archived deployment files at: ${path}/deploy"
+                archiveFound = true
+                break
+              }
+            }
+
+            if (!archiveFound) {
+              echo "⚠️  Warning: No archived deployment files found for build #${env.LAST_SUCCESSFUL_BUILD}"
+              echo "The revert may fail, but we'll attempt it anyway."
+            }
           } else {
-            error "No previous successful build found to revert to"
+            error "❌ No previous successful build found to revert to"
           }
         }
       }
@@ -187,23 +207,85 @@ pipeline {
         script {
           if (params.REVERT_TO_LAST_BUILD) {
             // Revert mode - restore from last successful build
+            if (!env.LAST_SUCCESSFUL_BUILD) {
+              // Fallback: find the last successful build if not set
+              def lastSuccessfulBuild = currentBuild.getPreviousSuccessfulBuild()
+              if (lastSuccessfulBuild) {
+                env.LAST_SUCCESSFUL_BUILD = lastSuccessfulBuild.number.toString()
+                echo "Found last successful build: #${env.LAST_SUCCESSFUL_BUILD}"
+              } else {
+                error "No previous successful build found to revert to"
+              }
+            }
             echo "Reverting to last successful build #${env.LAST_SUCCESSFUL_BUILD}"
-            
+
             // Copy deployment files from last successful build
+            // Try multiple possible archive locations
             sh """
-              cp -r /home/jenkins/workspace/${env.JOB_NAME}/builds/${env.LAST_SUCCESSFUL_BUILD}/archive/deploy/* ${DEPLOY_DIR}/
-              echo "Restored deployment files from build #${env.LAST_SUCCESSFUL_BUILD}"
+              set -e
+              ARCHIVE_FOUND=false
+
+              # Try different possible archive locations
+              ARCHIVE_LOCATIONS=(
+                "\${JENKINS_HOME}/jobs/\${JOB_NAME}/builds/\${LAST_SUCCESSFUL_BUILD}/archive"
+                "/var/jenkins_home/jobs/\${JOB_NAME}/builds/\${LAST_SUCCESSFUL_BUILD}/archive"
+                "\${WORKSPACE}/../builds/\${LAST_SUCCESSFUL_BUILD}/archive"
+              )
+
+              for archive_path in "\${ARCHIVE_LOCATIONS[@]}"; do
+                if [ -d "\${archive_path}/deploy" ]; then
+                  echo "Found archive at: \${archive_path}"
+                  cp -r "\${archive_path}/deploy/"* "${DEPLOY_DIR}/"
+                  echo "✓ Restored deployment files from build #\${LAST_SUCCESSFUL_BUILD}"
+                  ARCHIVE_FOUND=true
+                  break
+                fi
+              done
+
+              if [ "\${ARCHIVE_FOUND}" = "false" ]; then
+                echo "❌ No archived deployment files found for build #\${LAST_SUCCESSFUL_BUILD}"
+                echo "Available builds in workspace:"
+                ls -la /home/jenkins/workspace/\${JOB_NAME}/builds/ 2>/dev/null || echo "No builds directory found"
+                echo "Looking for archive directories..."
+                find /home/jenkins -name "archive" -type d 2>/dev/null | head -10 || echo "No archive directories found"
+                exit 1
+              fi
             """
             
+            // Validate deployment directory
+            sh """
+              if [ ! -d "${DEPLOY_DIR}" ]; then
+                echo "Creating deployment directory: ${DEPLOY_DIR}"
+                mkdir -p "${DEPLOY_DIR}"
+              fi
+
+              if [ ! -w "${DEPLOY_DIR}" ]; then
+                echo "❌ Deployment directory is not writable: ${DEPLOY_DIR}"
+                ls -la "${DEPLOY_DIR}"
+                exit 1
+              fi
+            """
+
             // Run deployment script in revert mode
             sh """
-              chmod +x ${DEPLOY_DIR}/deploy.sh
+              echo "🚀 Starting revert deployment..."
+              cd ${DEPLOY_DIR}
+
+              if [ ! -f "deploy.sh" ]; then
+                echo "❌ deploy.sh not found in ${DEPLOY_DIR}"
+                ls -la ${DEPLOY_DIR}
+                exit 1
+              fi
+
+              chmod +x deploy.sh
               export DEPLOY_DIR=${DEPLOY_DIR}
               export APP_NAME=${APP_NAME}
               export WEB_PORT=${WEB_PORT}
               export BACKEND_PORT=${BACKEND_PORT}
               export REVERT_MODE=true
-              ${DEPLOY_DIR}/deploy.sh
+
+              echo "📋 Running revert deployment script..."
+              ./deploy.sh
             """
           } else {
             // Normal deployment mode
@@ -532,14 +614,43 @@ ${changedPreview}
         
         // Offer automatic rollback option
         if (!params.REVERT_TO_LAST_BUILD) {
-          echo 'Consider running the build again with REVERT_TO_LAST_BUILD=true to rollback to the previous version.'
-          
+          echo '🔄 DEPLOYMENT FAILED - Rollback Options Available:'
+          echo ''
+
           // Check if we have a previous successful build
           def lastSuccessfulBuild = currentBuild.getPreviousSuccessfulBuild()
           if (lastSuccessfulBuild) {
-            echo "Previous successful build available: #${lastSuccessfulBuild.number}"
-            echo "To revert, run: build(job: '${env.JOB_NAME}', parameters: [booleanParam(name: 'REVERT_TO_LAST_BUILD', value: true)])"
+            echo "✅ Previous successful build available: #${lastSuccessfulBuild.number}"
+            echo "   To revert: build(job: '${env.JOB_NAME}', parameters: [booleanParam(name: 'REVERT_TO_LAST_BUILD', value: true)])"
+            echo ''
+            echo '📋 Alternative manual steps:'
+            echo '   1. Go to Jenkins web UI'
+            echo '   2. Find this job: ${env.JOB_NAME}'
+            echo '   3. Click "Build with Parameters"'
+            echo '   4. Check "REVERT_TO_LAST_BUILD" checkbox'
+            echo '   5. Click "Build"'
+          } else {
+            echo '❌ No previous successful build found for rollback'
+            echo '   You may need to fix the issue and rebuild'
           }
+          echo ''
+          echo '🔍 Troubleshooting tips:'
+          echo '   - Check the build logs for the specific error'
+          echo '   - Verify all required credentials are configured'
+          echo '   - Ensure Docker images were built successfully'
+          echo '   - Check if the backend container health check is working'
+        } else {
+          echo '❌ REVERT OPERATION FAILED'
+          echo '   The revert to build #${env.LAST_SUCCESSFUL_BUILD} did not complete successfully.'
+          echo '   This may indicate:'
+          echo '   - Archived deployment files are missing or corrupted'
+          echo '   - Archive path configuration is incorrect'
+          echo '   - File permissions issue in Jenkins workspace'
+          echo ''
+          echo '🔧 To debug:'
+          echo '   1. Check if archived files exist in the Jenkins builds directory'
+          echo '   2. Verify the archive paths in the Jenkinsfile are correct'
+          echo '   3. Ensure Jenkins has proper permissions to read archived files'
         }
       }
     }
